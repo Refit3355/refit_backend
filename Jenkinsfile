@@ -91,56 +91,23 @@ pipeline {
             --name "$SSM_PARAM" \
             --query "Parameter.Value" --output text)
 
+          REGISTRY=$(echo "$IMAGE_URI" | cut -d'/' -f1)
+
           echo "[INFO] Deploying container on: $INSTANCE_IDS"
 
           aws ssm send-command \
             --region "$AWS_REGION" \
             --document-name "AWS-RunShellScript" \
             --comment "refit backend in-place deploy (fast)" \
-            --targets "Key=instanceids,Values=${INSTANCE_IDS}" \
+            --instance-ids ${INSTANCE_IDS} \
             --parameters commands="[
               \\"set -e\\",
+              \\"aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY}\\",
               \\"docker pull ${IMAGE_URI}\\",
               \\"docker rm -f refit || true\\",
               \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\"
             ]" \
             --output text >/dev/null
-
-          # TG_ARN=$(aws autoscaling describe-auto-scaling-groups \
-          #   --region "$AWS_REGION" \
-          #   --auto-scaling-group-name "$ASG_NAME" \
-          #   --query "AutoScalingGroups[0].TargetGroupARNs[0]" --output text)
-          
-          # for IID in $INSTANCE_IDS; do
-          #   echo "[INFO] Deregister $IID from TG"
-          #   aws elbv2 deregister-targets --region "$AWS_REGION" --target-group-arn "$TG_ARN" --targets Id="$IID"
-          #   sleep 35
-          #
-          #   echo "[INFO] Replace container on $IID"
-          #   aws ssm send-command \
-          #     --region "$AWS_REGION" \
-          #     --document-name "AWS-RunShellScript" \
-          #     --targets "Key=instanceids,Values=$IID" \
-          #     --parameters commands="[
-          #       \\"set -e\\",
-          #       \\"docker pull ${IMAGE_URI}\\",
-          #       \\"docker rm -f refit || true\\",
-          #       \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\"
-          #     ]" >/dev/null
-          #
-          #   echo "[INFO] Register $IID to TG"
-          #   aws elbv2 register-targets --region "$AWS_REGION" --target-group-arn "$TG_ARN" --targets Id="$IID"
-          #
-          #   echo "[INFO] Wait healthy (10s interval, healthy 2)"
-          #   for i in $(seq 1 12); do
-          #     STATE=$(aws elbv2 describe-target-health \
-          #       --region "$AWS_REGION" --target-group-arn "$TG_ARN" \
-          #       --query "TargetHealthDescriptions[?Target.Id=='$IID'].TargetHealth.State" --output text)
-          #     echo "  - $IID: $STATE"
-          #     [ "$STATE" = "healthy" ] && break
-          #     sleep 10
-          #   done
-          # done
         '''
       }
     }
