@@ -98,7 +98,7 @@ pipeline {
           aws ssm send-command \
             --region "$AWS_REGION" \
             --document-name "AWS-RunShellScript" \
-            --comment "refit backend in-place deploy (fast)" \
+            --comment "refit backend deploy" \
             --instance-ids ${INSTANCE_IDS} \
             --parameters commands="[
               \\"set -e\\",
