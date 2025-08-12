@@ -17,9 +17,8 @@ pipeline {
       steps {
         script {
           if (!fileExists("${env.APP_DIR}/gradlew")) {
-            error "[ERROR] ${env.APP_DIR}/gradlew not found. 레포 구조 확인"
+            error "[ERROR] ${env.APP_DIR}/gradlew not found."
           }
-
           env.TS         = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
           env.GIT_SHA    = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
           env.ACCOUNT_ID = sh(script: "aws sts get-caller-identity --query Account --output text --region ${env.AWS_REGION}", returnStdout: true).trim()
@@ -62,41 +61,94 @@ pipeline {
         sh """
           aws ssm put-parameter --region ${AWS_REGION} \
             --name "${SSM_PARAM}" --type "String" \
-            --value "${IMAGE_URI}" --overwrite
+            --value "${IMAGE_URI}" --overwrite >/dev/null
         """
       }
     }
 
-    stage('ASG Instance Refresh (rolling)'){
+    stage('Deploy') {
       steps {
-        sh """
-          REFRESH_ID=\$(aws autoscaling start-instance-refresh \
-            --region ${AWS_REGION} \
-            --auto-scaling-group-name ${ASG_NAME} \
-            --preferences MinHealthyPercentage=100,InstanceWarmup=120 \
-            --query "InstanceRefreshId" --output text)
-          echo "InstanceRefreshId: \${REFRESH_ID}"
+        sh '''
+          set -euo pipefail
 
-          for i in \$(seq 1 120); do
-            STATUS=\$(aws autoscaling describe-instance-refreshes \
-              --region ${AWS_REGION} \
-              --auto-scaling-group-name ${ASG_NAME} \
-              --query "InstanceRefreshes[?InstanceRefreshId=='\${REFRESH_ID}'].Status" \
-              --output text)
-            echo "Status: \${STATUS}"
-            [ "\$STATUS" = "Successful" ] && exit 0
-            [ "\$STATUS" = "Failed" ] || [ "\$STATUS" = "Cancelled" ] && exit 1
-            sleep 10
-          done
-          echo "Timeout"; exit 1
-        """
+          AWS_REGION="${AWS_REGION}"
+          ASG_NAME="${ASG_NAME}"
+          SSM_PARAM="${SSM_PARAM}"
+
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --region "$AWS_REGION" \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" \
+            --output text)
+
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "[ERROR] No InService instances found in ASG: $ASG_NAME" >&2
+            exit 1
+          fi
+
+          IMAGE_URI=$(aws ssm get-parameter \
+            --region "$AWS_REGION" \
+            --name "$SSM_PARAM" \
+            --query "Parameter.Value" --output text)
+
+          echo "[INFO] Deploying container on: $INSTANCE_IDS"
+
+          aws ssm send-command \
+            --region "$AWS_REGION" \
+            --document-name "AWS-RunShellScript" \
+            --comment "refit backend in-place deploy (fast)" \
+            --targets "Key=instanceids,Values=${INSTANCE_IDS}" \
+            --parameters commands="[
+              \\"set -e\\",
+              \\"docker pull ${IMAGE_URI}\\",
+              \\"docker rm -f refit || true\\",
+              \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\"
+            ]" \
+            --output text >/dev/null
+
+          # TG_ARN=$(aws autoscaling describe-auto-scaling-groups \
+          #   --region "$AWS_REGION" \
+          #   --auto-scaling-group-name "$ASG_NAME" \
+          #   --query "AutoScalingGroups[0].TargetGroupARNs[0]" --output text)
+          
+          # for IID in $INSTANCE_IDS; do
+          #   echo "[INFO] Deregister $IID from TG"
+          #   aws elbv2 deregister-targets --region "$AWS_REGION" --target-group-arn "$TG_ARN" --targets Id="$IID"
+          #   sleep 35
+          #
+          #   echo "[INFO] Replace container on $IID"
+          #   aws ssm send-command \
+          #     --region "$AWS_REGION" \
+          #     --document-name "AWS-RunShellScript" \
+          #     --targets "Key=instanceids,Values=$IID" \
+          #     --parameters commands="[
+          #       \\"set -e\\",
+          #       \\"docker pull ${IMAGE_URI}\\",
+          #       \\"docker rm -f refit || true\\",
+          #       \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\"
+          #     ]" >/dev/null
+          #
+          #   echo "[INFO] Register $IID to TG"
+          #   aws elbv2 register-targets --region "$AWS_REGION" --target-group-arn "$TG_ARN" --targets Id="$IID"
+          #
+          #   echo "[INFO] Wait healthy (10s interval, healthy 2)"
+          #   for i in $(seq 1 12); do
+          #     STATE=$(aws elbv2 describe-target-health \
+          #       --region "$AWS_REGION" --target-group-arn "$TG_ARN" \
+          #       --query "TargetHealthDescriptions[?Target.Id=='$IID'].TargetHealth.State" --output text)
+          #     echo "  - $IID: $STATE"
+          #     [ "$STATE" = "healthy" ] && break
+          #     sleep 10
+          #   done
+          # done
+        '''
       }
     }
   }
 
   post {
     always  { cleanWs() }
-    success { echo "Deployed: ${IMAGE_URI}" }
-    failure { echo "Failed — check Jenkins logs & ASG refresh status" }
+    success { echo "Deployed (in-place): ${IMAGE_URI}" }
+    failure { echo "Failed — check Jenkins logs" }
   }
 }
