@@ -1,16 +1,38 @@
-# Compiled class file
-*.class
+# =========================
+# OS 공통
+# =========================
+.DS_Store
+Thumbs.db
 
-# Log file
+# =========================
+# IDE/에디터
+# =========================
+# IntelliJ / IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# =========================
+# Java / Build 산출물
+# =========================
+# 클래스/로그
+*.class
 *.log
 
-# BlueJ files
-*.ctxt
+# JDK 크래시 로그
+hs_err_pid*
+replay_pid*
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
+# 패키지 아카이브 (일반 산출물은 무시)
 *.jar
 *.war
 *.nar
@@ -19,6 +41,18 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# =========================
+# Gradle
+# =========================
+.gradle/
+build/
+out/
+
+# Gradle Wrapper 예외 처리
+!gradle/
+!gradle/wrapper/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Unix 실행 권한 유지용
+gradlew
+gradlew.bat

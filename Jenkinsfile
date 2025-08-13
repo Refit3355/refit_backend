@@ -8,8 +8,6 @@ pipeline {
     SSM_PARAM  = '/refit/backend/image_uri'
     ASG_NAME   = 'asg-spring-dev'
     APP_DIR    = '.'
-    GRADLE_VERSION = '8.9'
-    GRADLE_IMAGE   = "gradle:8.9.0-jdk21"
   }
 
   stages {
@@ -23,27 +21,11 @@ pipeline {
           git lfs fetch --all || true
           git lfs checkout || true
 
-          NEED_REGENERATE=0
-          [ ! -f gradlew ] && NEED_REGENERATE=1
-          [ ! -f gradle/wrapper/gradle-wrapper.properties ] && NEED_REGENERATE=1
-          [ ! -f gradle/wrapper/gradle-wrapper.jar ] && NEED_REGENERATE=1
-
-          if [ "$NEED_REGENERATE" -eq 1 ]; then
-            echo "[INFO] gradle wrapper missing components — generating via Docker (${GRADLE_IMAGE})"
-            docker run --rm \
-              -u $(id -u):$(id -g) \
-              -v "$PWD":/home/gradle/project \
-              -w /home/gradle/project \
-              ${GRADLE_IMAGE} \
-              gradle wrapper --gradle-version ${GRADLE_VERSION}
-          fi
+          test -f gradlew || { echo "[ERROR] gradlew missing"; exit 1; }
+          test -f gradle/wrapper/gradle-wrapper.properties || { echo "[ERROR] wrapper properties missing"; exit 1; }
+          test -f gradle/wrapper/gradle-wrapper.jar || { echo "[ERROR] wrapper jar missing"; exit 1; }
 
           chmod +x gradlew || true
-          rm -rf .gradle || true
-
-          echo "[INFO] Wrapper files status:"
-          ls -l gradle || true
-          ls -l gradle/wrapper || true
         '''
       }
     }
@@ -51,9 +33,6 @@ pipeline {
     stage('Prepare Vars') {
       steps {
         script {
-          if (!fileExists("${env.APP_DIR}/gradlew")) {
-            error "[ERROR] ${env.APP_DIR}/gradlew not found after recovery."
-          }
           env.TS         = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
           env.GIT_SHA    = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
           env.ACCOUNT_ID = sh(script: "aws sts get-caller-identity --query Account --output text --region ${env.AWS_REGION}", returnStdout: true).trim()
@@ -69,9 +48,18 @@ pipeline {
         dir("${APP_DIR}") {
           sh '''
             set -e
-            chmod +x gradlew || true
+            rm -rf .gradle .gradle-ci .tmp || true
+            mkdir -p .gradle-ci .tmp
+
+            export HOME="$PWD"
             export GRADLE_USER_HOME="$PWD/.gradle-ci"
-            ./gradlew --project-cache-dir .gradle-ci -Dorg.gradle.jvmargs="-Xmx512m" clean bootJar -x test
+            export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=$PWD/.tmp"
+            chmod +x gradlew || true
+
+            ./gradlew --no-daemon \
+              --project-cache-dir .gradle-ci \
+              -Dorg.gradle.jvmargs="-Xmx512m" \
+              clean bootJar -x test
           '''
         }
       }
