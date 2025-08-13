@@ -8,16 +8,51 @@ pipeline {
     SSM_PARAM  = '/refit/backend/image_uri'
     ASG_NAME   = 'asg-spring-dev'
     APP_DIR    = '.'
+    GRADLE_VERSION = '8.9'
+    GRADLE_IMAGE   = "gradle:8.9.0-jdk21"
   }
 
   stages {
-    stage('Checkout'){ steps { checkout scm } }
+    stage('Checkout'){
+      steps{
+        checkout scm
+        sh '''
+          set -e
+          git config --local core.hooksPath .git/hooks || true
+          git lfs install --local || true
+          git lfs fetch --all || true
+          git lfs checkout || true
+
+          NEED_REGENERATE=0
+          [ ! -f gradlew ] && NEED_REGENERATE=1
+          [ ! -f gradle/wrapper/gradle-wrapper.properties ] && NEED_REGENERATE=1
+          [ ! -f gradle/wrapper/gradle-wrapper.jar ] && NEED_REGENERATE=1
+
+          if [ "$NEED_REGENERATE" -eq 1 ]; then
+            echo "[INFO] gradle wrapper missing components — generating via Docker (${GRADLE_IMAGE})"
+            docker run --rm \
+              -u $(id -u):$(id -g) \
+              -v "$PWD":/home/gradle/project \
+              -w /home/gradle/project \
+              ${GRADLE_IMAGE} \
+              gradle wrapper --gradle-version ${GRADLE_VERSION}
+          fi
+
+          chmod +x gradlew || true
+          rm -rf .gradle || true
+
+          echo "[INFO] Wrapper files status:"
+          ls -l gradle || true
+          ls -l gradle/wrapper || true
+        '''
+      }
+    }
 
     stage('Prepare Vars') {
       steps {
         script {
           if (!fileExists("${env.APP_DIR}/gradlew")) {
-            error "[ERROR] ${env.APP_DIR}/gradlew not found."
+            error "[ERROR] ${env.APP_DIR}/gradlew not found after recovery."
           }
           env.TS         = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
           env.GIT_SHA    = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -33,8 +68,10 @@ pipeline {
       steps {
         dir("${APP_DIR}") {
           sh '''
+            set -e
             chmod +x gradlew || true
-            ./gradlew -Dorg.gradle.jvmargs="-Xmx512m" clean bootJar -x test
+            export GRADLE_USER_HOME="$PWD/.gradle-ci"
+            ./gradlew --project-cache-dir .gradle-ci -Dorg.gradle.jvmargs="-Xmx512m" clean bootJar -x test
           '''
         }
       }
@@ -43,6 +80,7 @@ pipeline {
     stage('Docker Login & Build & Push'){
       steps {
         sh """
+          set -e
           aws ecr describe-repositories --repository-names ${ECR_REPO} --region ${AWS_REGION} >/dev/null 2>&1 \
           || aws ecr create-repository --repository-name ${ECR_REPO} --region ${AWS_REGION}
 
@@ -59,6 +97,7 @@ pipeline {
     stage('Update SSM (image_uri)'){
       steps {
         sh """
+          set -e
           aws ssm put-parameter --region ${AWS_REGION} \
             --name "${SSM_PARAM}" --type "String" \
             --value "${IMAGE_URI}" --overwrite >/dev/null
@@ -100,12 +139,12 @@ pipeline {
             --document-name "AWS-RunShellScript" \
             --comment "refit backend deploy" \
             --instance-ids ${INSTANCE_IDS} \
-            --parameters commands="[
-              \\"set -e\\",
-              \\"aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY}\\",
-              \\"docker pull ${IMAGE_URI}\\",
-              \\"docker rm -f refit || true\\",
-              \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\"
+            --parameters commands="[ \\
+              \\"set -e\\", \\
+              \\"aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY}\\", \\
+              \\"docker pull ${IMAGE_URI}\\", \\
+              \\"docker rm -f refit || true\\", \\
+              \\"docker run -d --name refit --restart=always -p 8080:8080 ${IMAGE_URI}\\" \\
             ]" \
             --output text >/dev/null
         '''
@@ -115,7 +154,7 @@ pipeline {
 
   post {
     always  { cleanWs() }
-    success { echo "Deployed (in-place): ${IMAGE_URI}" }
+    success { echo "Deployed : ${IMAGE_URI}" }
     failure { echo "Failed — check Jenkins logs" }
   }
 }
