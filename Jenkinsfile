@@ -7,7 +7,7 @@ pipeline {
     ECR_REPO   = 'refit-spring'
     SSM_PARAM  = '/refit/backend/image_uri'
     ASG_NAME   = 'asg-spring-dev'
-    APP_DIR    = 'app'
+    APP_DIR    = '.'
   }
 
   stages {
@@ -50,7 +50,7 @@ pipeline {
           | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
           export DOCKER_BUILDKIT=1
-          docker build --memory=1.5g -t ${IMAGE_URI} -f ${APP_DIR}/Dockerfile .
+          docker build --memory=1.5g -t ${IMAGE_URI} -f ${APP_DIR}/Dockerfile ${APP_DIR}
           docker push ${IMAGE_URI}
         """
       }
