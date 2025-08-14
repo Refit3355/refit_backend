@@ -1,0 +1,15 @@
+name: "🚀 Deploy"
+description: "배포 관련"
+labels: ["deploy"]
+body:
+  - type: textarea
+    attributes:
+      label: 📄 설명
+      description: 배포 내용에 대해 설명해 주세요.
+      placeholder: 여기에 적어주세요!
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: ✅ 특이 사항 (선택)
+      description: 배포에 포함되는 특이사항이 있다면 메모해주세요

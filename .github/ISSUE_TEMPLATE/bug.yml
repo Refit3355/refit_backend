@@ -1,0 +1,15 @@
+name: "🐞 Bug"
+description: "버그 수정"
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: 📄 현상 설명
+      description: 발생한 버그의 증상을 설명해 주세요.
+      placeholder: 어떤 문제가 발생했나요?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 🧩 로그 / 스크린샷 (선택)
+      description: 관련 에러 로그나 스크린샷을 첨부한다면 입력해 주세요.
