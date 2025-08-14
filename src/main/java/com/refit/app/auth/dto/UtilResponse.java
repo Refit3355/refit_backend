@@ -5,9 +5,9 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class CheckResponse {
+public class UtilResponse<T> {
 
     private String status;
     private String message;
-    private boolean available;
+    private T data;
 }
