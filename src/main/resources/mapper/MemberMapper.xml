@@ -43,4 +43,16 @@
   <select id="findIdByEmail" parameterType="string" resultType="long">
     SELECT MEMBER_ID FROM MEMBER WHERE EMAIL = #{email}
   </select>
+
+  <select id="existsByEmail" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE EMAIL = #{email}
+  </select>
+
+  <select id="existsByNickname" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE NICKNAME = #{nickname}
+  </select>
 </mapper>

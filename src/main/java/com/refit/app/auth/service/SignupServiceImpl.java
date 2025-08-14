@@ -46,5 +46,15 @@ public class SignupServiceImpl implements SignupService {
     public void upsertHealth(Long memberId, HealthRequest healthRequest) {
         concernMapper.mergeHealth(memberId, healthRequest);
     }
+
+    @Override
+    public boolean isEmailAvailable(String email) {
+        return !memberMapper.existsByEmail(email);
+    }
+
+    @Override
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberMapper.existsByNickname(nickname);
+    }
 }
 

@@ -8,4 +8,8 @@ public interface SignupService {
     Long signupBasic(SignupRequest signupRequest);
 
     void upsertHealth(Long memberId, HealthRequest healthRequest);
+
+    boolean isEmailAvailable(String email);
+
+    boolean isNicknameAvailable(String nickname);
 }

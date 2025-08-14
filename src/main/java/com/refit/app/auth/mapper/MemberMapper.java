@@ -3,6 +3,7 @@ package com.refit.app.auth.mapper;
 import com.refit.app.auth.domain.Member;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface MemberMapper {
@@ -13,4 +14,7 @@ public interface MemberMapper {
 
     Long findIdByEmail(String email);
 
+    boolean existsByEmail(@Param("email") String email);
+
+    boolean existsByNickname(@Param("nickname") String nickname);
 }
