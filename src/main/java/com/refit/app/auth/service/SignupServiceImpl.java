@@ -3,8 +3,8 @@ package com.refit.app.auth.service;
 import com.refit.app.auth.domain.Member;
 import com.refit.app.auth.dto.HealthRequest;
 import com.refit.app.auth.dto.SignupRequest;
-import com.refit.app.auth.mapper.AuthMapper;
 import com.refit.app.auth.mapper.ConcernMapper;
+import com.refit.app.auth.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SignupServiceImpl implements SignupService {
 
-    private final AuthMapper authMapper;
+    private final MemberMapper memberMapper;
     private final ConcernMapper concernMapper;
     private final PasswordEncoder encoder;
 
     @Override
     @Transactional
     public Long signupBasic(SignupRequest signupRequest) {
-        authMapper.findByEmail(signupRequest.getEmail()).ifPresent(m -> {
+        memberMapper.findByEmail(signupRequest.getEmail()).ifPresent(m -> {
             throw new IllegalArgumentException("이미 가입된 이메일입니다.");
         });
 
@@ -38,8 +38,8 @@ public class SignupServiceImpl implements SignupService {
         m.setPhone(signupRequest.getPhoneNumber());
         m.setProfileImage(signupRequest.getProfileUrl());
 
-        authMapper.insert(m);
-        return authMapper.findIdByEmail(signupRequest.getEmail());
+        memberMapper.insert(m);
+        return memberMapper.findIdByEmail(signupRequest.getEmail());
     }
 
     @Override

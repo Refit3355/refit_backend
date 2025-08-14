@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.refit.app.auth.mapper.AuthMapper">
+<mapper namespace="com.refit.app.auth.mapper.MemberMapper">
   <insert id="insert" parameterType="com.refit.app.auth.domain.Member">
     INSERT INTO MEMBER (
     MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD,
