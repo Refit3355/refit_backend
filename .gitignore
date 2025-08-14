@@ -56,3 +56,5 @@ out/
 # Unix 실행 권한 유지용
 gradlew
 gradlew.bat
+
+src/main/resources/application.yml
