@@ -37,13 +37,13 @@ public class SignupRequest {
 
     @Pattern(regexp = "male|female")
     @NotBlank
-    private String gender;                                       // MEMBER.GENDER
+    private String gender;
 
     @NotNull
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate birthday;                                   // MEMBER.BIRTHDAY
+    private LocalDate birthday;
 
-    private String profileUrl; // null 가능 (DB default 존재)
+    private String profileUrl;
     @Pattern(regexp = "010\\d{8}")
     @NotBlank
     private String phoneNumber;

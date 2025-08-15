@@ -1,15 +1,12 @@
 package com.refit.app.domain.auth.service;
 
-import com.refit.app.domain.auth.dto.HealthRequest;
-import com.refit.app.domain.auth.dto.SignupRequest;
+import com.refit.app.domain.auth.dto.SignupAllRequest;
 
 public interface SignupService {
 
-    Long signupBasic(SignupRequest signupRequest);
+	Long signupAll(SignupAllRequest req);
 
-    void upsertHealth(Long memberId, HealthRequest healthRequest);
+	boolean isEmailAvailable(String email);
 
-    boolean isEmailAvailable(String email);
-
-    boolean isNicknameAvailable(String nickname);
+	boolean isNicknameAvailable(String nickname);
 }

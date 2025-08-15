@@ -1,28 +1,101 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.refit.app.auth.mapper.ConcernMapper">
-  <update id="mergeHealth">
-    MERGE INTO HEALTH_CONCERN t
-    USING (SELECT #{memberId} AS MEMBER_ID FROM dual) s
-    ON (t.MEMBER_ID = s.MEMBER_ID)
-    WHEN MATCHED THEN UPDATE SET
-    EYE_HEALTH = #{h.eyeHealth},
-    FATIGUE = #{h.fatigue},
-    SLEEP_STRESS = #{h.sleepStress},
-    IMMUNE_CARE = #{h.immuneCare},
-    MUSCLE_HEALTH = #{h.muscleHealth},
-    GUT_HEALTH = #{h.gutHealth},
-    BLOOD_CIRCULATION = #{h.bloodCirculation},
-    UPDATED_AT = SYSTIMESTAMP, UPDATED_BY = 0
-    WHEN NOT MATCHED THEN INSERT (
-    MEMBER_ID, EYE_HEALTH, FATIGUE, SLEEP_STRESS, IMMUNE_CARE,
-    MUSCLE_HEALTH, GUT_HEALTH, BLOOD_CIRCULATION,
-    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
-    ) VALUES (
-    #{memberId}, #{h.eyeHealth}, #{h.fatigue}, #{h.sleepStress}, #{h.immuneCare},
-    #{h.muscleHealth}, #{h.gutHealth}, #{h.bloodCirculation},
-    SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
-    )
-  </update>
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.refit.app.domain.auth.mapper.ConcernMapper">
+   
+    <insert id="mergeHealth">
+        MERGE INTO HEALTH_CONCERN t
+        USING (
+        SELECT
+        #{memberId} AS MEMBER_ID,
+        NVL(#{h.eyeHealth},0) AS EYE_HEALTH,
+        NVL(#{h.fatigue},0) AS FATIGUE,
+        NVL(#{h.sleepStress},0) AS SLEEP_STRESS,
+        NVL(#{h.immuneCare},0) AS IMMUNE_CARE,
+        NVL(#{h.muscleHealth},0) AS MUSCLE_HEALTH,
+        NVL(#{h.gutHealth},0) AS GUT_HEALTH,
+        NVL(#{h.bloodCirculation},0) AS BLOOD_CIRCULATION
+        FROM dual
+        ) s
+        ON (t.MEMBER_ID = s.MEMBER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+        t.EYE_HEALTH = s.EYE_HEALTH,
+        t.FATIGUE = s.FATIGUE,
+        t.SLEEP_STRESS = s.SLEEP_STRESS,
+        t.IMMUNE_CARE = s.IMMUNE_CARE,
+        t.MUSCLE_HEALTH = s.MUSCLE_HEALTH,
+        t.GUT_HEALTH = s.GUT_HEALTH,
+        t.BLOOD_CIRCULATION = s.BLOOD_CIRCULATION,
+        t.UPDATED_AT = SYSTIMESTAMP,
+        t.UPDATED_BY = 0
+        WHEN NOT MATCHED THEN
+        INSERT (MEMBER_ID, EYE_HEALTH, FATIGUE, SLEEP_STRESS, IMMUNE_CARE, MUSCLE_HEALTH, GUT_HEALTH, BLOOD_CIRCULATION,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)
+        VALUES (s.MEMBER_ID, s.EYE_HEALTH, s.FATIGUE, s.SLEEP_STRESS, s.IMMUNE_CARE, s.MUSCLE_HEALTH, s.GUT_HEALTH,
+        s.BLOOD_CIRCULATION, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
+    </insert>
+
+    <insert id="mergeHair">
+        MERGE INTO HAIR_CONCERN t
+        USING (
+        SELECT
+        #{memberId} AS MEMBER_ID,
+        NVL(#{h.hairLoss},0) AS HAIR_LOSS,
+        NVL(#{h.damagedHair},0) AS DAMAGED_HAIR,
+        NVL(#{h.scalpTrouble},0) AS SCALP_TROUBLE,
+        NVL(#{h.dandruff},0) AS DANDRUFF
+        FROM dual
+        ) s
+        ON (t.MEMBER_ID = s.MEMBER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+        t.HAIR_LOSS = s.HAIR_LOSS,
+        t.DAMAGED_HAIR = s.DAMAGED_HAIR,
+        t.SCALP_TROUBLE = s.SCALP_TROUBLE,
+        t.DANDRUFF = s.DANDRUFF,
+        t.UPDATED_AT = SYSTIMESTAMP,
+        t.UPDATED_BY = 0
+        WHEN NOT MATCHED THEN
+        INSERT (MEMBER_ID, HAIR_LOSS, DAMAGED_HAIR, SCALP_TROUBLE, DANDRUFF, CREATED_AT, CREATED_BY, UPDATED_AT,
+        UPDATED_BY)
+        VALUES (s.MEMBER_ID, s.HAIR_LOSS, s.DAMAGED_HAIR, s.SCALP_TROUBLE, s.DANDRUFF, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
+    </insert>
+
+    <insert id="mergeSkin">
+        MERGE INTO SKIN_CONCERN t
+        USING (
+        SELECT
+        #{memberId} AS MEMBER_ID,
+        NVL(#{s.atopic},0) AS ATOPIC,
+        NVL(#{s.acne},0) AS ACNE,
+        NVL(#{s.whitening},0) AS WHITENING,
+        NVL(#{s.sebum},0) AS SEBUM,
+        NVL(#{s.innerDryness},0) AS INNER_DRYNESS,
+        NVL(#{s.wrinkles},0) AS WRINKLES,
+        NVL(#{s.enlargedPores},0) AS ENLARGED_PORES,
+        NVL(#{s.redness},0) AS REDNESS,
+        NVL(#{s.keratin},0) AS KERATIN
+        FROM dual
+        ) s
+        ON (t.MEMBER_ID = s.MEMBER_ID)
+        WHEN MATCHED THEN
+        UPDATE SET
+        t.ATOPIC = s.ATOPIC,
+        t.ACNE = s.ACNE,
+        t.WHITENING = s.WHITENING,
+        t.SEBUM = s.SEBUM,
+        t.INNER_DRYNESS = s.INNER_DRYNESS,
+        t.WRINKLES = s.WRINKLES,
+        t.ENLARGED_PORES = s.ENLARGED_PORES,
+        t.REDNESS = s.REDNESS,
+        t.KERATIN = s.KERATIN,
+        t.UPDATED_AT = SYSTIMESTAMP,
+        t.UPDATED_BY = 0
+        WHEN NOT MATCHED THEN
+        INSERT (MEMBER_ID, ATOPIC, ACNE, WHITENING, SEBUM, INNER_DRYNESS, WRINKLES, ENLARGED_PORES, REDNESS, KERATIN,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)
+        VALUES (s.MEMBER_ID, s.ATOPIC, s.ACNE, s.WHITENING, s.SEBUM, s.INNER_DRYNESS, s.WRINKLES, s.ENLARGED_PORES,
+        s.REDNESS, s.KERATIN, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
+    </insert>
 </mapper>
