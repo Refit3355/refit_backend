@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.refit.app.auth.mapper.MemberMapper">
+  <insert id="insert" parameterType="com.refit.app.domain.auth.Member">
+    INSERT INTO MEMBER (
+    MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD,
+    ZIPCODE, ROAD_ADDRESS, DETAIL_ADDRESS, OAUTH_ID,
+    GENDER, BIRTHDAY, PHONE_NUMBER, PROFILE_URL,
+    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+    SEQ_MEMBER.NEXTVAL,
+    #{email},
+    #{nickname},
+    #{name},
+    #{passwordHash},
+    #{zipcode},
+    #{roadAddress},
+    #{detailAddress},
+    #{gender},
+    #{birthday},
+    #{phone},
+    #{profileImage},
+    SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    )
+  </insert>
+
+  <select id="findByEmail" parameterType="string" resultType="com.refit.app.domain.auth.Member">
+    SELECT MEMBER_ID as memberID,
+    EMAIL,
+    NICKNAME as nickname,
+    MEMBER_NAME as name;
+    PASSWORD as passwordHash,
+    ZIPCODE, ROAD_ADDRESS, DETAIL_ADDRESS,
+    GENDER,
+    BIRTHDAY as birthday,
+    PHONE_NUMBER as phone,
+    PROFILE_URL as profileImage
+    FROM MEMBER
+    WHERE EMAIL = #{email}
+  </select>
+
+  <select id="findIdByEmail" parameterType="string" resultType="long">
+    SELECT MEMBER_ID FROM MEMBER WHERE EMAIL = #{email}
+  </select>
+
+  <select id="existsByEmail" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE EMAIL = #{email}
+  </select>
+
+  <select id="existsByNickname" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE NICKNAME = #{nickname}
+  </select>
+</mapper>

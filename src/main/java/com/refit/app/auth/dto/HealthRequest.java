@@ -23,5 +23,5 @@ public class HealthRequest {
     @NotNull
     private Integer gutHealth;
     @NotNull
-    private Integer BloodCirculation;
+    private Integer bloodCirculation;
 }
