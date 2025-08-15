@@ -1,4 +1,4 @@
-package com.refit.app.auth.domain;
+package com.refit.app.domain.auth;
 
 import java.time.LocalDate;
 import lombok.Getter;
