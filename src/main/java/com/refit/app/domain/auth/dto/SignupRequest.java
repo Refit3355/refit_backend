@@ -6,39 +6,44 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
 @Getter
 @Setter
-@AllArgsConstructor
 public class SignupRequest {
 
     @Email
     @NotBlank
     private String email;
-    @Size(min = 1, max = 50)
+    @Size(min = 1, max = 100)
+    @NotBlank
     private String nickName;
-    @Size(min = 1, max = 50)
+    @Size(min = 1, max = 100)
+    @NotBlank
     private String memberName;
+
     @NotBlank
     @Pattern(regexp = "^(?=.{8,64}$)(?:(?=.*[A-Za-z])(?=.*\\d)|(?=.*[A-Za-z])(?=.*[^\\w\\s])|(?=.*\\d)(?=.*[^\\w\\s])).*$")
     private String password;
+
     @NotNull
     private Integer zipcode;
     @NotBlank
     private String roadAddress;
     @NotBlank
     private String detailAddress;
+
     @Pattern(regexp = "male|female")
     @NotBlank
-    private String gender;
+    private String gender;                                       // MEMBER.GENDER
+
     @NotNull
-    @DateTimeFormat(pattern = "yyyy-mm-dd")
-    private LocalDate birthday;
-    private String profileUrl;
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate birthday;                                   // MEMBER.BIRTHDAY
+
+    private String profileUrl; // null 가능 (DB default 존재)
     @Pattern(regexp = "010\\d{8}")
     @NotBlank
     private String phoneNumber;

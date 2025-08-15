@@ -7,17 +7,13 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ConcernRequest {
+public class SignupAllRequest {
 
-	@Valid
-	@NotNull
-	private HealthRequest health;
+    @Valid
+    @NotNull
+    private SignupRequest signup;
+    @Valid
+    @NotNull
+    private ConcernRequest concerns;
 
-	@Valid
-	@NotNull
-	private HairRequest hair;
-
-	@Valid
-	@NotNull
-	private SkinRequest skin;
 }
