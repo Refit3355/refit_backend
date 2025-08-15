@@ -1,8 +1,8 @@
 package com.refit.app.domain.auth.controller;
 
-import com.refit.app.domain.auth.dto.SignupAllRequest;
-import com.refit.app.domain.auth.dto.SignupResponse;
-import com.refit.app.domain.auth.dto.UtilResponse;
+import com.refit.app.domain.auth.dto.request.SignupAllRequest;
+import com.refit.app.domain.auth.dto.response.SignupResponse;
+import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.auth.service.SignupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,6 @@
 package com.refit.app.domain.auth.service;
 
-import com.refit.app.domain.auth.dto.SignupAllRequest;
+import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 
 public interface SignupService {
 

@@ -1,4 +1,4 @@
-package com.refit.app.domain.auth.dto;
+package com.refit.app.domain.auth.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;

@@ -1,5 +1,7 @@
-package com.refit.app.domain.auth.dto;
+package com.refit.app.domain.auth.dto.response;
 
+import com.refit.app.domain.auth.dto.HairInfoDto;
+import com.refit.app.domain.auth.dto.SkinInfoDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

@@ -4,9 +4,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.refit.app.domain.auth.dto.ConcernRequest;
-import com.refit.app.domain.auth.dto.SignupAllRequest;
-import com.refit.app.domain.auth.dto.SignupRequest;
+import com.refit.app.domain.auth.dto.request.ConcernRequest;
+import com.refit.app.domain.auth.dto.request.SignupAllRequest;
+import com.refit.app.domain.auth.dto.request.SignupRequest;
 import com.refit.app.domain.auth.mapper.ConcernMapper;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 

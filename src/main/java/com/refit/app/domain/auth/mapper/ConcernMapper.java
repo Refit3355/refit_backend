@@ -3,9 +3,9 @@ package com.refit.app.domain.auth.mapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import com.refit.app.domain.auth.dto.HairRequest;
-import com.refit.app.domain.auth.dto.HealthRequest;
-import com.refit.app.domain.auth.dto.SkinRequest;
+import com.refit.app.domain.auth.dto.request.HairRequest;
+import com.refit.app.domain.auth.dto.request.HealthRequest;
+import com.refit.app.domain.auth.dto.request.SkinRequest;
 
 @Mapper
 public interface ConcernMapper {
