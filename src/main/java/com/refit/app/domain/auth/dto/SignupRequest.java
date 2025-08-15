@@ -35,7 +35,7 @@ public class SignupRequest {
     @NotBlank
     private String detailAddress;
 
-    @Pattern(regexp = "male|female")
+    @Pattern(regexp = "M|F")
     @NotBlank
     private String gender;
 
