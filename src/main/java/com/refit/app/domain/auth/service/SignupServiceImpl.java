@@ -40,7 +40,7 @@ public class SignupServiceImpl implements SignupService {
 		if (memberMapper.existsByNickname(s.getNickName()))
 			throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
 
-		// 1) MEMBER insert (profileUrl null이면 DB default)
+		// 기본 타입 데이터 insert
 		memberMapper.insertBasic(
 			s.getEmail(),
 			s.getNickName(),
@@ -57,7 +57,7 @@ public class SignupServiceImpl implements SignupService {
 
 		Long memberId = memberMapper.findIdByEmail(s.getEmail());
 
-		// 2) 관심사 3종 MERGE
+		// 건강, 헤어, 피부 관련 데이터 merge
 		ConcernRequest c = req.getConcerns();
 		concernMapper.mergeHealth(memberId, c.getHealth());
 		concernMapper.mergeHair(memberId, c.getHair());
