@@ -1,9 +1,5 @@
-package com.refit.app.auth.controller;
+package com.refit.app.domain.auth.controller;
 
-import com.refit.app.auth.dto.HealthRequest;
-import com.refit.app.auth.dto.SignupRequest;
-import com.refit.app.auth.dto.UtilResponse;
-import com.refit.app.auth.service.SignupService;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +11,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.refit.app.domain.auth.dto.HealthRequest;
+import com.refit.app.domain.auth.dto.SignupRequest;
+import com.refit.app.domain.auth.dto.UtilResponse;
+import com.refit.app.domain.auth.service.SignupService;
 
 @RestController
 @RequestMapping("/api/auth")
