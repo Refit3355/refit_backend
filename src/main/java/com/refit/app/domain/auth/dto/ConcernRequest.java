@@ -1,4 +1,4 @@
-package com.refit.app.auth.dto;
+package com.refit.app.domain.auth.dto;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;

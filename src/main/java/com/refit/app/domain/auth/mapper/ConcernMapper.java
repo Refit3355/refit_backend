@@ -1,8 +1,10 @@
-package com.refit.app.auth.mapper;
+package com.refit.app.domain.auth.mapper;
 
-import com.refit.app.auth.dto.HealthRequest;
+
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import com.refit.app.domain.auth.dto.HealthRequest;
 
 @Mapper
 public interface ConcernMapper {
