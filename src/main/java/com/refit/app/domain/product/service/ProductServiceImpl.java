@@ -2,9 +2,11 @@ package com.refit.app.domain.product.service;
 
 import com.refit.app.domain.product.dto.ImageDto;
 import com.refit.app.domain.product.dto.ProductDetailDto;
+import com.refit.app.domain.product.dto.ProductSimpleDto;
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.dto.ProductDto;
+import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.mapper.ProductMapper;
 import com.refit.app.global.exception.ErrorCode;
@@ -88,6 +90,7 @@ public class ProductServiceImpl implements ProductService {
         Long lastId       = CursorUtil.asLong(c.get("id"));
         Integer lastPrice = CursorUtil.asInt(c.get("price"));
         Integer lastSales = CursorUtil.asInt(c.get("sales"));
+
         int totalCount = productMapper.countProductsByName(q);
 
         List<ProductDto> items = switch (sort) {
@@ -110,6 +113,22 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return new ProductListResponse(items, totalCount, hasMore, nextCursor);
+    }
+
+    @Override
+    public ProductSuggestResponse suggestProducts(String keyword, int limit, String cursor) {
+        Map<String, Object> c = CursorUtil.decode(cursor);
+        Long lastId = CursorUtil.asLong(c.get("id"));
+
+        List<ProductSimpleDto> items = productMapper.findSuggestProducts(keyword, limit, lastId);
+
+        boolean hasMore = items.size() == limit;
+        String nextCursor = null;
+        if (hasMore) {
+            ProductSimpleDto last = items.get(items.size() - 1);
+            nextCursor = CursorUtil.encode(Map.of("id", last.getId()));
+        }
+        return new ProductSuggestResponse(items, hasMore, nextCursor);
     }
 
 
