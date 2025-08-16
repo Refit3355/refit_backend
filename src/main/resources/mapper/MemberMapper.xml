@@ -112,4 +112,41 @@
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL
   </select>
+
+  <update id="updateBasicById">
+    UPDATE MEMBER
+    <set>
+      <if test="email != null and email != ''">
+        EMAIL = #{email},
+      </if>
+      <if test="memberName != null and memberName != ''">
+        MEMBER_NAME = #{memberName},
+      </if>
+      <if test="passwordHash != null and passwordHash != ''">
+        PASSWORD = #{passwordHash},
+      </if>
+      <if test="zipcode != null">
+        ZIPCODE = #{zipcode},
+      </if>
+      <if test="roadAddress != null and roadAddress != ''">
+        ROAD_ADDRESS = #{roadAddress},
+      </if>
+      <if test="detailAddress != null and detailAddress != ''">
+        DETAIL_ADDRESS = #{detailAddress},
+      </if>
+      <if test="gender != null and gender != ''">
+        GENDER = #{gender},
+      </if>
+      <if test="birthday != null">
+        BIRTHDAY = #{birthday, jdbcType=DATE},
+      </if>
+      <if test="phoneNumber != null and phoneNumber != ''">
+        PHONE_NUMBER = #{phoneNumber},
+      </if>
+      UPDATED_AT = SYSTIMESTAMP,
+      UPDATED_BY = #{memberId}
+    </set>
+    WHERE MEMBER_ID = #{memberId}
+    AND DELETED_AT IS NULL
+  </update>
 </mapper>

@@ -3,6 +3,7 @@ package com.refit.app.domain.auth.controller;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.LoginRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
+import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
@@ -16,8 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -114,6 +117,16 @@ public class MemberController {
 
         // 바디엔 토큰 안 보냄
         return new UtilResponse<>("SUCCESS", "토큰을 재발급했습니다.", null);
+    }
+
+    @PutMapping("/basic")
+    public UtilResponse<Void> updateMyBasic(
+            @Valid @RequestBody UpdateBasicRequest req,
+            Authentication authentication
+    ) {
+        Long userId = (Long) authentication.getPrincipal();
+        memberService.updateMyBasicInfo(userId, req);
+        return new UtilResponse<>("SUCCESS", "기본 정보 수정을 완료했습니다.", null);
     }
 
 }

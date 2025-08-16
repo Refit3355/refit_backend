@@ -1,6 +1,8 @@
 package com.refit.app.domain.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -23,7 +25,8 @@ public class UpdateBasicRequest {
     )
     private String password;
 
-    @Pattern(regexp = "^$|^\\d{5}$")
+    @Min(value = 0)
+    @Max(value = 99999)
     private Integer zipcode;
 
     private String roadAddress;

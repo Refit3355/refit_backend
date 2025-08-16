@@ -9,12 +9,14 @@ import com.refit.app.domain.auth.dto.SkinInfoDto;
 import com.refit.app.domain.auth.dto.request.ConcernRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.SignupRequest;
+import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import com.refit.app.domain.auth.mapper.ConcernMapper;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.global.config.JwtProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import java.time.LocalDate;
 import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -164,6 +166,36 @@ public class MemberServiceImpl implements MemberService {
         }
 
         return new ReissueResultDto(userId, newAccess, newRefresh);
+    }
+
+    @Override
+    @Transactional
+    public void updateMyBasicInfo(Long memberId, UpdateBasicRequest req) {
+
+        // 비번 해시
+        String passwordHash = null;
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            passwordHash = encoder.encode(req.getPassword());
+        }
+
+        // birthday 파싱
+        LocalDate birthday = null;
+        if (req.getBirthday() != null && !req.getBirthday().isBlank()) {
+            birthday = LocalDate.parse(req.getBirthday());
+        }
+
+        memberMapper.updateBasicById(
+                memberId,
+                req.getEmail(),
+                req.getName(),
+                passwordHash,
+                req.getZipcode(),
+                req.getRoadAddress(),
+                req.getDetailAddress(),
+                req.getGender(),
+                birthday,
+                req.getPhone()
+        );
     }
 
 
