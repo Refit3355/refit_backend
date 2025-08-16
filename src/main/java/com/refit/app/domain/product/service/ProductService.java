@@ -9,4 +9,6 @@ public interface ProductService {
     ProductListResponse getProducts(Integer categoryId, String group, SortType sortType, String cursor, int limit);
 
     ProductDetailResponse getProductDetail(Long id);
+
+    ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor);
 }

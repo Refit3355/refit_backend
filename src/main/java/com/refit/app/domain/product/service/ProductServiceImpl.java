@@ -82,4 +82,35 @@ public class ProductServiceImpl implements ProductService {
         return new ProductDetailResponse(product, images);
     }
 
+    @Override
+    public ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor) {
+        var c = CursorUtil.decode(cursor);
+        Long lastId       = CursorUtil.asLong(c.get("id"));
+        Integer lastPrice = CursorUtil.asInt(c.get("price"));
+        Integer lastSales = CursorUtil.asInt(c.get("sales"));
+        int totalCount = productMapper.countProductsByName(q);
+
+        List<ProductDto> items = switch (sort) {
+            case LATEST     -> productMapper.searchByNameLatest(q, lastId, limit);
+            case PRICE_DESC -> productMapper.searchByNamePriceDesc(q, lastPrice, lastId, limit);
+            case PRICE_ASC  -> productMapper.searchByNamePriceAsc(q,  lastPrice, lastId, limit);
+            case SALES -> productMapper.searchByNameSalesDesc(q, lastSales, lastId, limit);
+        };
+
+        String nextCursor = null;
+        boolean hasMore = items.size() == limit;
+        if (hasMore) {
+            var last = items.get(items.size() - 1);
+            Map<String,Object> next = switch (sort) {
+                case LATEST     -> Map.of("id", last.getId());
+                case PRICE_DESC, PRICE_ASC -> Map.of("price", last.getDiscountedPrice(), "id", last.getId());
+                case SALES      -> Map.of("sales", last.getSales(), "id", last.getId());
+            };
+            nextCursor = CursorUtil.encode(next);
+        }
+
+        return new ProductListResponse(items, totalCount, hasMore, nextCursor);
+    }
+
+
 }

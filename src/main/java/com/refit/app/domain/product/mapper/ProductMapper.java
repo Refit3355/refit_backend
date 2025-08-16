@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface ProductMapper {
 
+    // 상품 목록 조회
     List<ProductDto> findByLatest(
             @Param("categoryId") Integer categoryId,
             @Param("catFrom") Integer catFrom,
@@ -49,7 +50,35 @@ public interface ProductMapper {
             @Param("catFrom") Integer catFrom,
             @Param("catTo") Integer catTo);
 
+    // 상품 상세 조회
     ProductDetailDto selectProductDetail(@Param("id") Long id);
 
     List<ImageDto> selectProductImages(@Param("id") Long id);
+
+    // 상품 검색 목록 조회
+    List<ProductDto> searchByNameLatest(
+            @Param("keyword") String keyword,
+            @Param("lastId") Long lastId,
+            @Param("limit") int limit);
+
+    List<ProductDto> searchByNamePriceDesc(
+            @Param("keyword") String keyword,
+            @Param("lastPrice") Integer lastPrice,
+            @Param("lastId") Long lastId,
+            @Param("limit") int limit);
+
+    List<ProductDto> searchByNamePriceAsc(
+            @Param("keyword") String keyword,
+            @Param("lastPrice") Integer lastPrice,
+            @Param("lastId") Long lastId,
+            @Param("limit") int limit);
+
+    List<ProductDto> searchByNameSalesDesc(
+            @Param("keyword") String keyword,
+            @Param("lastSales") Integer lastSales,
+            @Param("lastId") Long lastId,
+            @Param("limit") int limit);
+
+    int countProductsByName(@Param("keyword") String keyword);
+
 }

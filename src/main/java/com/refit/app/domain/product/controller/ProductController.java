@@ -39,4 +39,16 @@ public class ProductController {
         ProductDetailResponse response = productService.getProductDetail(id);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<ProductListResponse> searchProducts(
+            @RequestParam("q") String q,
+            @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) String cursor
+    ) {
+        final SortType sortType = SortType.fromCode(sort);
+        return ResponseEntity.ok(productService.searchProductsByName(q, sortType, limit, cursor));
+    }
+
 }
