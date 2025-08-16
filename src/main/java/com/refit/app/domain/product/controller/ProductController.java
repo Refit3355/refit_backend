@@ -2,6 +2,7 @@ package com.refit.app.domain.product.controller;
 
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
+import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -50,5 +51,15 @@ public class ProductController {
         final SortType sortType = SortType.fromCode(sort);
         return ResponseEntity.ok(productService.searchProductsByName(q, sortType, limit, cursor));
     }
+
+    @GetMapping("/suggest")
+    public ResponseEntity<ProductSuggestResponse> suggest(
+            @RequestParam("q") String q,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) String cursor
+    ) {
+        return ResponseEntity.ok(productService.suggestProducts(q, limit, cursor));
+    }
+
 
 }

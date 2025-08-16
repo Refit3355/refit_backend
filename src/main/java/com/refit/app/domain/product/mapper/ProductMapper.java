@@ -3,6 +3,7 @@ package com.refit.app.domain.product.mapper;
 import com.refit.app.domain.product.dto.ImageDto;
 import com.refit.app.domain.product.dto.ProductDetailDto;
 import com.refit.app.domain.product.dto.ProductDto;
+import com.refit.app.domain.product.dto.ProductSimpleDto;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -80,5 +81,10 @@ public interface ProductMapper {
             @Param("limit") int limit);
 
     int countProductsByName(@Param("keyword") String keyword);
+
+    List<ProductSimpleDto> findSuggestProducts(
+            @Param("keyword") String keyword,
+            @Param("limit") int limit,
+            @Param("lastId") Long lastId);
 
 }

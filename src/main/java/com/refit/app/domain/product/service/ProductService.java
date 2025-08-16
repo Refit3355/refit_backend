@@ -2,6 +2,7 @@ package com.refit.app.domain.product.service;
 
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
+import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
 
 public interface ProductService {
@@ -11,4 +12,6 @@ public interface ProductService {
     ProductDetailResponse getProductDetail(Long id);
 
     ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor);
+
+    ProductSuggestResponse suggestProducts(String keyword, int limit, String cursor);
 }

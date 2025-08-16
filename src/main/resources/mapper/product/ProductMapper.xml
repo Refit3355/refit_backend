@@ -265,12 +265,28 @@
     FETCH FIRST #{limit} ROWS ONLY
   </select>
 
-
   <select id="countProductsByName" resultType="int">
     SELECT COUNT(*)
     FROM product p
     WHERE 1=1
     <include refid="NameKeywordWhere"/>
+  </select>
+
+  <!-- 상품 검색 간단한 버전 -->
+  <select id="findSuggestProducts"
+    resultType="com.refit.app.domain.product.dto.ProductSimpleDto">
+    SELECT
+    p.product_id    AS id,
+    p.thumbnail_url AS thumbnailUrl,
+    p.product_name  AS productName
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastId != null">
+      AND p.product_id &lt; #{lastId}   <!-- id DESC 커서 -->
+    </if>
+    ORDER BY p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
   </select>
 
 </mapper>
