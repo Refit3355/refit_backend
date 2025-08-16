@@ -131,5 +131,12 @@ public class ProductServiceImpl implements ProductService {
         return new ProductSuggestResponse(items, hasMore, nextCursor);
     }
 
+    @Override
+    public ProductListResponse getLikedProducts(List<Long> likedItems) {
+        List<ProductDto> items = productMapper.getLikedProducts(likedItems);
+        int total = items.size();
+        return new ProductListResponse(items, total, false, null);
+    }
+
 
 }

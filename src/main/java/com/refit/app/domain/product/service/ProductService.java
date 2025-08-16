@@ -4,6 +4,7 @@ import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
+import java.util.List;
 
 public interface ProductService {
 
@@ -14,4 +15,6 @@ public interface ProductService {
     ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor);
 
     ProductSuggestResponse suggestProducts(String keyword, int limit, String cursor);
+
+    ProductListResponse getLikedProducts(List<Long> likedItems);
 }
