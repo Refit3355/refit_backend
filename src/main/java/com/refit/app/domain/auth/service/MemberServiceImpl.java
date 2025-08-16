@@ -198,6 +198,14 @@ public class MemberServiceImpl implements MemberService {
         );
     }
 
+    @Override
+    @Transactional
+    public void updateMyConcerns(Long memberId, ConcernSummaryDto req) {
+        concernMapper.mergeHealth(memberId, req.getHealth());
+        concernMapper.mergeHair(memberId, req.getHair());
+        concernMapper.mergeSkin(memberId, req.getSkin());
+    }
+
 
 }
 

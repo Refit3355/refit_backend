@@ -1,5 +1,6 @@
 package com.refit.app.domain.auth.controller;
 
+import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.LoginRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
@@ -127,6 +128,16 @@ public class MemberController {
         Long userId = (Long) authentication.getPrincipal();
         memberService.updateMyBasicInfo(userId, req);
         return new UtilResponse<>("SUCCESS", "기본 정보 수정을 완료했습니다.", null);
+    }
+
+    @PutMapping("/health")
+    public UtilResponse<Void> updateMyConcerns(
+            @Valid @RequestBody ConcernSummaryDto req,
+            Authentication authentication
+    ) {
+        Long userId = (Long) authentication.getPrincipal();
+        memberService.updateMyConcerns(userId, req);
+        return new UtilResponse<>("SUCCESS", "관심(건강/헤어/피부) 정보를 수정했습니다.", null);
     }
 
 }

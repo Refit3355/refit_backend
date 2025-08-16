@@ -1,5 +1,6 @@
 package com.refit.app.domain.auth.service;
 
+import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
@@ -22,4 +23,6 @@ public interface MemberService {
     ReissueResultDto reissueAccessToken(String refreshToken);
 
     void updateMyBasicInfo(Long memberIdFromToken, UpdateBasicRequest req);
+
+    void updateMyConcerns(Long memberId, ConcernSummaryDto req);
 }

@@ -1,5 +1,8 @@
 package com.refit.app.domain.auth.dto.request;
 
+import com.refit.app.domain.auth.dto.HairInfoDto;
+import com.refit.app.domain.auth.dto.HealthInfoDto;
+import com.refit.app.domain.auth.dto.SkinInfoDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -11,13 +14,13 @@ public class ConcernRequest {
 
     @Valid
     @NotNull
-    private HealthRequest health;
+    private HealthInfoDto health;
 
     @Valid
     @NotNull
-    private HairRequest hair;
+    private HairInfoDto hair;
 
     @Valid
     @NotNull
-    private SkinRequest skin;
+    private SkinInfoDto skin;
 }
