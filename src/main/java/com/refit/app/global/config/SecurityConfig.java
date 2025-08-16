@@ -18,7 +18,8 @@ public class SecurityConfig {
                                 "/api/auth/check/**",
                                 "/api/auth/join",
                                 "/api/auth/join/**",
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/api/auth/refresh"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

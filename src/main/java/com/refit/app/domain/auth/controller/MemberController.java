@@ -1,5 +1,6 @@
 package com.refit.app.domain.auth.controller;
 
+import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.LoginRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
@@ -7,6 +8,8 @@ import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.auth.service.MemberService;
 import com.refit.app.global.config.JwtProvider;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +50,7 @@ public class MemberController {
     }
 
     @Value("${jwt.refresh-exp-days}")
-    private int refreshExpDays;
+    private long refreshExpDays;
 
     @PostMapping("/login")
     public UtilResponse<LoginResponse> login(
@@ -63,16 +66,54 @@ public class MemberController {
 
         // refresh token HttpOnly 쿠키에 저장
         String refreshToken = jwtProvider.createRefreshToken(data.getMemberId());
+        boolean isLocal = true;
         ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
+                .secure(!isLocal)
+                .sameSite(isLocal ? "Lax" : "None") // 이 부분 추후 수정 예정
                 .path("/")
                 .maxAge(refreshExpDays * 24L * 60L * 60L)
                 .build();
         httpResp.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         return new UtilResponse<>("SUCCESS", "로그인에 성공했습니다.", data);
+    }
+
+    @GetMapping("/refresh")
+    public UtilResponse<Void> refreshToken(HttpServletRequest request,
+            HttpServletResponse response) {
+        // 1) 쿠키에서 refreshToken 추출
+        String refreshToken = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie c : cookies) {
+                if ("refreshToken".equals(c.getName())) {
+                    refreshToken = c.getValue();
+                    break;
+                }
+            }
+        }
+        if (refreshToken == null) {
+            throw new IllegalArgumentException("리프레시 토큰 쿠키가 없습니다.");
+        }
+
+        ReissueResultDto res = memberService.reissueAccessToken(refreshToken);
+        response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + res.getAccessToken());
+
+        if (res.getRotatedRefreshToken() != null) {
+            ResponseCookie cookie = ResponseCookie.from("refreshToken",
+                            res.getRotatedRefreshToken())
+                    .httpOnly(true)
+                    .secure(true)
+                    .sameSite("None")
+                    .path("/")
+                    .maxAge(refreshExpDays * 24L * 60L * 60L)
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+
+        // 바디엔 토큰 안 보냄
+        return new UtilResponse<>("SUCCESS", "토큰을 재발급했습니다.", null);
     }
 
 }

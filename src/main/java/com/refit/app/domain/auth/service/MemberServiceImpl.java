@@ -4,6 +4,7 @@ import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.HairInfoDto;
 import com.refit.app.domain.auth.dto.HealthInfoDto;
 import com.refit.app.domain.auth.dto.MemberRowDto;
+import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.SkinInfoDto;
 import com.refit.app.domain.auth.dto.request.ConcernRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
@@ -12,6 +13,9 @@ import com.refit.app.domain.auth.dto.response.LoginResponse;
 import com.refit.app.domain.auth.mapper.ConcernMapper;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.global.config.JwtProvider;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -86,6 +90,7 @@ public class MemberServiceImpl implements MemberService {
         return !memberMapper.existsByNickname(nickname);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public LoginResponse login(String email, String rawPassword) {
         MemberRowDto m = memberMapper.findByEmail(email);
@@ -121,9 +126,44 @@ public class MemberServiceImpl implements MemberService {
         return res;
     }
 
-
+    @Override
     public String issueRefreshTokenCookieValue(Long userId) {
         return jwtProvider.createRefreshToken(userId);
+    }
+
+    @Override
+    public ReissueResultDto reissueAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException("리프레시 토큰이 없습니다.");
+        }
+
+        Jws<Claims> jws = jwtProvider.parseAndValidate(refreshToken);
+        if (!jwtProvider.isRefreshToken(jws)) {
+            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+        }
+
+        Long userId = jwtProvider.getUserId(jws);
+        MemberRowDto m = memberMapper.findBasicById(userId);
+        if (m == null) {
+            throw new IllegalArgumentException("존재하지 않는 사용자입니다.");
+        }
+
+        // 새 액세스 토큰 발급
+        String newAccess = jwtProvider.createAccessToken(m.getMemberId(), m.getEmail(),
+                m.getNickname());
+
+        // 리프레시 토큰 만료 임박 시 새 리프레시도 함께 발급
+        Date exp = jwtProvider.getExpiration(jws);
+        long remains = exp.getTime() - System.currentTimeMillis();
+        String newRefresh = null;
+
+        // 남은 시간이 3일 미만이면 재발급
+        long threeDaysMillis = 3L * 24 * 60 * 60 * 1000L;
+        if (remains < threeDaysMillis) {
+            newRefresh = jwtProvider.createRefreshToken(userId);
+        }
+
+        return new ReissueResultDto(userId, newAccess, newRefresh);
     }
 
 

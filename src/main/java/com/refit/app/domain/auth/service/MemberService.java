@@ -1,5 +1,6 @@
 package com.refit.app.domain.auth.service;
 
+import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import jakarta.validation.constraints.Email;
@@ -16,4 +17,6 @@ public interface MemberService {
     LoginResponse login(@Email @NotBlank String email, @NotBlank String password);
 
     String issueRefreshTokenCookieValue(Long memberId);
+
+    ReissueResultDto reissueAccessToken(String refreshToken);
 }

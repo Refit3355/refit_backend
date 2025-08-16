@@ -99,4 +99,17 @@
     LEFT JOIN SKIN_CONCERN sk ON sk.MEMBER_ID = m.MEMBER_ID
     WHERE m.MEMBER_ID = #{memberId}
   </select>
+
+  <select id="findBasicById" parameterType="long"
+    resultType="com.refit.app.domain.auth.dto.MemberRowDto">
+    SELECT
+    MEMBER_ID AS memberId,
+    EMAIL AS email,
+    NICKNAME AS nickname,
+    MEMBER_NAME AS memberName,
+    PASSWORD AS password
+    FROM MEMBER
+    WHERE MEMBER_ID = #{memberId}
+    AND DELETED_AT IS NULL
+  </select>
 </mapper>

@@ -32,4 +32,6 @@ public interface MemberMapper {
 
     ConcernSummaryDto findHealthSummary(@Param("memberId") Long memberId);
 
+    MemberRowDto findBasicById(@Param("memberId") Long memberId);
+
 }
