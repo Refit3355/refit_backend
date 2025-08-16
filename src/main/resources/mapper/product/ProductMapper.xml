@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.product.mapper.ProductMapper">
+
+  <sql id="ProductColumns">
+    p.product_id AS id,
+    p.thumbnail_url     AS thumbnailUrl,
+    p.brand_name        AS brandName,
+    p.product_name      AS productName,
+    p.discount_rate     AS discountRate,
+    p.price             AS price,
+    TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
+  </sql>
+
+  <!-- 1) 최신순: id DESC, 커서 id < lastId -->
+  <select id="findByLatest"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastId != null">
+      AND p.product_id &lt; #{lastId}
+    </if>
+    ORDER BY p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 3) 높은 가격순: discountedPrice DESC, id DESC -->
+  <select id="findByPriceDesc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>, 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastPrice != null">
+      AND (
+      <![CDATA[
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) < #{lastPrice}
+        OR (
+          TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+          AND p.product_id < #{lastId}
+        )
+      ]]>
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 3) 낮은 가격순: discountedPrice ASC, id ASC -->
+  <select id="findByPriceAsc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastPrice != null">
+      AND (
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) > #{lastPrice}
+        OR (
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+        AND p.product_id > #{lastId}
+        )
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) ASC, p.product_id ASC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+
+  <!-- 4) 판매량순: (취소=3 제외) 누적 판매량 DESC, 동일 판매량이면 id DESC -->
+  <select id="findBySalesDesc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , NVL(ps.sales, 0) AS sales
+    FROM product p
+    LEFT JOIN (
+    SELECT
+    oi.product_id,
+    SUM(oi.item_count) AS sales
+    FROM order_item oi
+    WHERE oi.deleted_at IS NULL
+    AND oi.order_status IN (0, 1, 2)   <!-- 3(취소) 제외 -->
+    GROUP BY oi.product_id
+    ) ps ON ps.product_id = p.product_id   <!--  키 일치 -->
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+
+    <!-- 커서 조건: 판매량 DESC 페이징 (동률 시 id DESC) -->
+    <if test="lastSales != null">
+      AND (
+      NVL(ps.sales, 0) &lt; #{lastSales}
+      OR (NVL(ps.sales, 0) = #{lastSales} AND p.product_id &lt; #{lastId})
+      )
+    </if>
+
+    ORDER BY NVL(ps.sales, 0) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <select id="countProducts" resultType="int">
+    SELECT COUNT(*)
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+  </select>
+</mapper>
