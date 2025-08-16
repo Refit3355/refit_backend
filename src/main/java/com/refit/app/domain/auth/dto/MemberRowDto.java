@@ -9,10 +9,11 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class HairInfoDto {
+public class MemberRowDto {
 
-    private Integer hairLoss;
-    private Integer damagedHair;
-    private Integer scalpTrouble;
-    private Integer dandruff;
+    public Long memberId;
+    public String email;
+    public String nickname;
+    public String memberName;
+    public String password;
 }

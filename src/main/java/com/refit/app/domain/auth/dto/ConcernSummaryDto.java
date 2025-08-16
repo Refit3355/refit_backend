@@ -9,10 +9,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class HairInfoDto {
+public class ConcernSummaryDto {
 
-    private Integer hairLoss;
-    private Integer damagedHair;
-    private Integer scalpTrouble;
-    private Integer dandruff;
+    private HealthInfoDto health;
+    private HairInfoDto hair;
+    private SkinInfoDto skin;
 }

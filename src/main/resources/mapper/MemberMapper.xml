@@ -1,42 +1,102 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.refit.app.domain.auth.mapper.MemberMapper">
-    <insert id="insertBasic">
-        INSERT INTO MEMBER (
-        MEMBER_ID,
-        EMAIL, NICKNAME, MEMBER_NAME, PASSWORD,
-        ZIPCODE, ROAD_ADDRESS, DETAIL_ADDRESS,
-        GENDER, BIRTHDAY, PHONE_NUMBER
-        <if test="profileUrl != null and profileUrl != ''">
-            , PROFILE_URL
-        </if>
-        , CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
-        ) VALUES (
-        SEQ_MEMBER.NEXTVAL,
-        #{email}, #{nickName}, #{memberName}, #{passwordHash},
-        #{zipcode}, #{roadAddress}, #{detailAddress},
-        #{gender}, #{birthday, jdbcType=DATE}, #{phoneNumber}
-        <if test="profileUrl != null and profileUrl != ''">
-            , #{profileUrl}
-        </if>
-        , SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
-        )
-    </insert>
+  <insert id="insertBasic">
+    INSERT INTO MEMBER (
+    MEMBER_ID,
+    EMAIL, NICKNAME, MEMBER_NAME, PASSWORD,
+    ZIPCODE, ROAD_ADDRESS, DETAIL_ADDRESS,
+    GENDER, BIRTHDAY, PHONE_NUMBER
+    <if test="profileUrl != null and profileUrl != ''">
+      , PROFILE_URL
+    </if>
+    , CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+    SEQ_MEMBER.NEXTVAL,
+    #{email}, #{nickName}, #{memberName}, #{passwordHash},
+    #{zipcode}, #{roadAddress}, #{detailAddress},
+    #{gender}, #{birthday, jdbcType=DATE}, #{phoneNumber}
+    <if test="profileUrl != null and profileUrl != ''">
+      , #{profileUrl}
+    </if>
+    , SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    )
+  </insert>
 
-    <select id="findIdByEmail" parameterType="string" resultType="long">
-        SELECT MEMBER_ID FROM MEMBER WHERE EMAIL = #{email}
-    </select>
+  <select id="findIdByEmail" parameterType="string" resultType="long">
+    SELECT MEMBER_ID FROM MEMBER WHERE EMAIL = #{email}
+  </select>
 
-    <select id="existsByEmail" parameterType="string" resultType="boolean">
-        SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
-        FROM MEMBER
-        WHERE EMAIL = #{email}
-    </select>
+  <select id="existsByEmail" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE EMAIL = #{email}
+  </select>
 
-    <select id="existsByNickname" parameterType="string" resultType="boolean">
-        SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
-        FROM MEMBER
-        WHERE NICKNAME = #{nickname}
-    </select>
+  <select id="existsByNickname" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM MEMBER
+    WHERE NICKNAME = #{nickname}
+  </select>
+
+  <resultMap id="MemberRowMap" type="com.refit.app.domain.auth.dto.MemberRowDto">
+    <result column="MEMBER_ID" property="memberId"/>
+    <result column="EMAIL" property="email"/>
+    <result column="NICKNAME" property="nickname"/>
+    <result column="MEMBER_NAME" property="memberName"/>
+    <result column="PASSWORD" property="password"/>
+  </resultMap>
+
+  <select id="findByEmail" resultMap="MemberRowMap">
+    SELECT MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD
+    FROM MEMBER
+    WHERE EMAIL = #{email}
+    AND DELETED_AT IS NULL
+  </select>
+
+  <resultMap id="ConcernSummaryMap" type="com.refit.app.domain.auth.dto.ConcernSummaryDto">
+    <association property="health" javaType="com.refit.app.domain.auth.dto.HealthInfoDto">
+      <result column="EYE_HEALTH" property="eyeHealth"/>
+      <result column="FATIGUE" property="fatigue"/>
+      <result column="SLEEP_STRESS" property="sleepStress"/>
+      <result column="IMMUNE_CARE" property="immuneCare"/>
+      <result column="MUSCLE_HEALTH" property="muscleHealth"/>
+      <result column="GUT_HEALTH" property="gutHealth"/>
+      <result column="BLOOD_CIRCULATION" property="bloodCirculation"/>
+    </association>
+
+    <association property="hair" javaType="com.refit.app.domain.auth.dto.HairInfoDto">
+      <result column="HAIR_LOSS" property="hairLoss"/>
+      <result column="DAMAGED_HAIR" property="damagedHair"/>
+      <result column="SCALP_TROUBLE" property="scalpTrouble"/>
+      <result column="DANDRUFF" property="dandruff"/>
+    </association>
+
+    <association property="skin" javaType="com.refit.app.domain.auth.dto.SkinInfoDto">
+      <result column="ATOPIC" property="atopic"/>
+      <result column="ACNE" property="acne"/>
+      <result column="WHITENING" property="whitening"/>
+      <result column="SEBUM" property="sebum"/>
+      <result column="INNER_DRYNESS" property="innerDryness"/>
+      <result column="WRINKLES" property="wrinkles"/>
+      <result column="ENLARGED_PORES" property="enlargedPores"/>
+      <result column="REDNESS" property="redness"/>
+      <result column="KERATIN" property="keratin"/>
+    </association>
+  </resultMap>
+
+  <select id="findHealthSummary" resultMap="ConcernSummaryMap">
+    SELECT
+    hc.EYE_HEALTH, hc.FATIGUE, hc.SLEEP_STRESS, hc.IMMUNE_CARE,
+    hc.MUSCLE_HEALTH, hc.GUT_HEALTH, hc.BLOOD_CIRCULATION,
+    hr.HAIR_LOSS, hr.DAMAGED_HAIR, hr.SCALP_TROUBLE, hr.DANDRUFF,
+    sk.ATOPIC, sk.ACNE, sk.WHITENING, sk.SEBUM, sk.INNER_DRYNESS,
+    sk.WRINKLES, sk.ENLARGED_PORES, sk.REDNESS, sk.KERATIN
+    FROM MEMBER m
+    LEFT JOIN HEALTH_CONCERN hc ON hc.MEMBER_ID = m.MEMBER_ID
+    LEFT JOIN HAIR_CONCERN hr ON hr.MEMBER_ID = m.MEMBER_ID
+    LEFT JOIN SKIN_CONCERN sk ON sk.MEMBER_ID = m.MEMBER_ID
+    WHERE m.MEMBER_ID = #{memberId}
+  </select>
 </mapper>
