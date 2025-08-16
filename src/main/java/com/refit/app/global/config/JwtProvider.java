@@ -1,5 +1,6 @@
 package com.refit.app.global.config;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -65,4 +66,22 @@ public class JwtProvider {
                 .signWith(Keys.hmacShaKeyFor(secretKey), SignatureAlgorithm.HS256)
                 .compact();
     }
+
+    public Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(secretKey))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public boolean isRefreshToken(String token) {
+        Object typ = parseClaims(token).get("typ");
+        return "refresh".equals(typ);
+    }
+
+    public Long getUserId(String token) {
+        return Long.valueOf(parseClaims(token).getSubject());
+    }
+
 }
