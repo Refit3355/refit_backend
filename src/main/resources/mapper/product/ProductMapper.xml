@@ -150,4 +150,31 @@
       AND p.category_id BETWEEN #{catFrom} AND #{catTo}
     </if>
   </select>
+
+  <select id="selectProductDetail" parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ProductDetailDto">
+    SELECT
+      p.product_id AS id,
+      p.brand_name      AS brandName,
+      p.product_name    AS productName,
+      p.discount_rate   AS discountRate,
+      p.price,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice,
+      p.recommended_period AS recommendedPeriod
+    FROM product p
+    WHERE p.product_id = #{id}
+  </select>
+
+  <select id="selectProductImages" parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ImageDto">
+    SELECT
+    i.product_image_id AS id,
+    i.image_url AS url,
+    i.image_order    AS "order"
+    FROM product_image i
+    WHERE i.product_id = #{id}
+    ORDER BY i.image_order
+  </select>
+
+
 </mapper>

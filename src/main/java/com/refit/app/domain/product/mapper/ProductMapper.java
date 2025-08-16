@@ -1,5 +1,7 @@
 package com.refit.app.domain.product.mapper;
 
+import com.refit.app.domain.product.dto.ImageDto;
+import com.refit.app.domain.product.dto.ProductDetailDto;
 import com.refit.app.domain.product.dto.ProductDto;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -46,4 +48,8 @@ public interface ProductMapper {
     int countProducts(@Param("categoryId") Integer categoryId,
             @Param("catFrom") Integer catFrom,
             @Param("catTo") Integer catTo);
+
+    ProductDetailDto selectProductDetail(@Param("id") Long id);
+
+    List<ImageDto> selectProductImages(@Param("id") Long id);
 }

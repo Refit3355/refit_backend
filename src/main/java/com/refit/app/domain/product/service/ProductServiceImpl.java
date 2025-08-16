@@ -1,9 +1,14 @@
 package com.refit.app.domain.product.service;
 
+import com.refit.app.domain.product.dto.ImageDto;
+import com.refit.app.domain.product.dto.ProductDetailDto;
+import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.dto.ProductDto;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.mapper.ProductMapper;
+import com.refit.app.global.exception.ErrorCode;
+import com.refit.app.global.exception.RefitException;
 import com.refit.app.global.util.CursorUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -61,6 +66,20 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return new ProductListResponse(items, totalCount, hasMore, nextCursor);
+    }
+
+    @Override
+    public ProductDetailResponse getProductDetail(Long id) {
+        // 1. 상품 상세 조회
+        ProductDetailDto product = productMapper.selectProductDetail(id);
+        if (product == null) {
+            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "상품이 존재하지 않습니다. id=" + id);
+        }
+
+        // 2. 상품 이미지 리스트 조회
+        List<ImageDto> images = productMapper.selectProductImages(id);
+
+        return new ProductDetailResponse(product, images);
     }
 
 }

@@ -1,11 +1,14 @@
 package com.refit.app.domain.product.controller;
 
+import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,7 +22,7 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ProductListResponse getProducts(
+    public ResponseEntity<ProductListResponse> getProducts(
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) String group, // "beauty" | "health"
             @RequestParam(defaultValue = "latest") String sort,
@@ -27,6 +30,13 @@ public class ProductController {
             @RequestParam(defaultValue = "20") int limit
     ) {
         final SortType sortType = SortType.fromCode(sort);
-        return productService.getProducts(categoryId, group, sortType, cursor, limit);
+        ProductListResponse response = productService.getProducts(categoryId, group, sortType, cursor, limit);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductDetailResponse> getProductDetail(@PathVariable Long id) {
+        ProductDetailResponse response = productService.getProductDetail(id);
+        return ResponseEntity.ok(response);
     }
 }
