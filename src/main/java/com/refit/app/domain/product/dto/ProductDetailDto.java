@@ -13,6 +13,7 @@ public class ProductDetailDto {
     private Long id;
     private String brandName;
     private String productName;
+    private String thumbnailUrl;
     private Integer discountRate;
     private Integer price;
     private Integer discountedPrice;

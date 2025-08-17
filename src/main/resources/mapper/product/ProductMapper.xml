@@ -162,6 +162,7 @@
     SELECT
       p.product_id AS id,
       p.brand_name      AS brandName,
+      p.thumbnail_url   AS thumbnailUrl,
       p.product_name    AS productName,
       p.discount_rate   AS discountRate,
       p.price,
