@@ -2,6 +2,8 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.refit.app.domain.auth.mapper.MemberMapper">
+
+  <!-- 신규 회원 기본정보 INSERT하는 쿼리 -->
   <insert id="insertBasic">
     INSERT INTO MEMBER (
     MEMBER_ID,
@@ -24,22 +26,26 @@
     )
   </insert>
 
+  <!-- 이메일로 MEMBER_ID 조회하는 쿼리 -->
   <select id="findIdByEmail" parameterType="string" resultType="long">
     SELECT MEMBER_ID FROM MEMBER WHERE EMAIL = #{email}
   </select>
 
+  <!-- 이메일로 중복 여부 존재 확인하는 쿼리 -->
   <select id="existsByEmail" parameterType="string" resultType="boolean">
     SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
     FROM MEMBER
     WHERE EMAIL = #{email}
   </select>
 
+  <!-- 닉네임 중복 여부 확인하는 쿼리 -->
   <select id="existsByNickname" parameterType="string" resultType="boolean">
     SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
     FROM MEMBER
     WHERE NICKNAME = #{nickname}
   </select>
 
+  <!-- MEMBER 행을 MemberRowDto로 매핑 -->
   <resultMap id="MemberRowMap" type="com.refit.app.domain.auth.dto.MemberRowDto">
     <result column="MEMBER_ID" property="memberId"/>
     <result column="EMAIL" property="email"/>
@@ -48,6 +54,7 @@
     <result column="PASSWORD" property="password"/>
   </resultMap>
 
+  <!-- 이메일로 기본 회원 행을 조회하는 쿼리  -->
   <select id="findByEmail" resultMap="MemberRowMap">
     SELECT MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD
     FROM MEMBER
@@ -55,6 +62,7 @@
     AND DELETED_AT IS NULL
   </select>
 
+  <!-- HEALTH/HAIR/SIN 3개 서브 Dto를 포함하는 요약 매핑 -->
   <resultMap id="ConcernSummaryMap" type="com.refit.app.domain.auth.dto.ConcernSummaryDto">
     <association property="health" javaType="com.refit.app.domain.auth.dto.HealthInfoDto">
       <result column="EYE_HEALTH" property="eyeHealth"/>
@@ -86,6 +94,7 @@
     </association>
   </resultMap>
 
+  <!-- 특정 MEMBER_ID에 대한 건강/헤어/스킨 요약값 한 번에 조회하는 쿼리 -->
   <select id="findHealthSummary" resultMap="ConcernSummaryMap">
     SELECT
     hc.EYE_HEALTH, hc.FATIGUE, hc.SLEEP_STRESS, hc.IMMUNE_CARE,
@@ -100,6 +109,7 @@
     WHERE m.MEMBER_ID = #{memberId}
   </select>
 
+  <!-- MEMBER_ID로 기본 회원 정보 조회하는 쿼리 -->
   <select id="findBasicById" parameterType="long"
     resultType="com.refit.app.domain.auth.dto.MemberRowDto">
     SELECT
@@ -113,6 +123,7 @@
     AND DELETED_AT IS NULL
   </select>
 
+  <!-- 회원 기본 정보 선택적 UPDATE하는 쿼리 - 동적 SQL 사용 -->
   <update id="updateBasicById">
     UPDATE MEMBER
     <set>
@@ -150,6 +161,7 @@
     AND DELETED_AT IS NULL
   </update>
 
+  <!-- 카카오 로그인 유저인지 확인하는 쿼리 -->
   <select id="findIdByOauthId" parameterType="string" resultType="long">
     SELECT MEMBER_ID
     FROM MEMBER
@@ -157,6 +169,7 @@
     AND DELETED_AT IS NULL
   </select>
 
+  <!-- MEMBER 테이블에 OAUTH_ID 연결/갱신하는 쿼리 -->
   <update id="updateOauthIdByMemberId">
     UPDATE MEMBER
     SET OAUTH_ID = #{oauthId},

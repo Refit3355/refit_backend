@@ -3,6 +3,7 @@
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.refit.app.domain.auth.mapper.ConcernMapper">
 
+  <!-- HEALTH_CONCERN 테이블에 upsert 하는 쿼리 -->
   <insert id="mergeHealth">
     MERGE INTO HEALTH_CONCERN t
     USING (
@@ -38,6 +39,7 @@
     s.BLOOD_CIRCULATION, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
   </insert>
 
+  <!-- HAIR_CONCERN 테이블에 업서트하는 쿼리 -->
   <insert id="mergeHair">
     MERGE INTO HAIR_CONCERN t
     USING (
@@ -66,6 +68,7 @@
     SYSTIMESTAMP, 0)
   </insert>
 
+  <!-- SKIN_CONCERN 테이블에 업서트하는 쿼리 -->
   <insert id="mergeSkin">
     MERGE INTO SKIN_CONCERN t
     USING (
