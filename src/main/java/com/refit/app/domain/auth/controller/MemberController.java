@@ -10,11 +10,13 @@ import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.auth.service.MemberService;
 import com.refit.app.global.config.JwtProvider;
+import com.refit.app.infra.file.s3.S3Uploader;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +24,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/auth")
@@ -31,12 +35,22 @@ public class MemberController {
 
     private final MemberService memberService;
     private final JwtProvider jwtProvider;
+    private final S3Uploader s3Uploader;
 
-    @PostMapping("/join")
-    public UtilResponse<SignupResponse> signupAll(@Valid @RequestBody SignupAllRequest req) {
+    @PostMapping(value = "/join", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UtilResponse<SignupResponse> signupAll(
+            @RequestPart("payload") @Valid SignupAllRequest req,
+            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
+    ) {
+        if (profileImage != null && !profileImage.isEmpty() && req.getSignup() != null) {
+            String url = s3Uploader.uploadProfile(profileImage);
+            req.getSignup().setProfileUrl(url);
+        }
+
         Long id = memberService.signupAll(req);
         return new UtilResponse<>("SUCCESS", "회원가입이 완료되었습니다.", new SignupResponse(id));
     }
+
 
     @GetMapping("/check/email")
     public UtilResponse<Boolean> checkEmail(@RequestParam String email) {
