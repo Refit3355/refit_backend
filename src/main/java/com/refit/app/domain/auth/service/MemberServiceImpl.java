@@ -201,9 +201,15 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public void updateMyConcerns(Long memberId, ConcernSummaryDto req) {
-        concernMapper.mergeHealth(memberId, req.getHealth());
-        concernMapper.mergeHair(memberId, req.getHair());
-        concernMapper.mergeSkin(memberId, req.getSkin());
+        if (req.getHealth() != null) {
+            concernMapper.mergeHealth(memberId, req.getHealth());
+        }
+        if (req.getHair() != null) {
+            concernMapper.mergeHair(memberId, req.getHair());
+        }
+        if (req.getSkin() != null) {
+            concernMapper.mergeSkin(memberId, req.getSkin());
+        }
     }
 
 
