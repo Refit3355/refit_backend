@@ -18,5 +18,5 @@ public class LoginResponse {
     private String nickname;
     private String name;
     private ConcernSummaryDto concerns;
-
+    private String refreshToken;
 }

@@ -10,14 +10,11 @@ import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.auth.service.MemberService;
 import com.refit.app.global.config.JwtProvider;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -70,54 +67,26 @@ public class MemberController {
 
         // refresh token HttpOnly 쿠키에 저장
         String refreshToken = jwtProvider.createRefreshToken(data.getMemberId());
-        boolean isLocal = true;
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true)
-                .secure(!isLocal)
-                .sameSite(isLocal ? "Lax" : "None") // 이 부분 추후 수정 예정
-                .path("/")
-                .maxAge(refreshExpDays * 24L * 60L * 60L)
-                .build();
-        httpResp.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        data.setRefreshToken(refreshToken);
 
         return new UtilResponse<>("SUCCESS", "로그인에 성공했습니다.", data);
     }
 
     @GetMapping("/refresh")
-    public UtilResponse<Void> refreshToken(HttpServletRequest request,
+    public UtilResponse<LoginResponse> refreshToken(
+            @RequestParam("refreshToken") String refreshToken,
             HttpServletResponse response) {
-        // 1) 쿠키에서 refreshToken 추출
-        String refreshToken = null;
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie c : cookies) {
-                if ("refreshToken".equals(c.getName())) {
-                    refreshToken = c.getValue();
-                    break;
-                }
-            }
-        }
-        if (refreshToken == null) {
-            throw new IllegalArgumentException("리프레시 토큰 쿠키가 없습니다.");
-        }
-
         ReissueResultDto res = memberService.reissueAccessToken(refreshToken);
+
+        // 새 access 토큰 Authorization 헤더
         response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + res.getAccessToken());
 
-        if (res.getRotatedRefreshToken() != null) {
-            ResponseCookie cookie = ResponseCookie.from("refreshToken",
-                            res.getRotatedRefreshToken())
-                    .httpOnly(true)
-                    .secure(true)
-                    .sameSite("None")
-                    .path("/")
-                    .maxAge(refreshExpDays * 24L * 60L * 60L)
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        }
+        // 새 refresh 토큰 바디 전달
+        LoginResponse data = new LoginResponse();
+        data.setMemberId(res.getUserId());
+        data.setRefreshToken(res.getRotatedRefreshToken());
 
-        // 바디엔 토큰 안 보냄
-        return new UtilResponse<>("SUCCESS", "토큰을 재발급했습니다.", null);
+        return new UtilResponse<>("SUCCESS", "토큰을 재발급했습니다.", data);
     }
 
     @PutMapping("/basic")
