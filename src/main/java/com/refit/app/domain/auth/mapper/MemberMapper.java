@@ -45,5 +45,9 @@ public interface MemberMapper {
             @Param("birthday") LocalDate birthday,
             @Param("phoneNumber") String phoneNumber);
 
+    Long findIdByOauthId(@Param("oauthId") String oauthId);
+
+    int updateOauthIdByMemberId(@Param("memberId") Long memberId,
+            @Param("oauthId") String oauthId);
 
 }

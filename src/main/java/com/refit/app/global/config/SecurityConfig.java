@@ -29,7 +29,8 @@ public class SecurityConfig {
                                 "/api/auth/join",
                                 "/api/auth/join/**",
                                 "/api/auth/login",
-                                "/api/auth/refresh"
+                                "/api/auth/refresh",
+                                "/api/auth/oauth/kakao/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

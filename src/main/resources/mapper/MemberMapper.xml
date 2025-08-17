@@ -149,4 +149,20 @@
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL
   </update>
+
+  <select id="findIdByOauthId" parameterType="string" resultType="long">
+    SELECT MEMBER_ID
+    FROM MEMBER
+    WHERE OAUTH_ID = #{oauthId}
+    AND DELETED_AT IS NULL
+  </select>
+
+  <update id="updateOauthIdByMemberId">
+    UPDATE MEMBER
+    SET OAUTH_ID = #{oauthId},
+    UPDATED_AT = SYSTIMESTAMP,
+    UPDATED_BY = #{memberId}
+    WHERE MEMBER_ID = #{memberId}
+    AND DELETED_AT IS NULL
+  </update>
 </mapper>
