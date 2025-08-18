@@ -45,7 +45,7 @@ public class MemberProductServiceImpl implements MemberProductService {
                 product.getProductName(),
                 product.getBrandName(),
                 product.getBhType(),
-                null
+                product.getCategoryId()
         );
     }
 

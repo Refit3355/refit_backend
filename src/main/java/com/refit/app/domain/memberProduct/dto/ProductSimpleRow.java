@@ -11,4 +11,5 @@ public class ProductSimpleRow {
     private String brandName;
     private Integer recommendedPeriod;
     private Integer bhType; // PRODUCT.BH_TYPE
+    private Long categoryId;
 }

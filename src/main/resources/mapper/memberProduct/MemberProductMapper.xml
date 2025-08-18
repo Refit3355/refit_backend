@@ -12,7 +12,8 @@
       p.PRODUCT_NAME       AS productName,
       p.BRAND_NAME         AS brandName,
       p.RECOMMENDED_PERIOD AS recommendedPeriod,
-      p.BH_TYPE            AS bhType
+      p.BH_TYPE            AS bhType,
+      p.CATEGORY_ID        AS categoryId
     FROM PRODUCT p
     WHERE p.PRODUCT_ID = #{productId}
       AND p.DELETED_AT IS NULL
@@ -23,35 +24,37 @@
       SELECT SEQ_MEMBER_PRODUCT.NEXTVAL FROM DUAL
     </selectKey>
     INSERT INTO MEMBER_PRODUCT (
-    MEMBER_PRODUCT_ID,
-    MEMBER_ID,
-    PRODUCT_ID,
-    START_DATE,
-    RECOMMENDED_EXPIRATION_DATE,
-    USAGE_STATUS,
-    PRODUCT_NAME,
-    BRAND_NAME,
-    COMPLETED_DATE,
-    BH_TYPE,
-    CREATED_AT,
-    CREATED_BY,
-    UPDATED_AT,
-    UPDATED_BY
+      MEMBER_PRODUCT_ID,
+      MEMBER_ID,
+      PRODUCT_ID,
+      START_DATE,
+      RECOMMENDED_EXPIRATION_DATE,
+      USAGE_STATUS,
+      PRODUCT_NAME,
+      BRAND_NAME,
+      COMPLETED_DATE,
+      BH_TYPE,
+      CATEGORY_ID,
+      CREATED_AT,
+      CREATED_BY,
+      UPDATED_AT,
+      UPDATED_BY
     ) VALUES (
-    #{_lastInsertedId},
-    #{memberId},
-    #{productId, jdbcType=NUMERIC},
-    #{startDate, jdbcType=DATE},
-    #{recommendedExpirationDate},
-    #{usageStatus},
-    #{productName},
-    #{brandName},
-    NULL,
-    #{type},
-    SYSTIMESTAMP,
-    #{memberId},
-    SYSTIMESTAMP,
-    #{memberId}
+      #{_lastInsertedId},
+      #{memberId},
+      #{productId, jdbcType=NUMERIC},
+      #{startDate, jdbcType=DATE},
+      #{recommendedExpirationDate},
+      #{usageStatus},
+      #{productName},
+      #{brandName},
+      NULL,
+      #{type},
+      #{categoryId},
+      SYSTIMESTAMP,
+      #{memberId},
+      SYSTIMESTAMP,
+      #{memberId}
     )
   </insert>
 
@@ -64,31 +67,31 @@
     BEGIN
     -- 1) MEMBER_PRODUCT INSERT + RETURNING
     INSERT INTO MEMBER_PRODUCT (
-    MEMBER_PRODUCT_ID,
-    MEMBER_ID,
-    PRODUCT_ID,
-    BH_TYPE,
-    CATEGORY_ID,
-    START_DATE,
-    RECOMMENDED_EXPIRATION_DATE,
-    USAGE_STATUS,
-    PRODUCT_NAME,
-    BRAND_NAME,
-    COMPLETED_DATE,
-    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+      MEMBER_PRODUCT_ID,
+      MEMBER_ID,
+      PRODUCT_ID,
+      BH_TYPE,
+      CATEGORY_ID,
+      START_DATE,
+      RECOMMENDED_EXPIRATION_DATE,
+      USAGE_STATUS,
+      PRODUCT_NAME,
+      BRAND_NAME,
+      COMPLETED_DATE,
+      CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
     ) VALUES (
-    SEQ_MEMBER_PRODUCT.NEXTVAL,
-    #{memberId},
-    #{productId, jdbcType=NUMERIC},           --  null 가능 시 jdbcType 명시
-    #{type},
-    #{categoryId, jdbcType=NUMERIC},
-    #{startDate, jdbcType=DATE},
-    #{recommendedExpirationDate},
-    #{usageStatus},
-    #{productName},
-    #{brandName},
-    NULL,
-    SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+      SEQ_MEMBER_PRODUCT.NEXTVAL,
+      #{memberId},
+      #{productId, jdbcType=NUMERIC},           --  null 가능 시 jdbcType 명시
+      #{type},
+      #{categoryId, jdbcType=NUMERIC},
+      #{startDate, jdbcType=DATE},
+      #{recommendedExpirationDate},
+      #{usageStatus},
+      #{productName},
+      #{brandName},
+      NULL,
+      SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
     )
     RETURNING MEMBER_PRODUCT_ID INTO v_mp_id;
 
@@ -96,15 +99,15 @@
     <if test="effectIds != null and effectIds.size() > 0">
       <foreach collection="effectIds" item="eid">
         INSERT INTO MEMBER_PRODUCT_EFFECT (
-        MEMBER_PRODUCT_EFFECT_ID,
-        MEMBER_PRODUCT_ID,
-        EFFECT_ID,
-        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+          MEMBER_PRODUCT_EFFECT_ID,
+          MEMBER_PRODUCT_ID,
+          EFFECT_ID,
+          CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
         ) VALUES (
-        SEQ_MEMBER_PRODUCT_EFFECT.NEXTVAL,
-        v_mp_id,
-        #{eid},
-        SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+          SEQ_MEMBER_PRODUCT_EFFECT.NEXTVAL,
+          v_mp_id,
+          #{eid},
+          SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
         );
       </foreach>
     </if>
@@ -171,7 +174,7 @@
         ON p.PRODUCT_ID = mp.PRODUCT_ID
         AND p.DELETED_AT IS NULL
     LEFT JOIN CATEGORY c
-        ON c.CATEGORY_ID = p.CATEGORY_ID
+        ON c.CATEGORY_ID = mp.CATEGORY_ID
 
     /* MEMBER_PRODUCT_EFFECT 집계 */
     LEFT JOIN (
