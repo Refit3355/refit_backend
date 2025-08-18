@@ -1,5 +1,6 @@
 package com.refit.app.domain.product.controller;
 
+import com.refit.app.domain.product.dto.ProductDto;
 import com.refit.app.domain.product.dto.request.LikedItemsRequest;
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
@@ -89,5 +90,13 @@ public class ProductController {
     ) {
         ProductRecommendationResponse resp = productService.getRecommendations(type, limit, memberId);
         return ResponseEntity.ok(resp);
+    }
+
+    @GetMapping("/popular")
+    public ResponseEntity<List<ProductDto>> getPopularProducts(
+            @RequestParam(name = "limit", defaultValue = "10") int limit
+    ){
+        List<ProductDto> response = productService.findTopProductsByOrderCount(limit);
+        return ResponseEntity.ok(response);
     }
 }
