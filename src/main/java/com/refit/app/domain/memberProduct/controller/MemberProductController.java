@@ -1,6 +1,7 @@
 package com.refit.app.domain.memberProduct.controller;
 
 import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest;
+import com.refit.app.domain.memberProduct.dto.request.MemberProductUpdateRequest;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductListResponse;
 import com.refit.app.domain.memberProduct.model.ProductType;
@@ -72,6 +73,14 @@ public class MemberProductController {
     ) {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.updateStatus(memberId, memberProductId, status);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{memberProductId}")
+    public ResponseEntity<Void> updateMemberProduct(@PathVariable Long memberProductId,
+            @RequestBody MemberProductUpdateRequest request) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        memberProductService.updateMemberProduct(memberId, memberProductId, request);
         return ResponseEntity.noContent().build();
     }
 }

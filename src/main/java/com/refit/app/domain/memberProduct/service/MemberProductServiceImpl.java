@@ -2,6 +2,7 @@ package com.refit.app.domain.memberProduct.service;
 
 import com.refit.app.domain.memberProduct.dto.ProductSimpleRow;
 import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest;
+import com.refit.app.domain.memberProduct.dto.request.MemberProductUpdateRequest;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import com.refit.app.domain.memberProduct.mapper.MemberProductMapper;
 import com.refit.app.domain.memberProduct.model.ProductType;
@@ -10,7 +11,10 @@ import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import java.time.LocalDate;
 import java.util.Collections;
-import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -120,5 +124,53 @@ public class MemberProductServiceImpl implements MemberProductService {
         if (updated == 0) {
             throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "대상이 없거나 상태 변경 불가합니다.");
         }
+    }
+
+    @Override
+    @Transactional
+    public void updateMemberProduct(Long memberId, Long memberProductId, MemberProductUpdateRequest req) {
+
+        // 현재 행의 소유/상태/타입 확인
+        var row = memberProductMapper.findMemberProductMeta(memberId, memberProductId);
+        if (row == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "대상이 없거나 권한이 없습니다.");
+        if (row.getUsageStatus() != UsageStatus.USING.getCode()) {
+            throw new RefitException(ErrorCode.STATUS_CONFLICT, "사용중(USING) 상태에서만 수정 가능합니다.");
+        }
+
+        if (row.getProductId() != null) {
+            // in-app (productId 있음) → 기간/시작일만 수정
+            memberProductMapper.updateInAppMemberProduct(
+                    memberId, memberProductId, req.getRecommendedPeriod(), req.getStartDate()
+            );
+        } else {
+            // external (productId 없음) → 이름/브랜드/효과/기간/시작일 수정
+            memberProductMapper.updateExternalMemberProduct(
+                    memberId, memberProductId,
+                    req.getProductName(), req.getBrandName(),
+                    req.getRecommendedPeriod(), req.getStartDate(),
+                    req.getCategoryId()
+            );
+
+            // 효과 업데이트 (전체 교체)
+            if (req.getEffectIds() != null) {
+                List<Long> deduped = dedupEffectIds(req.getEffectIds()); // distinct
+                memberProductMapper.deleteAllEffects(memberProductId);
+                if (!deduped.isEmpty()) {
+                    for (Long eid : deduped) {
+                        memberProductMapper.insertEffect(memberId, memberProductId, eid);
+                    }
+                }
+            }
+        }
+    }
+
+    // 입력 effectIds 정규화: null 제거 + 중복 제거(순서 보존)
+    private List<Long> dedupEffectIds(List<Long> effectIds) {
+        return effectIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(LinkedHashSet::new),
+                        ArrayList::new
+                ));
     }
 }

@@ -1,5 +1,6 @@
 package com.refit.app.domain.memberProduct.mapper;
 
+import com.refit.app.domain.memberProduct.dto.MetaRow;
 import com.refit.app.domain.memberProduct.dto.ProductSimpleRow;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import java.time.LocalDate;
@@ -49,4 +50,30 @@ public interface MemberProductMapper {
     int markUsing(@Param("memberId") Long memberId, @Param("memberProductId") Long memberProductId);
 
     int markCompleted(@Param("memberId") Long memberId, @Param("memberProductId") Long memberProductId);
+
+    MetaRow findMemberProductMeta(
+            @Param("memberId") Long memberId,
+            @Param("memberProductId") Long memberProductId);
+
+    int updateInAppMemberProduct(
+            @Param("memberId") Long memberId,
+            @Param("memberProductId") Long memberProductId,
+            @Param("recommendedPeriod") Integer recommendedPeriod,
+            @Param("startDate") String startDate);
+
+    int updateExternalMemberProduct(
+            @Param("memberId") Long memberId,
+            @Param("memberProductId") Long memberProductId,
+            @Param("productName") String productName,
+            @Param("brandName") String brandName,
+            @Param("recommendedPeriod") Integer recommendedPeriod,
+            @Param("startDate") String startDate,
+            @Param("categoryId") Long categoryId);
+
+    int deleteAllEffects(@Param("memberProductId") Long memberProductId);
+
+    int insertEffect(@Param("memberId") Long memberId,
+            @Param("memberProductId") Long memberProductId,
+            @Param("effectId") Long effectId);
+
 }

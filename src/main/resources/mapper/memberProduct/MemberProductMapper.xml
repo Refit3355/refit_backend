@@ -246,4 +246,78 @@
       AND USAGE_STATUS != 1
   </update>
 
+  <select id="findMemberProductMeta"
+    resultType="com.refit.app.domain.memberProduct.dto.MetaRow">
+    SELECT
+        mp.MEMBER_PRODUCT_ID AS memberProductId,
+        mp.PRODUCT_ID        AS productId,
+        mp.USAGE_STATUS      AS usageStatus
+    FROM MEMBER_PRODUCT mp
+    WHERE mp.MEMBER_PRODUCT_ID = #{memberProductId}
+        AND mp.MEMBER_ID = #{memberId}
+        AND mp.DELETED_AT IS NULL
+  </select>
+
+  <update id="updateInAppMemberProduct">
+    UPDATE MEMBER_PRODUCT
+    <set>
+      <if test="recommendedPeriod != null">
+        RECOMMENDED_EXPIRATION_DATE = #{recommendedPeriod},
+      </if>
+      <if test="startDate != null and startDate != ''">
+        START_DATE = TO_DATE(#{startDate}, 'YYYY-MM-DD'),
+      </if>
+      UPDATED_AT = SYSTIMESTAMP,
+      UPDATED_BY = #{memberId}
+    </set>
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+        AND MEMBER_ID = #{memberId}
+        AND PRODUCT_ID IS NOT NULL
+        AND DELETED_AT IS NULL
+        AND USAGE_STATUS = 1
+  </update>
+
+  <update id="updateExternalMemberProduct">
+    UPDATE MEMBER_PRODUCT
+    <set>
+      <if test="productName != null and productName != ''">
+        PRODUCT_NAME = #{productName},
+      </if>
+      <if test="brandName != null and brandName != ''">
+        BRAND_NAME = #{brandName},
+      </if>
+      <if test="categoryId != null">
+        CATEGORY_ID = #{categoryId},
+      </if>
+      <if test="recommendedPeriod != null">
+        RECOMMENDED_EXPIRATION_DATE = #{recommendedPeriod},
+      </if>
+      <if test="startDate != null and startDate != ''">
+        START_DATE = TO_DATE(#{startDate}, 'YYYY-MM-DD'),
+      </if>
+      UPDATED_AT = SYSTIMESTAMP,
+      UPDATED_BY = #{memberId}
+    </set>
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+        AND MEMBER_ID = #{memberId}
+        AND PRODUCT_ID IS NULL
+        AND DELETED_AT IS NULL
+        AND USAGE_STATUS = 1
+  </update>
+
+  <delete id="deleteAllEffects">
+    DELETE FROM MEMBER_PRODUCT_EFFECT
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+  </delete>
+
+  <insert id="insertEffect">
+    INSERT INTO MEMBER_PRODUCT_EFFECT (
+        MEMBER_PRODUCT_EFFECT_ID, MEMBER_PRODUCT_ID, EFFECT_ID,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+         SEQ_MEMBER_PRODUCT_EFFECT.NEXTVAL, #{memberProductId}, #{effectId},
+         SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+    )
+  </insert>
+
 </mapper>

@@ -1,6 +1,7 @@
 package com.refit.app.domain.memberProduct.service;
 
 import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest;
+import com.refit.app.domain.memberProduct.dto.request.MemberProductUpdateRequest;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import com.refit.app.domain.memberProduct.model.ProductType;
 import com.refit.app.domain.memberProduct.model.UsageStatus;
@@ -18,4 +19,6 @@ public interface MemberProductService {
     void updateStatus(Long memberId, Long memberProductId, UsageStatus status);
 
     void deleteMemberProduct(Long memberId, Long memberProductId);
+
+    void updateMemberProduct(Long memberId, Long memberProductId, MemberProductUpdateRequest request);
 }
