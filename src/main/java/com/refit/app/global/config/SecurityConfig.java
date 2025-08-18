@@ -26,11 +26,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/check/**",
-                                "/api/auth/join",
                                 "/api/auth/join/**",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                "/api/auth/oauth/kakao/**"
+                                "/api/auth/oauth/kakao/**",
+                                "/products/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
