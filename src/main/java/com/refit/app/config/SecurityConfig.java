@@ -17,7 +17,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/check/**",
                                 "/api/auth/join",
-                                "/api/auth/join/**"
+                                "/api/auth/join/**",
+                                "/products/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
