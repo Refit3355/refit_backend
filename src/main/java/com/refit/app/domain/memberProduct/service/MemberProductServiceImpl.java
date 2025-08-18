@@ -6,9 +6,11 @@ import com.refit.app.domain.memberProduct.mapper.MemberProductMapper;
 import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import java.time.LocalDate;
+import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -38,27 +40,30 @@ public class MemberProductServiceImpl implements MemberProductService {
                 1, // USAGE_STATUS=1 (사용중)
                 product.getProductName(),
                 product.getBrandName(),
-                product.getBhType()
+                product.getBhType(),
+                null
         );
     }
 
     @Override
     @Transactional
     public void createCustom(Long memberId, MemberProductCreateRequest req) {
-        Integer type = typeCheck(req.getType());
-
-        LocalDate startDate = req.getStartDate(); // YYYY-MM-DD
+        Integer bhType = typeCheck(req.getType());
+        LocalDate startDate = req.getStartDate();
         Integer recommendedDays = req.getRecommendedPeriodDays();
+        List<Long> effectIds = (req.getEffect() == null) ? Collections.emptyList() : req.getEffect();
 
-        memberProductMapper.insertMemberProduct(
+        Long memberProductId = memberProductMapper.insertMemberProductWithEffects(
                 memberId,
-                null, // PRODUCT_ID 없음
+                null,
                 startDate,
                 recommendedDays,
-                1, // 사용중
+                1,
                 req.getProductName(),
                 req.getBrandName(),
-                type
+                bhType,
+                req.getCategoryId(),
+                effectIds
         );
     }
 

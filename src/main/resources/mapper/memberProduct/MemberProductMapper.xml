@@ -56,4 +56,60 @@
     )
   </insert>
 
+  <!-- MEMBER_PRODUCT + MEMBER_PRODUCT_EFFECT를 한 번의 호출로 처리 (동일 세션) -->
+  <insert id="insertMemberProductWithEffects"
+    parameterType="map"
+    statementType="PREPARED">
+    DECLARE
+    v_mp_id NUMBER;
+    BEGIN
+    -- 1) MEMBER_PRODUCT INSERT + RETURNING
+    INSERT INTO MEMBER_PRODUCT (
+    MEMBER_PRODUCT_ID,
+    MEMBER_ID,
+    PRODUCT_ID,
+    BH_TYPE,
+    CATEGORY_ID,
+    START_DATE,
+    RECOMMENDED_EXPIRATION_DATE,
+    USAGE_STATUS,
+    PRODUCT_NAME,
+    BRAND_NAME,
+    COMPLETED_DATE,
+    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+    SEQ_MEMBER_PRODUCT.NEXTVAL,
+    #{memberId},
+    #{productId, jdbcType=NUMERIC},           --  null 가능 시 jdbcType 명시
+    #{type},
+    #{categoryId, jdbcType=NUMERIC},
+    #{startDate, jdbcType=DATE},
+    #{recommendedExpirationDate},
+    #{usageStatus},
+    #{productName},
+    #{brandName},
+    NULL,
+    SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+    )
+    RETURNING MEMBER_PRODUCT_ID INTO v_mp_id;
+
+    -- 2) EFFECT 리스트 다건 INSERT (같은 블록/세션)
+    <if test="effectIds != null and effectIds.size() > 0">
+      <foreach collection="effectIds" item="eid">
+        INSERT INTO MEMBER_PRODUCT_EFFECT (
+        MEMBER_PRODUCT_EFFECT_ID,
+        MEMBER_PRODUCT_ID,
+        EFFECT_ID,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+        ) VALUES (
+        SEQ_MEMBER_PRODUCT_EFFECT.NEXTVAL,
+        v_mp_id,
+        #{eid},
+        SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+        );
+      </foreach>
+    </if>
+    END;
+  </insert>
+
 </mapper>
