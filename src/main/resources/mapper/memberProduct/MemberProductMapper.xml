@@ -211,4 +211,39 @@
     ORDER BY mp.UPDATED_AT DESC, mp.CREATED_AT DESC
   </select>
 
+  <update id="softDeleteMemberProduct">
+    UPDATE MEMBER_PRODUCT
+      SET DELETED_AT = SYSTIMESTAMP,
+          DELETED_BY = #{memberId},
+          UPDATED_AT = SYSTIMESTAMP,
+          UPDATED_BY = #{memberId}
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+      AND MEMBER_ID = #{memberId}
+      AND DELETED_AT IS NULL
+  </update>
+
+  <update id="markCompleted">
+    UPDATE MEMBER_PRODUCT
+      SET USAGE_STATUS = 2,
+          COMPLETED_DATE = TRUNC(SYSDATE),
+          UPDATED_AT = SYSTIMESTAMP,
+          UPDATED_BY = #{memberId}
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+      AND MEMBER_ID = #{memberId}
+      AND DELETED_AT IS NULL
+      AND USAGE_STATUS != 2
+  </update>
+
+  <update id="markUsing">
+    UPDATE MEMBER_PRODUCT
+        SET USAGE_STATUS = 1,
+            COMPLETED_DATE = NULL,
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+      AND MEMBER_ID = #{memberId}
+      AND DELETED_AT IS NULL
+      AND USAGE_STATUS != 1
+  </update>
+
 </mapper>

@@ -12,7 +12,10 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,14 +34,14 @@ public class MemberProductController {
     public ResponseEntity<Void> createFromProduct(@RequestParam("productId") Long productId) {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.createFromProduct(memberId, productId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/custom")
     public ResponseEntity<Void> createCustom(@RequestBody MemberProductCreateRequest req) {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.createCustom(memberId, req);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping
@@ -53,5 +56,22 @@ public class MemberProductController {
                 .total(details.size())
                 .build();
         return ResponseEntity.ok(res);
+    }
+
+    @DeleteMapping("/{memberProductId}")
+    public ResponseEntity<Void> deleteMemberProduct(@PathVariable Long memberProductId) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        memberProductService.deleteMemberProduct(memberId, memberProductId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{memberProductId}/status")
+    public ResponseEntity<Void> updateStatus(
+            @PathVariable Long memberProductId,
+            @RequestParam("status") UsageStatus status
+    ) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        memberProductService.updateStatus(memberId, memberProductId, status);
+        return ResponseEntity.noContent().build();
     }
 }

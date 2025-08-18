@@ -41,4 +41,12 @@ public interface MemberProductMapper {
             @Param("memberId") Long memberId,
             @Param("bhType") int bhType,
             @Param("statusCode") Integer statusCode);
+
+    int softDeleteMemberProduct(
+            @Param("memberId") Long memberId,
+            @Param("memberProductId") Long memberProductId);
+
+    int markUsing(@Param("memberId") Long memberId, @Param("memberProductId") Long memberProductId);
+
+    int markCompleted(@Param("memberId") Long memberId, @Param("memberProductId") Long memberProductId);
 }

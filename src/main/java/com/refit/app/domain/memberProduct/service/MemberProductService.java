@@ -14,4 +14,8 @@ public interface MemberProductService {
     void createCustom(Long memberId, MemberProductCreateRequest req);
 
     List<MemberProductDetailResponse> getMemberProducts(Long memberId, ProductType type, UsageStatus status);
+
+    void updateStatus(Long memberId, Long memberProductId, UsageStatus status);
+
+    void deleteMemberProduct(Long memberId, Long memberProductId);
 }

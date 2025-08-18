@@ -91,4 +91,34 @@ public class MemberProductServiceImpl implements MemberProductService {
         final Integer statusCode = toStatusCodeNullable(status);
         return memberProductMapper.selectMemberProducts(memberId, bhType, statusCode);
     }
+
+    @Override
+    @Transactional
+    public void deleteMemberProduct(Long memberId, Long memberProductId) {
+        int updated = memberProductMapper.softDeleteMemberProduct(memberId, memberProductId);
+        if (updated == 0) {
+            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "삭제 대상이 없거나 권한이 없습니다.");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void updateStatus(Long memberId, Long memberProductId, UsageStatus status) {
+        if (status == null) {
+            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "status 는 필수입니다.");
+        }
+        int updated;
+        switch (status) {
+            case USING -> updated = memberProductMapper.markUsing(memberId, memberProductId);
+            case COMPLETED -> updated = memberProductMapper.markCompleted(memberId, memberProductId);
+            case DELETED -> throw new RefitException(
+                    ErrorCode.ILLEGAL_ARGUMENT,
+                    "삭제는 DELETE API를 사용하세요. status 변경 API는 using/completed만 허용합니다."
+            );
+            default -> throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "지원하지 않는 상태: " + status);
+        }
+        if (updated == 0) {
+            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "대상이 없거나 상태 변경 불가합니다.");
+        }
+    }
 }
