@@ -81,7 +81,7 @@ public class ProductController {
      * GET /products/recommendation/{type}?limit={limit}
      * type: 0=전체, 1=뷰티, 2=헤어, 3=건강기능식품
      */
-    @GetMapping("/{type}")
+    @GetMapping("/recommendation/{type}")
     public ResponseEntity<ProductRecommendationResponse> getRecommendations(
             @PathVariable("type") int type,
             @RequestParam(name = "limit", defaultValue = "10") int limit,
