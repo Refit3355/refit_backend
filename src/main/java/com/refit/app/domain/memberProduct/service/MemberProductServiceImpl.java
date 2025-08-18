@@ -2,11 +2,15 @@ package com.refit.app.domain.memberProduct.service;
 
 import com.refit.app.domain.memberProduct.dto.ProductSimpleRow;
 import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest;
+import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import com.refit.app.domain.memberProduct.mapper.MemberProductMapper;
+import com.refit.app.domain.memberProduct.model.ProductType;
+import com.refit.app.domain.memberProduct.model.UsageStatus;
 import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +52,7 @@ public class MemberProductServiceImpl implements MemberProductService {
     @Override
     @Transactional
     public void createCustom(Long memberId, MemberProductCreateRequest req) {
-        Integer bhType = typeCheck(req.getType());
+        Integer bhType = toBhType(req.getType());
         LocalDate startDate = req.getStartDate();
         Integer recommendedDays = req.getRecommendedPeriodDays();
         List<Long> effectIds = (req.getEffect() == null) ? Collections.emptyList() : req.getEffect();
@@ -67,12 +71,24 @@ public class MemberProductServiceImpl implements MemberProductService {
         );
     }
 
-    private int typeCheck(String type){
-        if ("beauty".equalsIgnoreCase(type)) return 0;
-        else if ("health".equalsIgnoreCase(type)) return 1;
-        else {
-            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT,
-                    "타입 값은 'health' 또는 'beauty'여야 합니다.");
+    private int toBhType(ProductType type) {
+        if (type == null) {
+            throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "부적절한 인수 값 type: " + type.toString());
         }
+        return type.getCode();
+    }
+
+    private Integer toStatusCodeNullable(UsageStatus statusOrNull) {
+        return (statusOrNull == null) ? null : statusOrNull.getCode();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberProductDetailResponse> getMemberProducts(Long memberId,
+            ProductType type,
+            UsageStatus status) {
+        final int bhType = toBhType(type);
+        final Integer statusCode = toStatusCodeNullable(status);
+        return memberProductMapper.selectMemberProducts(memberId, bhType, statusCode);
     }
 }

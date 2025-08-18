@@ -1,11 +1,18 @@
 package com.refit.app.domain.memberProduct.controller;
 
 import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest;
+import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
+import com.refit.app.domain.memberProduct.dto.response.MemberProductListResponse;
+import com.refit.app.domain.memberProduct.model.ProductType;
+import com.refit.app.domain.memberProduct.model.UsageStatus;
 import com.refit.app.domain.memberProduct.service.MemberProductService;
 import com.refit.app.global.util.SecurityUtil;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,4 +41,17 @@ public class MemberProductController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping
+    public ResponseEntity<MemberProductListResponse> getMemberProducts(
+            @RequestParam("type") ProductType type,
+            @RequestParam(name="status", defaultValue = "all") UsageStatus status
+    ) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        List<MemberProductDetailResponse> details = memberProductService.getMemberProducts(memberId, type, status);
+        MemberProductListResponse res = MemberProductListResponse.builder()
+                .items(details)
+                .total(details.size())
+                .build();
+        return ResponseEntity.ok(res);
+    }
 }

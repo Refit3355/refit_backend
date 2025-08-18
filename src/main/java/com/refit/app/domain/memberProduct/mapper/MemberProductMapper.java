@@ -1,8 +1,10 @@
 package com.refit.app.domain.memberProduct.mapper;
 
 import com.refit.app.domain.memberProduct.dto.ProductSimpleRow;
+import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -34,4 +36,9 @@ public interface MemberProductMapper {
             @Param("categoryId") Long categoryId,
             @Param("effectIds") List<Long> effectIds
     );
+
+    List<MemberProductDetailResponse> selectMemberProducts(
+            @Param("memberId") Long memberId,
+            @Param("bhType") int bhType,
+            @Param("statusCode") Integer statusCode);
 }

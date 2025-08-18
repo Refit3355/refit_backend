@@ -1,6 +1,7 @@
 package com.refit.app.domain.memberProduct.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.refit.app.domain.memberProduct.model.ProductType;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MemberProductCreateRequest {
-    private String type; // "health" | "beauty"
+    private ProductType type; // "health" | "beauty"
     private String productName;
     private String brandName;
     private Integer recommendedPeriodDays;
