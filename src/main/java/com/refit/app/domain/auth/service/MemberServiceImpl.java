@@ -144,7 +144,7 @@ public class MemberServiceImpl implements MemberService {
             throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
         }
 
-        Long userId = jwtProvider.getUserId(jws);
+        Long userId = jwtProvider.getMemberId(jws);
         MemberRowDto m = memberMapper.findBasicById(userId);
         if (m == null) {
             throw new IllegalArgumentException("존재하지 않는 사용자입니다.");

@@ -86,7 +86,7 @@ public class JwtProvider {
         return "refresh".equals(typ);
     }
 
-    public Long getUserId(Jws<Claims> jws) {
+    public Long getMemberId(Jws<Claims> jws) {
         return Long.valueOf(jws.getBody().getSubject());
     }
 
