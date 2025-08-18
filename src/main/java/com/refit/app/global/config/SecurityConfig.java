@@ -25,12 +25,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/check/**",
-                                "/api/auth/join",
-                                "/api/auth/join/**",
-                                "/api/auth/login",
-                                "/api/auth/refresh",
-                                "/api/auth/oauth/kakao/**"
+                                "/auth/check/**",
+                                "/auth/join",
+                                "/auth/join/**",
+                                "/auth/login",
+                                "/auth/refresh",
+                                "/auth/oauth/kakao/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
