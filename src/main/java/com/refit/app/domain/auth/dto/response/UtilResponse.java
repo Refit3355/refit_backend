@@ -1,4 +1,4 @@
-package com.refit.app.domain.auth.dto;
+package com.refit.app.domain.auth.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

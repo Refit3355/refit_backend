@@ -1,27 +1,37 @@
 package com.refit.app.domain.auth.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 @AllArgsConstructor
-public class HealthRequest {
+public class HealthInfoDto {
 
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer eyeHealth;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer fatigue;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer sleepStress;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer immuneCare;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer muscleHealth;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer gutHealth;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer bloodCirculation;
 }

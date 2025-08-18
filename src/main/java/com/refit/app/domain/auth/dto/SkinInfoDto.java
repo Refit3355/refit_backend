@@ -1,31 +1,43 @@
 package com.refit.app.domain.auth.dto;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
 @AllArgsConstructor
-public class SkinRequest {
+public class SkinInfoDto {
 
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer atopic;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer acne;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer whitening;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer sebum;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer innerDryness;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer wrinkles;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer enlargedPores;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer redness;
-    @NotNull
+    @Min(0)
+    @Max(1)
     private Integer keratin;
 }
