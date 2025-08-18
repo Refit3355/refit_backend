@@ -222,4 +222,9 @@ public class ProductServiceImpl implements ProductService {
         if (productType < 0 || productType > 3) return 0;
         return productType;
     }
+
+    @Override
+    public List<ProductDto> findTopProductsByOrderCount(int limit) {
+        return productMapper.selectTopProductsByOrderCount(limit);
+    }
 }

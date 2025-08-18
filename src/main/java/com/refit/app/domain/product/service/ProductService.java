@@ -1,5 +1,6 @@
 package com.refit.app.domain.product.service;
 
+import com.refit.app.domain.product.dto.ProductDto;
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.dto.response.ProductRecommendationResponse;
@@ -27,4 +28,6 @@ public interface ProductService {
     ProductRecommendationResponse getRecommendations(
             int productType, int limit, Long memberId
     );
+
+    List<ProductDto> findTopProductsByOrderCount(int limit);
 }
