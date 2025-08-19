@@ -22,10 +22,10 @@ public class RedisConfig {
         return new StringRedisTemplate(f);
     }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper om = new ObjectMapper();
-        om.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-        return om;
-    }
+//    @Bean
+//    public ObjectMapper objectMapper() {
+//        ObjectMapper om = new ObjectMapper();
+//        om.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+//        return om;
+//    }
 }
