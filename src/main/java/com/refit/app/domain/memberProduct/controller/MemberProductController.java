@@ -60,7 +60,8 @@ public class MemberProductController {
     }
 
     @DeleteMapping("/{memberProductId}")
-    public ResponseEntity<Void> deleteMemberProduct(@PathVariable Long memberProductId) {
+    public ResponseEntity<Void> deleteMemberProduct(
+            @PathVariable("memberProductId") Long memberProductId) {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.deleteMemberProduct(memberId, memberProductId);
         return ResponseEntity.noContent().build();
@@ -68,7 +69,7 @@ public class MemberProductController {
 
     @PatchMapping("/{memberProductId}/status")
     public ResponseEntity<Void> updateStatus(
-            @PathVariable Long memberProductId,
+            @PathVariable("memberProductId") Long memberProductId,
             @RequestParam("status") UsageStatus status
     ) {
         Long memberId = SecurityUtil.getCurrentMemberId();
@@ -77,7 +78,8 @@ public class MemberProductController {
     }
 
     @PatchMapping("/{memberProductId}")
-    public ResponseEntity<Void> updateMemberProduct(@PathVariable Long memberProductId,
+    public ResponseEntity<Void> updateMemberProduct(
+            @PathVariable("memberProductId") Long memberProductId,
             @RequestBody MemberProductUpdateRequest request) {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.updateMemberProduct(memberId, memberProductId, request);
