@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.cart.mapper.CartMapper">
+
+  <sql id="ProductColumns">
+    p.product_id AS id,
+    p.thumbnail_url     AS thumbnailUrl,
+    p.brand_name        AS brandName,
+    p.product_name      AS productName,
+    p.discount_rate     AS discountRate,
+    p.price             AS price,
+    TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
+  </sql>
+
+  <select id="getCartList" parameterType="long" resultType="com.refit.app.domain.cart.dto.CartDto">
+    SELECT
+    c.cart_id           AS cartId,
+    c.cart_count        AS cartCnt,
+    <include refid="ProductColumns"/>
+    FROM cart c
+    INNER JOIN product p ON c.product_id = p.product_id
+    WHERE c.member_id = #{memberId}
+    AND c.deleted_at IS NULL
+    ORDER BY c.created_at DESC
+  </select>
+
+  <select id="getCartCount" parameterType="long" resultType="Integer">
+    SELECT count(*)
+    FROM cart c
+    WHERE c.member_id = #{memberId}
+    AND c.deleted_at IS NULL
+  </select>
+
+</mapper>
