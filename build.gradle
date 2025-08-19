@@ -63,6 +63,10 @@ dependencies {
 
     // 파일 확장자 추출 유틸
     implementation 'commons-io:commons-io:2.15.1'
+
+    // Testcontainers (GenericContainer 사용)
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.1'
+    testImplementation 'org.testcontainers:testcontainers:1.20.1'
 }
 
 tasks.named('test') {
