@@ -8,4 +8,6 @@ public interface CartService {
     List<CartDto> getCartList(Long memberId);
 
     Integer getCartCount(Long memberId);
+
+    void addCart(Long memberId, long productId, int quantity);
 }

@@ -21,4 +21,19 @@ public class CartServiceImpl implements CartService {
     public Integer getCartCount(Long memberId) {
         return cartMapper.getCartCount(memberId);
     }
+
+    @Override
+    public void addCart(Long memberId, long productId, int quantity) {
+
+        CartDto existingCart = cartMapper.findCartByMemberIdAndProductId(memberId, productId);
+
+        if (existingCart != null) {
+            // 이미 존재하면 수량 증가
+            int updatedCount = existingCart.getCartCnt() + quantity;
+            cartMapper.updateCartCount(existingCart.getCartId(), updatedCount, memberId);
+        } else {
+            // 없으면 신규 추가
+            cartMapper.insertCart(memberId, productId, quantity);
+        }
+    }
 }

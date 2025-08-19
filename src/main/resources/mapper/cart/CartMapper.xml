@@ -4,25 +4,21 @@
 
 <mapper namespace="com.refit.app.domain.cart.mapper.CartMapper">
 
-  <sql id="ProductColumns">
-    p.product_id AS id,
-    p.thumbnail_url     AS thumbnailUrl,
-    p.brand_name        AS brandName,
-    p.product_name      AS productName,
-    p.discount_rate     AS discountRate,
-    p.price             AS price,
-    TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
-  </sql>
-
   <select id="getCartList" parameterType="long" resultType="com.refit.app.domain.cart.dto.CartDto">
     SELECT
-    c.cart_id           AS cartId,
-    c.cart_count        AS cartCnt,
-    <include refid="ProductColumns"/>
+      c.cart_id           AS cartId,
+      c.cart_count        AS cartCnt,
+      p.product_id        AS id,
+      p.thumbnail_url     AS thumbnailUrl,
+      p.brand_name        AS brandName,
+      p.product_name      AS productName,
+      p.discount_rate     AS discountRate,
+      p.price             AS price,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
     FROM cart c
-    INNER JOIN product p ON c.product_id = p.product_id
+           INNER JOIN product p ON c.product_id = p.product_id
     WHERE c.member_id = #{memberId}
-    AND c.deleted_at IS NULL
+      AND c.deleted_at IS NULL
     ORDER BY c.created_at DESC
   </select>
 
@@ -32,5 +28,53 @@
     WHERE c.member_id = #{memberId}
     AND c.deleted_at IS NULL
   </select>
+
+  <insert id="insertCart">
+    INSERT INTO cart (
+      cart_id,
+      product_id,
+      member_id,
+      cart_count,
+      created_at,
+      created_by,
+      updated_at,
+      updated_by
+    ) VALUES (
+       SEQ_CART.NEXTVAL,
+       #{productId},
+       #{memberId},
+       #{quantity},
+       SYSDATE,
+       #{memberId},
+       SYSDATE,
+       #{memberId}
+     )
+  </insert>
+
+  <select id="findCartByMemberIdAndProductId" parameterType="map" resultType="com.refit.app.domain.cart.dto.CartDto">
+    SELECT
+      c.cart_id           AS cartId,
+      c.cart_count        AS cartCnt,
+      p.product_id        AS id,
+      p.thumbnail_url     AS thumbnailUrl,
+      p.brand_name        AS brandName,
+      p.product_name      AS productName,
+      p.discount_rate     AS discountRate,
+      p.price             AS price,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
+    FROM cart c
+           INNER JOIN product p ON c.product_id = p.product_id
+    WHERE c.member_id  = #{memberId}
+      AND c.product_id = #{productId}
+      AND c.deleted_at IS NULL
+  </select>
+
+  <update id="updateCartCount">
+    UPDATE cart
+    SET cart_count = #{updatedCount},
+    updated_at = SYSDATE,
+    updated_by = #{memberId}
+    WHERE cart_id = #{cartId}
+  </update>
 
 </mapper>
