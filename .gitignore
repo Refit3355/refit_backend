@@ -57,40 +57,4 @@ out/
 gradlew
 gradlew.bat
 
-# =========================
-# 환경 변수 / 설정 파일
-# =========================
 src/main/resources/application.yml
-src/main/resources/application-*.yml
-.env
-*.env
-
-# =========================
-# OS / Tool 임시파일
-# =========================
-*.swp
-*.swo
-*.tmp
-
-# =========================
-# 테스트 관련 산출물
-# =========================
-/test-output/
-/target/
-
-# =========================
-# IntelliJ 더 세부 무시
-# =========================
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/shelf/
-.idea/**/dictionaries
-.idea/**/httpRequests
-.idea/**/dataSources/
-.idea/**/dataSources.local.xml
-
-# =========================
-# Mac / Windows
-# =========================
-ehthumbs.db
-desktop.ini

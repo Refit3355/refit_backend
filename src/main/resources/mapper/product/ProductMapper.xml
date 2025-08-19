@@ -317,25 +317,4 @@
     END DESC
   </select>
 
-  <!-- 판매량 인기순 -->
-  <select id="selectTopProductsByOrderCount"
-    parameterType="int"
-    resultType="com.refit.app.domain.product.dto.ProductDto">
-    SELECT
-    <include refid="ProductColumns"/>,
-    NVL(ps.sales, 0)              AS sales
-    FROM product p
-    LEFT JOIN (
-    SELECT
-    oi.product_id,
-    SUM(oi.item_count) AS sales
-    FROM order_item oi
-    WHERE oi.deleted_at IS NULL
-    AND oi.order_status IN (0, 1, 2)
-    GROUP BY oi.product_id
-    ) ps ON ps.product_id = p.product_id
-    ORDER BY NVL(ps.sales, 0) DESC, p.product_id DESC
-    FETCH FIRST #{limit} ROWS ONLY
-  </select>
-
 </mapper>
