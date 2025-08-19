@@ -88,4 +88,6 @@ public interface ProductMapper {
             @Param("lastId") Long lastId);
 
     List<ProductDto> getLikedProducts(@Param("ids") List<Long> ids);
+
+    List<ProductDto> selectTopProductsByOrderCount(@Param("limit") int limit);
 }

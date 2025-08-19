@@ -6,23 +6,38 @@ import com.refit.app.domain.product.dto.ProductSimpleDto;
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
 import com.refit.app.domain.product.dto.ProductDto;
+import com.refit.app.domain.product.dto.response.ProductRecommendationResponse;
 import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.mapper.ProductMapper;
 import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import com.refit.app.global.util.CursorUtil;
+import com.refit.app.infra.ai.AiRecommendClient;
+import com.refit.app.infra.cache.RecommendationCacheKey;
+import com.refit.app.infra.cache.RecommendationCacheRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import com.refit.app.domain.product.dto.request.AiRecommendRequest;
+import com.refit.app.domain.product.dto.response.AiRecommendResponse;
+import com.refit.app.domain.product.dto.ProductRecommendationItemDto;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.util.CollectionUtils;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
+    private final RecommendationCacheRepository cacheRepo;
+    private final AiRecommendClient aiClient;
+
+    @Value("${external.ai.cache-ttl-sec:20000}")
+    private long cacheTtlSec;
 
     @Override
     public ProductListResponse getProducts(Integer categoryId, String group, SortType sortType, String cursor, int limit) {
@@ -138,5 +153,78 @@ public class ProductServiceImpl implements ProductService {
         return new ProductListResponse(items, total, false, null);
     }
 
+    @Override
+    public ProductRecommendationResponse getRecommendations(
+            int productType, int limit, Long memberId
+    ) {
+        int pt  = normalizeProductType(productType);
+        int lim = (limit <= 0) ? 10 : Math.min(limit, 200);
 
+        // preferCategoryId는 현재 사용 안 함 (확장 대비 보존)
+        String key = RecommendationCacheKey.build(
+                pt, lim, memberId, "서울", 200, lim
+        );
+
+        // 캐시 조회 (Cache Hit → 즉시 반환)
+        ProductRecommendationResponse cached = cacheRepo.get(key);
+        if (cached != null && !CollectionUtils.isEmpty(cached.getItems())) {
+            return cached;
+        }
+
+        // 캐시 미스 → 외부 AI 호출
+        // 외부 추천은 개인화가 필요하므로 유효한 memberId 필수
+        if (memberId == null || memberId <= 0) {
+            throw new RefitException(ErrorCode.INVALID_TOKEN, "외부 추천 조회에는 유효한 회원 ID가 필요합니다.");
+        }
+
+        // 외부 AI 추천 요청
+        AiRecommendRequest req = AiRecommendRequest.builder()
+                .memberId(Math.toIntExact(memberId))
+                .productType(pt)
+                .preferCategoryId(null)
+                .location("서울")
+                .topk(200)
+                .finalCount(lim)
+                .build();
+
+        AiRecommendResponse ai = aiClient.request(req);
+
+        // 외부 응답 → 내부 DTO 변환 (할인율/할인가 계산 포함)
+        List<ProductRecommendationItemDto> items = ai.getResults().stream()
+                .limit(lim)
+                .map(r -> {
+                    long rate  = (r.getDiscountRate() == null ? 0L : r.getDiscountRate());
+                    long price = (r.getPrice() == null ? 0L : r.getPrice().longValue());
+                    long discounted = Math.round(price * (100 - rate) / 100.0);
+                    return ProductRecommendationItemDto.builder()
+                            .productId(r.getProductId() == null ? null : r.getProductId().longValue())
+                            .thumbnailUrl(r.getThumbnailUrl())
+                            .brandName(r.getBrand())
+                            .productName(r.getName())
+                            .discountRate(r.getDiscountRate())
+                            .price(price)
+                            .discountedPrice(discounted)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        ProductRecommendationResponse finalResp = ProductRecommendationResponse.builder()
+                .items(items)
+                .build();
+
+        // 캐싱 후 반환
+        cacheRepo.put(key, finalResp, cacheTtlSec);
+        return finalResp;
+    }
+
+    private int normalizeProductType(int productType) {
+        // 0=전체, 1=뷰티, 2=헤어, 3=건강기능식품 (default: 전체)
+        if (productType < 0 || productType > 3) return 0;
+        return productType;
+    }
+
+    @Override
+    public List<ProductDto> findTopProductsByOrderCount(int limit) {
+        return productMapper.selectTopProductsByOrderCount(limit);
+    }
 }

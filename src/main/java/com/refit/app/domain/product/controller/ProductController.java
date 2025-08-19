@@ -1,22 +1,27 @@
 package com.refit.app.domain.product.controller;
 
+import com.refit.app.domain.product.dto.ProductDto;
 import com.refit.app.domain.product.dto.request.LikedItemsRequest;
 import com.refit.app.domain.product.dto.response.ProductDetailResponse;
 import com.refit.app.domain.product.dto.response.ProductListResponse;
+import com.refit.app.domain.product.dto.response.ProductRecommendationResponse;
 import com.refit.app.domain.product.dto.response.ProductSuggestResponse;
 import com.refit.app.domain.product.model.SortType;
 import com.refit.app.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
+import org.springframework.web.server.ResponseStatusException;
 
 @RequiredArgsConstructor
 @RestController
@@ -73,4 +78,25 @@ public class ProductController {
         return ResponseEntity.ok(productService.getLikedProducts(req.getLikedItems()));
     }
 
+    /**
+     * GET /products/recommendation/{type}?limit={limit}
+     * type: 0=전체, 1=뷰티, 2=헤어, 3=건강기능식품
+     */
+    @GetMapping("/recommendation/{type}")
+    public ResponseEntity<ProductRecommendationResponse> getRecommendations(
+            @PathVariable("type") int type,
+            @RequestParam(name = "limit", defaultValue = "10") int limit,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        ProductRecommendationResponse resp = productService.getRecommendations(type, limit, memberId);
+        return ResponseEntity.ok(resp);
+    }
+
+    @GetMapping("/popular")
+    public ResponseEntity<List<ProductDto>> getPopularProducts(
+            @RequestParam(name = "limit", defaultValue = "10") int limit
+    ){
+        List<ProductDto> response = productService.findTopProductsByOrderCount(limit);
+        return ResponseEntity.ok(response);
+    }
 }
