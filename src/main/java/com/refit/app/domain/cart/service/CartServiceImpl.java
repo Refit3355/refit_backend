@@ -63,4 +63,9 @@ public class CartServiceImpl implements CartService {
 
         cartMapper.deleteCartItemsBulk(memberId, ids);
     }
+
+    @Override
+    public void updateCartQuantity(Long memberId, Long cartId, Integer quantity) {
+        cartMapper.updateCartCountById(memberId, cartId, quantity);
+    }
 }

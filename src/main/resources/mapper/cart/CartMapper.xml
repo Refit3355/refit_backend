@@ -77,15 +77,25 @@
   <delete id="deleteCart">
     DELETE FROM cart
     WHERE cart_id = #{cartId}
+      AND member_id = #{memberId}
   </delete>
 
   <delete id="deleteCartItemsBulk">
     DELETE FROM cart
-    WHERE cart_id IN
+    WHERE member_id = #{memberId}
+    AND cart_id IN
     <foreach collection="cartIds" item="id" open="(" separator="," close=")">
       #{id}
     </foreach>
   </delete>
 
+  <update id="updateCartCountById">
+    UPDATE cart
+    SET cart_count = #{quantity},
+        updated_at = SYSDATE,
+        updated_by = #{memberId}
+    WHERE cart_id = #{cartId}
+      AND member_id = #{memberId}
+  </update>
 
 </mapper>

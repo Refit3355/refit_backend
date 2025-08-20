@@ -4,6 +4,7 @@ import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.cart.dto.CartDto;
 import com.refit.app.domain.cart.dto.request.CartAddRequest;
 import com.refit.app.domain.cart.dto.request.CartBulkDeleteRequest;
+import com.refit.app.domain.cart.dto.request.CartUpdateRequest;
 import com.refit.app.domain.cart.dto.response.CartCountResponse;
 import com.refit.app.domain.cart.dto.response.CartListResponse;
 import com.refit.app.domain.cart.service.CartService;
@@ -75,4 +76,15 @@ public class CartController {
         cartService.deleteCartItemsBulk(memberId, req.getDeletedItems());
         return new UtilResponse<>("SUCCESS", "장바구니 여러 건 삭제를 성공했습니다.", null);
     }
+
+    @PostMapping("/items/{cartId}")
+    public UtilResponse updateCartQuantity(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long cartId,
+            @RequestBody CartUpdateRequest req
+    ) {
+        cartService.updateCartQuantity(memberId, cartId, req.getQuantity());
+        return new UtilResponse<>("SUCCESS", "장바구니 수량 변경 성공했습니다.", null);
+    }
+
 }

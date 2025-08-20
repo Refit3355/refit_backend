@@ -29,4 +29,8 @@ public interface CartMapper {
 
     void deleteCartItemsBulk(@Param("memberId") Long memberId,
             @Param("cartIds") List<Long> cartIds);
+
+    void updateCartCountById(@Param("memberId") Long memberId,
+            @Param("cartId") Long cartId,
+            @Param("quantity") Integer quantity);
 }

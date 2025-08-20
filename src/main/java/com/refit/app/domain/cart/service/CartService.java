@@ -17,4 +17,6 @@ public interface CartService {
     void deleteCart(Long memberId, Long cartId);
 
     void deleteCartItemsBulk(Long memberId, List<Long> deletedItems);
+
+    void updateCartQuantity(Long memberId, Long cartId, Integer quantity);
 }
