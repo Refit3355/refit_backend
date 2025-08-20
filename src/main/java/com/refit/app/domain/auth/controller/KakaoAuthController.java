@@ -38,7 +38,7 @@ public class KakaoAuthController {
         if (!data.isNeedSignup()) {
             // 바로 로그인 케이스: access 헤더 발급
             String access = jwtProvider.createAccessToken(
-                    data.getMemberId(), data.getUserEmail(), data.getUserNickname());
+                    data.getMemberId(), data.getUserEmail());
             resp.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + access);
             // refreshToken은 KakaoVerifyResponse 안에 이미 세팅됨
         }
@@ -59,7 +59,7 @@ public class KakaoAuthController {
 
         // 토큰 발급
         String access = jwtProvider.createAccessToken(
-                data.getMemberId(), data.getEmail(), data.getNickname());
+                data.getMemberId(), req.getSignupAll().getSignup().getEmail());
         String refresh = jwtProvider.createRefreshToken(data.getMemberId());
 
         // 헤더/바디 세팅

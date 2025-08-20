@@ -14,13 +14,11 @@ public interface MemberMapper {
             @Param("nickName") String nickName,
             @Param("memberName") String memberName,
             @Param("passwordHash") String passwordHash,
-            @Param("zipcode") Integer zipcode,
+            @Param("zipcode") String zipcode,
             @Param("roadAddress") String roadAddress,
             @Param("detailAddress") String detailAddress,
-            @Param("gender") String gender,
             @Param("birthday") LocalDate birthday,
-            @Param("phoneNumber") String phoneNumber,
-            @Param("profileUrl") String profileUrl);
+            @Param("phoneNumber") String phoneNumber);
 
     Long findIdByEmail(String email);
 
@@ -38,10 +36,9 @@ public interface MemberMapper {
             @Param("email") String email,
             @Param("memberName") String memberName,
             @Param("passwordHash") String passwordHash,
-            @Param("zipcode") Integer zipcode,
+            @Param("zipcode") String zipcode,
             @Param("roadAddress") String roadAddress,
             @Param("detailAddress") String detailAddress,
-            @Param("gender") String gender,
             @Param("birthday") LocalDate birthday,
             @Param("phoneNumber") String phoneNumber);
 

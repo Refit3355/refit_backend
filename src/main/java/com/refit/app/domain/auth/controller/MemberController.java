@@ -24,9 +24,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/auth")
@@ -37,15 +35,10 @@ public class MemberController {
     private final JwtProvider jwtProvider;
     private final S3Uploader s3Uploader;
 
-    @PostMapping(value = "/join", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/join", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public UtilResponse<SignupResponse> signupAll(
-            @RequestPart("payload") @Valid SignupAllRequest req,
-            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
+            @Valid @RequestBody SignupAllRequest req
     ) {
-        if (profileImage != null && !profileImage.isEmpty() && req.getSignup() != null) {
-            String url = s3Uploader.uploadProfile(profileImage);
-            req.getSignup().setProfileUrl(url);
-        }
 
         Long id = memberService.signupAll(req);
         return new UtilResponse<>("SUCCESS", "회원가입이 완료되었습니다.", new SignupResponse(id));
@@ -76,7 +69,7 @@ public class MemberController {
 
         // access token 헤더에 추가
         String accessToken = jwtProvider.createAccessToken(
-                data.getMemberId(), data.getEmail(), data.getNickname());
+                data.getMemberId(), req.getEmail());
         httpResp.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
 
         // refresh token HttpOnly 쿠키에 저장
