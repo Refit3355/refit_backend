@@ -76,4 +76,7 @@ public interface MemberProductMapper {
             @Param("memberProductId") Long memberProductId,
             @Param("effectId") Long effectId);
 
+    int insertMemberProductFromOrderItem(
+            @Param("memberId") Long memberId,
+            @Param("orderItemId") Long orderItemId);
 }

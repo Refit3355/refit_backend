@@ -21,4 +21,6 @@ public interface MemberProductService {
     void deleteMemberProduct(Long memberId, Long memberProductId);
 
     void updateMemberProduct(Long memberId, Long memberProductId, MemberProductUpdateRequest request);
+
+    void createFromOrderItem(Long memberId, Long orderItemId);
 }
