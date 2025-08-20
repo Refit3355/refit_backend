@@ -69,7 +69,7 @@ public class MemberController {
 
         // access token 헤더에 추가
         String accessToken = jwtProvider.createAccessToken(
-                data.getMemberId(), req.getEmail(), data.getNickname());
+                data.getMemberId(), req.getEmail());
         httpResp.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
 
         // refresh token HttpOnly 쿠키에 저장

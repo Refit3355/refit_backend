@@ -131,8 +131,7 @@ public class MemberServiceImpl implements MemberService {
         }
 
         // 새 액세스 토큰 발급
-        String newAccess = jwtProvider.createAccessToken(m.getMemberId(), m.getEmail(),
-                m.getNickname());
+        String newAccess = jwtProvider.createAccessToken(m.getMemberId(), m.getEmail());
 
         // 리프레시 토큰 만료 임박 시 새 리프레시도 함께 발급
         Date exp = jwtProvider.getExpiration(jws);

@@ -37,18 +37,17 @@ public class JwtProvider {
         this.refreshExpMillis = refreshExpDays * 24L * 60L * 60L * 1000L;
     }
 
-    public String createAccessToken(Long userId, String email, String nickname) {
+    public String createAccessToken(Long memberId, String email) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + accessExpMillis);
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
-        claims.put("nickname", nickname);
         claims.put("typ", "access");
 
         return Jwts.builder()
                 .setIssuer(issuer)
-                .setSubject(String.valueOf(userId))
+                .setSubject(String.valueOf(memberId))
                 .addClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(exp)
