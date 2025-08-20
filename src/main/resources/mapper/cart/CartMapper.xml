@@ -77,4 +77,9 @@
     WHERE cart_id = #{cartId}
   </update>
 
+  <delete id="deleteCart">
+    DELETE FROM cart
+    WHERE cart_id = #{cartId}
+  </delete>
+
 </mapper>

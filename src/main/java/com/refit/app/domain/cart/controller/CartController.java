@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,5 +55,14 @@ public class CartController {
     ) {
         cartService.addCartBulk(memberId, requests);
         return new UtilResponse<>("SUCCESS", "장바구니 담기를 성공했습니다.", null);
+    }
+
+    @DeleteMapping("/items/{cartId}")
+    public UtilResponse deleteCart(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable("cartId") Long cartId
+    ){
+        cartService.deleteCart(memberId, cartId);
+        return new UtilResponse<>("SUCCESS", "장바구니 삭제를 성공했습니다.", null);
     }
 }

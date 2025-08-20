@@ -44,4 +44,9 @@ public class CartServiceImpl implements CartService {
             addCart(memberId, req.getProductId(), req.getQuantity());
         }
     }
+
+    @Override
+    public void deleteCart(Long memberId, Long cartId) {
+        cartMapper.deleteCart(memberId, cartId);
+    }
 }
