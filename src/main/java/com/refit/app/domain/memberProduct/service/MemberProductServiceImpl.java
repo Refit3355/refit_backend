@@ -173,4 +173,19 @@ public class MemberProductServiceImpl implements MemberProductService {
                         ArrayList::new
                 ));
     }
+
+    @Override
+    @Transactional
+    public void createFromOrderItem(Long memberId, Long orderItemId) {
+        try {
+            int cnt = memberProductMapper.insertMemberProductFromOrderItem(memberId, orderItemId);
+            if (cnt == 0) {
+                // 이미 등록되었거나 권한/조건 불일치
+                throw new RefitException(ErrorCode.STATUS_CONFLICT, "이미 사용등록된 주문건이거나 등록할 수 없습니다.");
+            }
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 유니크 인덱스(활성중복 가드) 사용 시 동시요청 방어
+            throw new RefitException(ErrorCode.STATUS_CONFLICT, "이미 사용등록된 주문건입니다.");
+        }
+    }
 }

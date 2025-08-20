@@ -45,6 +45,13 @@ public class MemberProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/order-item/{orderItemId}")
+    public ResponseEntity<Void> createFromOrderItem(@PathVariable("orderItemId") Long orderItemId) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        memberProductService.createFromOrderItem(memberId, orderItemId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     public ResponseEntity<MemberProductListResponse> getMemberProducts(
             @RequestParam("type") ProductType type,
