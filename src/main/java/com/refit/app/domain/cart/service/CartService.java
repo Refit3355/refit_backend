@@ -1,6 +1,7 @@
 package com.refit.app.domain.cart.service;
 
 import com.refit.app.domain.cart.dto.CartDto;
+import com.refit.app.domain.cart.dto.request.CartAddRequest;
 import java.util.List;
 
 public interface CartService {
@@ -10,4 +11,6 @@ public interface CartService {
     Integer getCartCount(Long memberId);
 
     void addCart(Long memberId, long productId, int quantity);
+
+    void addCartBulk(Long memberId, List<CartAddRequest> requests);
 }

@@ -1,6 +1,7 @@
 package com.refit.app.domain.cart.service;
 
 import com.refit.app.domain.cart.dto.CartDto;
+import com.refit.app.domain.cart.dto.request.CartAddRequest;
 import com.refit.app.domain.cart.mapper.CartMapper;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,13 @@ public class CartServiceImpl implements CartService {
         } else {
             // 없으면 신규 추가
             cartMapper.insertCart(memberId, productId, quantity);
+        }
+    }
+
+    @Override
+    public void addCartBulk(Long memberId, List<CartAddRequest> requests) {
+        for (CartAddRequest req : requests) {
+            addCart(memberId, req.getProductId(), req.getQuantity());
         }
     }
 }

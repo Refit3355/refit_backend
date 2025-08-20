@@ -45,4 +45,13 @@ public class CartController {
         cartService.addCart(memberId, request.getProductId(), request.getQuantity());
         return new UtilResponse<>("SUCCESS", "장바구니 담기를 성공했습니다.", null);
     }
+
+    @PostMapping("/items/bulk")
+    public UtilResponse addCartBulk(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody List<CartAddRequest> requests
+    ) {
+        cartService.addCartBulk(memberId, requests);
+        return new UtilResponse<>("SUCCESS", "장바구니 담기를 성공했습니다.", null);
+    }
 }
