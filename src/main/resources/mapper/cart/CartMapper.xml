@@ -79,4 +79,13 @@
     WHERE cart_id = #{cartId}
   </delete>
 
+  <delete id="deleteCartItemsBulk">
+    DELETE FROM cart
+    WHERE cart_id IN
+    <foreach collection="cartIds" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+
+
 </mapper>

@@ -4,6 +4,7 @@ import com.refit.app.domain.cart.dto.CartDto;
 import com.refit.app.domain.cart.dto.request.CartAddRequest;
 import com.refit.app.domain.cart.mapper.CartMapper;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,5 +49,18 @@ public class CartServiceImpl implements CartService {
     @Override
     public void deleteCart(Long memberId, Long cartId) {
         cartMapper.deleteCart(memberId, cartId);
+    }
+
+    @Override
+    public void deleteCartItemsBulk(Long memberId, List<Long> deletedItems) {
+        if (deletedItems == null || deletedItems.isEmpty()) return;
+
+        // null 제거 + 중복 제거
+        List<Long> ids = deletedItems.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        cartMapper.deleteCartItemsBulk(memberId, ids);
     }
 }

@@ -3,6 +3,7 @@ package com.refit.app.domain.cart.controller;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.cart.dto.CartDto;
 import com.refit.app.domain.cart.dto.request.CartAddRequest;
+import com.refit.app.domain.cart.dto.request.CartBulkDeleteRequest;
 import com.refit.app.domain.cart.dto.response.CartCountResponse;
 import com.refit.app.domain.cart.dto.response.CartListResponse;
 import com.refit.app.domain.cart.service.CartService;
@@ -54,7 +55,7 @@ public class CartController {
             @RequestBody List<CartAddRequest> requests
     ) {
         cartService.addCartBulk(memberId, requests);
-        return new UtilResponse<>("SUCCESS", "장바구니 담기를 성공했습니다.", null);
+        return new UtilResponse<>("SUCCESS", "장바구니 여러 건 담기를 성공했습니다.", null);
     }
 
     @DeleteMapping("/items/{cartId}")
@@ -64,5 +65,14 @@ public class CartController {
     ){
         cartService.deleteCart(memberId, cartId);
         return new UtilResponse<>("SUCCESS", "장바구니 삭제를 성공했습니다.", null);
+    }
+
+    @DeleteMapping("/items/bulk")
+    public UtilResponse deleteCartItemsBulk(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody CartBulkDeleteRequest req
+    ) {
+        cartService.deleteCartItemsBulk(memberId, req.getDeletedItems());
+        return new UtilResponse<>("SUCCESS", "장바구니 여러 건 삭제를 성공했습니다.", null);
     }
 }

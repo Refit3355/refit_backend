@@ -15,4 +15,6 @@ public interface CartService {
     void addCartBulk(Long memberId, List<CartAddRequest> requests);
 
     void deleteCart(Long memberId, Long cartId);
+
+    void deleteCartItemsBulk(Long memberId, List<Long> deletedItems);
 }
