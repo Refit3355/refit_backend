@@ -21,4 +21,5 @@ public class MemberProductDetailResponse {
     private String displayRemaining;  // 'D-30', 'D-day', 'D+2'
     private String usagePeriodText;   // COMPLETED일 때 "2025-01-01 ~ 2025-10-10 (총 XX일)"
     List<String> effects;
+    private String thumbnailUrl;
 }

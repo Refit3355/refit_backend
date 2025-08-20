@@ -136,6 +136,7 @@
       column="effectNames"
       javaType="java.util.List"
       typeHandler="com.refit.app.global.util.StringListTypeHandler"/>
+    <result column="thumbnailUrl" property="thumbnailUrl" jdbcType="VARCHAR"/>
   </resultMap>
 
   <select id="selectMemberProducts" resultMap="MemberProductDetailResponseMap">
@@ -167,7 +168,8 @@
     || '일)'
     ELSE NULL
     END                                                    AS usagePeriodText,
-    COALESCE(mpe_agg.mpEffectNames, pe_agg.prodEffectNames) AS effectNames
+    COALESCE(mpe_agg.mpEffectNames, pe_agg.prodEffectNames) AS effectNames,
+    p.THUMBNAIL_URL                                         AS thumbnailUrl
 
     FROM MEMBER_PRODUCT mp
     LEFT JOIN PRODUCT p
