@@ -29,21 +29,16 @@ public class SignupRequest {
     private String password;
 
     @NotNull
-    private Integer zipcode;
+    private String zipcode;
     @NotBlank
     private String roadAddress;
     @NotBlank
     private String detailAddress;
 
-    @Pattern(regexp = "M|F")
-    @NotBlank
-    private String gender;
-
     @NotNull
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthday;
 
-    private String profileUrl;
     @Pattern(regexp = "010\\d{8}")
     @NotBlank
     private String phoneNumber;

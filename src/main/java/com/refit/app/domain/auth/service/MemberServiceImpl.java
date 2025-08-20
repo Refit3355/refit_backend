@@ -1,11 +1,9 @@
 package com.refit.app.domain.auth.service;
 
 import com.refit.app.domain.auth.dto.ConcernSummaryDto;
-import com.refit.app.domain.auth.dto.HairInfoDto;
 import com.refit.app.domain.auth.dto.HealthInfoDto;
 import com.refit.app.domain.auth.dto.MemberRowDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
-import com.refit.app.domain.auth.dto.SkinInfoDto;
 import com.refit.app.domain.auth.dto.request.ConcernRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.SignupRequest;
@@ -63,10 +61,8 @@ public class MemberServiceImpl implements MemberService {
                 s.getZipcode(),
                 s.getRoadAddress(),
                 s.getDetailAddress(),
-                s.getGender(),
                 s.getBirthday(),
-                s.getPhoneNumber(),
-                s.getProfileUrl()
+                s.getPhoneNumber()
         );
 
         Long memberId = memberMapper.findIdByEmail(s.getEmail());
@@ -101,30 +97,14 @@ public class MemberServiceImpl implements MemberService {
         }
 
         ConcernSummaryDto summary = memberMapper.findHealthSummary(m.memberId);
-        if (summary == null) {
-            summary = new ConcernSummaryDto(
-                    new HealthInfoDto(0, 0, 0, 0, 0, 0, 0),
-                    new HairInfoDto(0, 0, 0, 0),
-                    new SkinInfoDto(0, 0, 0, 0, 0, 0, 0, 0, 0)
-            );
-        } else {
-            if (summary.getHealth() == null) {
-                summary.setHealth(new HealthInfoDto(0, 0, 0, 0, 0, 0, 0));
-            }
-            if (summary.getHair() == null) {
-                summary.setHair(new HairInfoDto(0, 0, 0, 0));
-            }
-            if (summary.getSkin() == null) {
-                summary.setSkin(new SkinInfoDto(0, 0, 0, 0, 0, 0, 0, 0, 0));
-            }
-        }
+        HealthInfoDto health = (summary != null && summary.getHealth() != null)
+                ? summary.getHealth()
+                : new HealthInfoDto(0, 0, 0, 0, 0, 0, 0);
 
         LoginResponse res = new LoginResponse();
         res.setMemberId(m.memberId);
-        res.setEmail(m.email);
         res.setNickname(m.nickname);
-        res.setName(m.memberName);
-        res.setConcerns(summary);
+        res.setHealth(health);
         return res;
     }
 
@@ -151,8 +131,7 @@ public class MemberServiceImpl implements MemberService {
         }
 
         // 새 액세스 토큰 발급
-        String newAccess = jwtProvider.createAccessToken(m.getMemberId(), m.getEmail(),
-                m.getNickname());
+        String newAccess = jwtProvider.createAccessToken(m.getMemberId(), m.getEmail());
 
         // 리프레시 토큰 만료 임박 시 새 리프레시도 함께 발급
         Date exp = jwtProvider.getExpiration(jws);
@@ -192,7 +171,6 @@ public class MemberServiceImpl implements MemberService {
                 req.getZipcode(),
                 req.getRoadAddress(),
                 req.getDetailAddress(),
-                req.getGender(),
                 birthday,
                 req.getPhone()
         );

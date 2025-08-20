@@ -9,20 +9,13 @@
     MEMBER_ID,
     EMAIL, NICKNAME, MEMBER_NAME, PASSWORD,
     ZIPCODE, ROAD_ADDRESS, DETAIL_ADDRESS,
-    GENDER, BIRTHDAY, PHONE_NUMBER
-    <if test="profileUrl != null and profileUrl != ''">
-      , PROFILE_URL
-    </if>
-    , CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    BIRTHDAY, PHONE_NUMBER, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
     ) VALUES (
     SEQ_MEMBER.NEXTVAL,
     #{email}, #{nickName}, #{memberName}, #{passwordHash},
     #{zipcode}, #{roadAddress}, #{detailAddress},
-    #{gender}, #{birthday, jdbcType=DATE}, #{phoneNumber}
-    <if test="profileUrl != null and profileUrl != ''">
-      , #{profileUrl}
-    </if>
-    , SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    #{birthday, jdbcType=DATE}, #{phoneNumber}, SYSTIMESTAMP, SEQ_MEMBER.CURRVAL, SYSTIMESTAMP,
+    SEQ_MEMBER.CURRVAL
     )
   </insert>
 
@@ -144,9 +137,6 @@
       </if>
       <if test="detailAddress != null and detailAddress != ''">
         DETAIL_ADDRESS = #{detailAddress},
-      </if>
-      <if test="gender != null and gender != ''">
-        GENDER = #{gender},
       </if>
       <if test="birthday != null">
         BIRTHDAY = #{birthday, jdbcType=DATE},
