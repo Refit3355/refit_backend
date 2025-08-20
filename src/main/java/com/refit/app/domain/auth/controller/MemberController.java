@@ -24,9 +24,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/auth")
@@ -37,10 +35,9 @@ public class MemberController {
     private final JwtProvider jwtProvider;
     private final S3Uploader s3Uploader;
 
-    @PostMapping(value = "/join", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/join", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public UtilResponse<SignupResponse> signupAll(
-            @RequestPart("payload") @Valid SignupAllRequest req,
-            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
+            @Valid @RequestBody SignupAllRequest req
     ) {
 
         Long id = memberService.signupAll(req);

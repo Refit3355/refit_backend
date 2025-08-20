@@ -14,7 +14,8 @@
     SEQ_MEMBER.NEXTVAL,
     #{email}, #{nickName}, #{memberName}, #{passwordHash},
     #{zipcode}, #{roadAddress}, #{detailAddress},
-    #{birthday, jdbcType=DATE}, #{phoneNumber}, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    #{birthday, jdbcType=DATE}, #{phoneNumber}, SYSTIMESTAMP, SEQ_MEMBER.CURRVAL, SYSTIMESTAMP,
+    SEQ_MEMBER.CURRVAL
     )
   </insert>
 
