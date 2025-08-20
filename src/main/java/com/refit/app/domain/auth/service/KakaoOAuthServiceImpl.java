@@ -1,6 +1,6 @@
 package com.refit.app.domain.auth.service;
 
-import com.refit.app.domain.auth.dto.ConcernSummaryDto;
+import com.refit.app.domain.auth.dto.HealthInfoDto;
 import com.refit.app.domain.auth.dto.MemberRowDto;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.response.KakaoVerifyResponse;
@@ -105,7 +105,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
     public LoginResponse signupWithKakao(String kakaoAccessToken, SignupAllRequest signupAll) {
         KakaoUser u = fetchKakaoUser(kakaoAccessToken);
 
-        // 동시가입/중복연결 방지(빠른 체크)
+        // 중복 연결 방지
         Long exists = memberMapper.findIdByOauthId(u.id());
         if (exists != null) {
             throw new IllegalStateException("이미 다른 계정에 연결된 카카오 계정입니다.");
@@ -113,7 +113,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
 
         Long memberId = memberService.signupAll(signupAll);
 
-        // 최종 연결(여기서도 한 번 더 확인: 레이스 방지)
+        // 레이스 방지 재확인 후 연결
         Long exists2 = memberMapper.findIdByOauthId(u.id());
         if (exists2 != null) {
             throw new IllegalStateException("이미 다른 계정에 연결된 카카오 계정입니다.");
@@ -121,14 +121,24 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         memberMapper.updateOauthIdByMemberId(memberId, u.id());
 
         MemberRowDto m = memberMapper.findBasicById(memberId);
-        ConcernSummaryDto concerns = memberMapper.findHealthSummary(memberId);
+
+        // --- health만 세팅 ---
+        HealthInfoDto health;
+        {
+            // 기존 요약 쿼리 재사용 (ConcernSummaryDto에서 health만 사용)
+            var summary = memberMapper.findHealthSummary(memberId);
+            if (summary == null || summary.getHealth() == null) {
+                health = new HealthInfoDto(0, 0, 0, 0, 0, 0, 0);
+            } else {
+                health = summary.getHealth();
+            }
+
+        }
 
         LoginResponse lr = new LoginResponse();
         lr.setMemberId(memberId);
-        lr.setEmail(m.getEmail());
         lr.setNickname(m.getNickname());
-        lr.setName(m.getMemberName());
-        lr.setConcerns(concerns);
+        lr.setHealth(health);
         return lr;
     }
 }

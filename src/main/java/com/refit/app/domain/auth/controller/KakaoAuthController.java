@@ -59,7 +59,7 @@ public class KakaoAuthController {
 
         // 토큰 발급
         String access = jwtProvider.createAccessToken(
-                data.getMemberId(), data.getEmail(), data.getNickname());
+                data.getMemberId(), req.getSignupAll().getSignup().getEmail(), data.getNickname());
         String refresh = jwtProvider.createRefreshToken(data.getMemberId());
 
         // 헤더/바디 세팅

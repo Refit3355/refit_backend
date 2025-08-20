@@ -27,13 +27,10 @@ public class UpdateBasicRequest {
 
     @Min(value = 0)
     @Max(value = 99999)
-    private Integer zipcode;
+    private String zipcode;
 
     private String roadAddress;
     private String detailAddress;
-
-    @Pattern(regexp = "^$|^(M|F)$")
-    private String gender;
 
     // yyyy-MM-dd
     @Pattern(regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$")

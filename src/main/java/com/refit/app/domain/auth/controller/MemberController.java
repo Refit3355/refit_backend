@@ -42,10 +42,6 @@ public class MemberController {
             @RequestPart("payload") @Valid SignupAllRequest req,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImage
     ) {
-        if (profileImage != null && !profileImage.isEmpty() && req.getSignup() != null) {
-            String url = s3Uploader.uploadProfile(profileImage);
-            req.getSignup().setProfileUrl(url);
-        }
 
         Long id = memberService.signupAll(req);
         return new UtilResponse<>("SUCCESS", "회원가입이 완료되었습니다.", new SignupResponse(id));
@@ -76,7 +72,7 @@ public class MemberController {
 
         // access token 헤더에 추가
         String accessToken = jwtProvider.createAccessToken(
-                data.getMemberId(), data.getEmail(), data.getNickname());
+                data.getMemberId(), req.getEmail(), data.getNickname());
         httpResp.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
 
         // refresh token HttpOnly 쿠키에 저장
