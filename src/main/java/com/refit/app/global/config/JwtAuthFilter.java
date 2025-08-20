@@ -41,7 +41,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     throw new IllegalArgumentException("Access token required");
                 }
 
-                Long userId = jwtProvider.getUserId(jws);
+                Long userId = jwtProvider.getMemberId(jws);
 
                 // 권한(roles)이 없다면 빈 리스트로
                 UsernamePasswordAuthenticationToken authentication =
