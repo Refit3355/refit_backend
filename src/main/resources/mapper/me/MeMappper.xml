@@ -4,6 +4,7 @@
 
 <mapper namespace="com.refit.app.domain.me.mapper.MeMapper">
 
+    <!-- 주문 내역 조회 -->
     <select id="findOrdersByMemberId" resultType="com.refit.app.domain.me.dto.MyOrderItemDto">
         SELECT
         o.ORDER_ID         AS orderId,
@@ -22,6 +23,32 @@
         JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
         WHERE o.MEMBER_ID = #{memberId}
         ORDER BY oi.CREATED_AT DESC
+    </select>
+
+
+    <!-- 조합 목록 조회 -->
+    <select id="findCombinationsByMember" resultType="com.refit.app.domain.me.dto.response.CombinationResponse">
+        SELECT
+            c.COMBINATION_ID AS combinationId,
+            c.COMBINATION_NAME AS combinationName
+        FROM COMBINATION c
+        WHERE c.MEMBER_ID = #{memberId}
+          AND c.DELETED_AT IS NULL
+        ORDER BY c.CREATED_AT DESC
+    </select>
+
+    <!-- 조합 내 상품들 조회 -->
+    <select id="findCombinationItems" resultType="com.refit.app.domain.me.dto.CombinationItemDto">
+        SELECT
+            p.PRODUCT_ID AS productId,
+            p.THUMBNAIL_URL AS thumbnailUrl,
+            p.PRICE AS price,
+            p.DISCOUNT_RATE AS discountRate
+        FROM COMBINATION_ITEM ci
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        WHERE ci.COMBINATION_ID = #{combinationId}
+        ORDER BY p.PRODUCT_ID ASC
+            FETCH FIRST 4 ROWS ONLY
     </select>
 
 </mapper>
