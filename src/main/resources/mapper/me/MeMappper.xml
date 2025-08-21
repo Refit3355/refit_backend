@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.me.mapper.MeMapper">
+
+    <select id="findOrdersByMemberId" resultType="com.refit.app.domain.me.dto.MyOrderItemDto">
+        SELECT
+        o.ORDER_ID         AS orderId,
+        oi.ORDER_ITEM_ID   AS orderItemId,
+        o.ORDER_NUMBER     AS orderNumber,
+        p.PRODUCT_NAME     AS productName,
+        p.THUMBNAIL_URL    AS thumbnailUrl,
+        oi.CREATED_AT      AS createdAt,
+        oi.ITEM_PRICE      AS price,
+        p.PRICE            AS originalPrice,
+        oi.ORDER_STATUS    AS status,
+        oi.ITEM_COUNT      AS quantity,
+        p.BRAND_NAME       AS brand
+        FROM ORDERS o
+        JOIN ORDER_ITEM oi ON o.ORDER_ID = oi.ORDER_ID
+        JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
+        WHERE o.MEMBER_ID = #{memberId}
+        ORDER BY oi.CREATED_AT DESC
+    </select>
+
+</mapper>
