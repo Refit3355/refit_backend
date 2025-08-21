@@ -120,9 +120,10 @@
   <resultMap id="MemberProductDetailResponseMap"
     type="com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse">
     <id     property="memberProductId"   column="memberProductId"/>
-    <result property="brandName"         column="brandName"/>
+    <result property="bhType"            column="bhType"/>
+    <result property="brandName"         column="brandName" jdbcType="VARCHAR"/>
     <result property="productName"       column="productName"/>
-    <result property="categoryName"      column="categoryName"/>
+    <result property="categoryId"        column="categoryId"/>
     <result property="productId"         column="productId"/>
     <result property="status"            column="status"
       javaType="com.refit.app.domain.memberProduct.model.UsageStatus"
@@ -135,9 +136,9 @@
     <result property="displayRemaining"  column="displayRemaining"/>
     <result property="usagePeriodText"   column="usagePeriodText"/>
     <result property="effects"
-      column="effectNames"
+      column="effectIds"
       javaType="java.util.List"
-      typeHandler="com.refit.app.global.util.StringListTypeHandler"/>
+      typeHandler="com.refit.app.global.util.LongListTypeHandler"/>
     <result column="thumbnailUrl" property="thumbnailUrl" jdbcType="VARCHAR"/>
   </resultMap>
 
@@ -146,7 +147,7 @@
     mp.MEMBER_PRODUCT_ID                                   AS memberProductId,
     mp.BRAND_NAME                                          AS brandName,
     mp.PRODUCT_NAME                                        AS productName,
-    c.CATEGORY_NAME                                        AS categoryName,
+    c.CATEGORY_ID                                          AS categoryId,
     mp.PRODUCT_ID                                          AS productId,
     mp.USAGE_STATUS                                        AS status,
     mp.RECOMMENDED_EXPIRATION_DATE                         AS recommendedPeriod,
@@ -170,8 +171,9 @@
     || '일)'
     ELSE NULL
     END                                                    AS usagePeriodText,
-    COALESCE(mpe_agg.mpEffectNames, pe_agg.prodEffectNames) AS effectNames,
-    p.THUMBNAIL_URL                                         AS thumbnailUrl
+    COALESCE(mpe_agg.mpEffectIds, pe_agg.prodEffectIds)    AS effectIds,
+    p.THUMBNAIL_URL                                         AS thumbnailUrl,
+    mp.BH_TYPE                                               AS bhType
 
     FROM MEMBER_PRODUCT mp
     LEFT JOIN PRODUCT p
@@ -184,7 +186,7 @@
     LEFT JOIN (
         SELECT
             mpe.MEMBER_PRODUCT_ID,
-            LISTAGG(DISTINCT e.EFFECT_NAME, ', ') WITHIN GROUP (ORDER BY e.EFFECT_NAME) AS mpEffectNames
+            LISTAGG(DISTINCT e.EFFECT_ID, ',') WITHIN GROUP (ORDER BY e.EFFECT_ID) AS mpEffectIds
         FROM MEMBER_PRODUCT_EFFECT mpe
         JOIN EFFECT e
             ON e.EFFECT_ID = mpe.EFFECT_ID
@@ -197,7 +199,7 @@
     LEFT JOIN (
         SELECT
             pe.PRODUCT_ID,
-            LISTAGG(DISTINCT e.EFFECT_NAME, ', ') WITHIN GROUP (ORDER BY e.EFFECT_NAME) AS prodEffectNames
+            LISTAGG(DISTINCT e.EFFECT_ID, ',') WITHIN GROUP (ORDER BY e.EFFECT_ID) AS prodEffectIds
         FROM PRODUCT_EFFECT pe
         JOIN EFFECT e
             ON e.EFFECT_ID = pe.EFFECT_ID
