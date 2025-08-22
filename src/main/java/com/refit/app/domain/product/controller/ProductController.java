@@ -33,11 +33,11 @@ public class ProductController {
 
     @GetMapping
     public ResponseEntity<ProductListResponse> getProducts(
-            @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) String group, // "beauty" | "health"
-            @RequestParam(defaultValue = "latest") String sort,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit
+            @RequestParam(name = "categoryId", required = false) Integer categoryId,
+            @RequestParam(name = "group", required = false) String group, // "beauty" | "health"
+            @RequestParam(name = "sort", defaultValue = "latest") String sort,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            @RequestParam(name = "limit", defaultValue = "20") int limit
     ) {
         final SortType sortType = SortType.fromCode(sort);
         ProductListResponse response = productService.getProducts(categoryId, group, sortType, cursor, limit);
@@ -45,17 +45,17 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDetailResponse> getProductDetail(@PathVariable Long id) {
+    public ResponseEntity<ProductDetailResponse> getProductDetail(@PathVariable("id") Long id) {
         ProductDetailResponse response = productService.getProductDetail(id);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/search")
     public ResponseEntity<ProductListResponse> searchProducts(
-            @RequestParam("q") String q,
-            @RequestParam(defaultValue = "latest") String sort,
-            @RequestParam(defaultValue = "20") int limit,
-            @RequestParam(required = false) String cursor
+            @RequestParam(name = "q") String q,
+            @RequestParam(name = "sort", defaultValue = "latest") String sort,
+            @RequestParam(name = "limit", defaultValue = "20") int limit,
+            @RequestParam(name = "cursor", required = false) String cursor
     ) {
         final SortType sortType = SortType.fromCode(sort);
         return ResponseEntity.ok(productService.searchProductsByName(q, sortType, limit, cursor));
@@ -63,9 +63,9 @@ public class ProductController {
 
     @GetMapping("/suggest")
     public ResponseEntity<ProductSuggestResponse> suggest(
-            @RequestParam("q") String q,
-            @RequestParam(defaultValue = "10") int limit,
-            @RequestParam(required = false) String cursor
+            @RequestParam(name = "q") String q,
+            @RequestParam(name = "limit", defaultValue = "10") int limit,
+            @RequestParam(name = "cursor", required = false) String cursor
     ) {
         return ResponseEntity.ok(productService.suggestProducts(q, limit, cursor));
     }
