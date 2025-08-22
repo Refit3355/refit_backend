@@ -2,6 +2,7 @@ package com.refit.app.domain.auth.mapper;
 
 import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.MemberRowDto;
+import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import java.time.LocalDate;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -46,5 +47,7 @@ public interface MemberMapper {
 
     int updateOauthIdByMemberId(@Param("memberId") Long memberId,
             @Param("oauthId") String oauthId);
+
+    BasicInfoResponse findBasicInfoById(@Param("memberId") Long memberId);
 
 }

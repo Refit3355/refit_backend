@@ -168,4 +168,21 @@
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL
   </update>
+
+  <select id="findBasicInfoById" parameterType="long"
+    resultType="com.refit.app.domain.auth.dto.response.BasicInfoResponse">
+    SELECT
+    MEMBER_ID AS memberId,
+    EMAIL AS email,
+    NICKNAME AS nickname,
+    MEMBER_NAME AS memberName,
+    ZIPCODE AS zipcode,
+    ROAD_ADDRESS AS roadAddress,
+    DETAIL_ADDRESS AS detailAddress,
+    BIRTHDAY AS birthday,
+    PHONE_NUMBER AS phoneNumber
+    FROM MEMBER
+    WHERE MEMBER_ID = #{memberId}
+    AND DELETED_AT IS NULL
+  </select>
 </mapper>
