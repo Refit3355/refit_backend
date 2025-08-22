@@ -8,6 +8,7 @@ import com.refit.app.domain.auth.dto.request.ConcernRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.SignupRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
+import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import com.refit.app.domain.auth.mapper.ConcernMapper;
 import com.refit.app.domain.auth.mapper.MemberMapper;
@@ -188,6 +189,15 @@ public class MemberServiceImpl implements MemberService {
         if (req.getSkin() != null) {
             concernMapper.mergeSkin(memberId, req.getSkin());
         }
+    }
+
+    @Override
+    public BasicInfoResponse getMyInfo(Long memberId) {
+        BasicInfoResponse me = memberMapper.findBasicInfoById(memberId);
+        if (me == null) {
+            throw new IllegalArgumentException("사용자를 찾을 수 없습니다.");
+        }
+        return me;
     }
 
 
