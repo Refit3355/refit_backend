@@ -120,8 +120,8 @@
   <update id="updateBasicById">
     UPDATE MEMBER
     <set>
-      <if test="email != null and email != ''">
-        EMAIL = #{email},
+      <if test="nickname != null and nickname != ''">
+        NICKNAME = #{nickname},
       </if>
       <if test="memberName != null and memberName != ''">
         MEMBER_NAME = #{memberName},

@@ -166,7 +166,7 @@ public class MemberServiceImpl implements MemberService {
 
         memberMapper.updateBasicById(
                 memberId,
-                req.getEmail(),
+                req.getNickname(),
                 req.getName(),
                 passwordHash,
                 req.getZipcode(),
