@@ -5,6 +5,7 @@ import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.LoginRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
+import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
@@ -114,6 +115,14 @@ public class MemberController {
         Long userId = (Long) authentication.getPrincipal();
         memberService.updateMyConcerns(userId, req);
         return new UtilResponse<>("SUCCESS", "관심(건강/헤어/피부) 정보를 수정했습니다.", null);
+    }
+
+    @GetMapping("/basic/me")
+    public UtilResponse<BasicInfoResponse> getMyInfo(HttpServletResponse req,
+            Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        BasicInfoResponse data = memberService.getMyInfo(userId);
+        return new UtilResponse<>("SUCCESS", "조회가 완료되었습니다.", data);
     }
 
 }

@@ -40,4 +40,6 @@ public class SkinInfoDto {
     @Min(0)
     @Max(1)
     private Integer keratin;
+
+    private Integer skinType;
 }

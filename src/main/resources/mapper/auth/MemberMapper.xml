@@ -84,6 +84,7 @@
       <result column="ENLARGED_PORES" property="enlargedPores"/>
       <result column="REDNESS" property="redness"/>
       <result column="KERATIN" property="keratin"/>
+      <result column="SKIN_TYPE" property="skinType"/>
     </association>
   </resultMap>
 
@@ -94,7 +95,7 @@
     hc.MUSCLE_HEALTH, hc.GUT_HEALTH, hc.BLOOD_CIRCULATION,
     hr.HAIR_LOSS, hr.DAMAGED_HAIR, hr.SCALP_TROUBLE, hr.DANDRUFF,
     sk.ATOPIC, sk.ACNE, sk.WHITENING, sk.SEBUM, sk.INNER_DRYNESS,
-    sk.WRINKLES, sk.ENLARGED_PORES, sk.REDNESS, sk.KERATIN
+    sk.WRINKLES, sk.ENLARGED_PORES, sk.REDNESS, sk.KERATIN, sk.SKIN_TYPE
     FROM MEMBER m
     LEFT JOIN HEALTH_CONCERN hc ON hc.MEMBER_ID = m.MEMBER_ID
     LEFT JOIN HAIR_CONCERN hr ON hr.MEMBER_ID = m.MEMBER_ID
@@ -120,8 +121,8 @@
   <update id="updateBasicById">
     UPDATE MEMBER
     <set>
-      <if test="email != null and email != ''">
-        EMAIL = #{email},
+      <if test="nickname != null and nickname != ''">
+        NICKNAME = #{nickname},
       </if>
       <if test="memberName != null and memberName != ''">
         MEMBER_NAME = #{memberName},
@@ -168,4 +169,21 @@
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL
   </update>
+
+  <select id="findBasicInfoById" parameterType="long"
+    resultType="com.refit.app.domain.auth.dto.response.BasicInfoResponse">
+    SELECT
+    MEMBER_ID AS memberId,
+    EMAIL AS email,
+    NICKNAME AS nickname,
+    MEMBER_NAME AS memberName,
+    ZIPCODE AS zipcode,
+    ROAD_ADDRESS AS roadAddress,
+    DETAIL_ADDRESS AS detailAddress,
+    BIRTHDAY AS birthday,
+    PHONE_NUMBER AS phoneNumber
+    FROM MEMBER
+    WHERE MEMBER_ID = #{memberId}
+    AND DELETED_AT IS NULL
+  </select>
 </mapper>

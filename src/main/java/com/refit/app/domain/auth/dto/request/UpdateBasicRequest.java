@@ -1,6 +1,5 @@
 package com.refit.app.domain.auth.dto.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -12,9 +11,9 @@ import lombok.Setter;
 @Setter
 public class UpdateBasicRequest {
 
-    @Email
-    private String email;
-
+    @Size(min = 1, max = 50)
+    private String nickname;
+    
     @Size(min = 1, max = 50)
     private String name;
 

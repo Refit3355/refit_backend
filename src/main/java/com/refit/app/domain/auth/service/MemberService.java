@@ -4,6 +4,7 @@ import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
+import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -25,4 +26,6 @@ public interface MemberService {
     void updateMyBasicInfo(Long memberIdFromToken, UpdateBasicRequest req);
 
     void updateMyConcerns(Long memberId, ConcernSummaryDto req);
+
+    BasicInfoResponse getMyInfo(Long memberId);
 }
