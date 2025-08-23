@@ -2,7 +2,7 @@ package com.refit.app.domain.me.mapper;
 
 import com.refit.app.domain.me.dto.CombinationItemDto;
 import com.refit.app.domain.me.dto.MyOrderItemDto;
-import com.refit.app.domain.me.dto.response.MyCombinationResponse;
+import com.refit.app.domain.me.dto.MyCombinationDto;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,7 +13,7 @@ public interface MeMapper {
     List<MyOrderItemDto> findOrdersByMemberId(@Param("memberId") Long memberId);
 
     // 회원의 조합 목록
-    List<MyCombinationResponse> findCombinationsByMember(@Param("memberId") Long memberId);
+    List<MyCombinationDto> findCombinationsByMember(@Param("memberId") Long memberId);
 
     // 회원의 상품 목록
     List<CombinationItemDto> findCombinationItems(@Param("combinationId") Long combinationId);

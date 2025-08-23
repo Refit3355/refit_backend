@@ -16,9 +16,9 @@ public class MyOrderItemDto {
     private String productName;
     private String thumbnailUrl;
     private ZonedDateTime createdAt;
-    private Integer price;
-    private Integer originalPrice;
-    private Integer status;
-    private Integer quantity;
+    private Long price;
+    private Long originalPrice;
+    private Long status;
+    private Long quantity;
     private String brand;
 }

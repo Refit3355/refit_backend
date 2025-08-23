@@ -1,9 +1,8 @@
 package com.refit.app.domain.me.controller;
 
-import com.refit.app.domain.me.dto.response.MyCombinationResponse;
+import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import com.refit.app.domain.me.dto.response.RecentMyOrderResponse;
 import com.refit.app.domain.me.service.MeService;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +34,7 @@ public class MeController {
      * GET /me/combinations
      */
     @GetMapping("/combinations")
-    public List<MyCombinationResponse> getMyCombinations(
+    public CombinationsResponse getMyCombinations(
             @AuthenticationPrincipal Long memberId) {
         return meService.getMyCombinations(memberId);
     }

@@ -3,7 +3,8 @@ package com.refit.app.domain.me.service;
 import com.refit.app.domain.me.dto.CombinationItemDto;
 import com.refit.app.domain.me.dto.MyOrderDto;
 import com.refit.app.domain.me.dto.MyOrderItemDto;
-import com.refit.app.domain.me.dto.response.MyCombinationResponse;
+import com.refit.app.domain.me.dto.MyCombinationDto;
+import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import com.refit.app.domain.me.dto.response.RecentMyOrderResponse;
 import com.refit.app.domain.me.mapper.MeMapper;
 import lombok.RequiredArgsConstructor;
@@ -55,30 +56,35 @@ public class MeServiceImpl implements MeService{
 
     @Override
     @Transactional(readOnly = true)
-    public List<MyCombinationResponse> getMyCombinations(Long memberId) {
-        List<MyCombinationResponse> combinations = meMapper.findCombinationsByMember(memberId);
+    public CombinationsResponse getMyCombinations(Long memberId) {
+        List<MyCombinationDto> combinations = meMapper.findCombinationsByMember(memberId);
 
-        return combinations.stream().map(combination -> {
+        List<MyCombinationDto> dtoList = combinations.stream().map(combination -> {
             List<CombinationItemDto> items = meMapper.findCombinationItems(combination.getCombinationId());
 
             long originalTotalPrice = items.stream()
                     .mapToLong(CombinationItemDto::getPrice)
                     .sum();
 
-            // 각 상품별 할인율 적용 후 합산
-            long finalTotalPrice = items.stream()
+            long discountedTotalPrice = items.stream()
                     .mapToLong(item -> item.getPrice() - (item.getPrice() * item.getDiscountRate() / 100))
                     .sum();
 
-            return MyCombinationResponse.builder()
+            return MyCombinationDto.builder()
                     .combinationId(combination.getCombinationId())
+                    .memberId(combination.getMemberId())
+                    .nickname(combination.getNickname())
+                    .profileUrl(combination.getProfileUrl())
                     .combinationName(combination.getCombinationName())
+                    .likes(combination.getLikes())
                     .originalTotalPrice(originalTotalPrice)
-                    .finalTotalPrice(finalTotalPrice)
+                    .discountedTotalPrice(discountedTotalPrice)
                     .productImages(items.stream()
                             .map(CombinationItemDto::getThumbnailUrl)
                             .collect(Collectors.toList()))
                     .build();
         }).collect(Collectors.toList());
+
+        return new CombinationsResponse(dtoList);
     }
 }
