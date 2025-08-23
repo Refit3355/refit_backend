@@ -16,7 +16,7 @@ public class CombinationResponse {
     private Long combinationId;
     private String combinationName;
     private String combinationDescription;
-    private int totalPrice;
+    private Long totalPrice;
     private List<CombinationProductDto> products;
 }
 

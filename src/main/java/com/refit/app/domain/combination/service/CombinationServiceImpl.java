@@ -3,8 +3,11 @@ package com.refit.app.domain.combination.service;
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.dto.response.CombinationResponse;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
+import com.refit.app.domain.me.dto.MyCombinationDto;
+import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,10 +20,8 @@ public class CombinationServiceImpl implements CombinationService {
 
     @Override
     public CombinationResponse getCombinationDetail(Long combinationId) {
-        // 조합 기본정보
         CombinationResponse combination = combinationMapper.findCombinationById(combinationId);
 
-        // 조합에 속한 상품들
         List<CombinationProductDto> products = combinationMapper.findProductsByCombinationId(combinationId)
                 .stream()
                 .map(p -> CombinationProductDto.builder()
@@ -34,8 +35,8 @@ public class CombinationServiceImpl implements CombinationService {
                         .build())
                 .collect(Collectors.toList());
 
-        int totalPrice = products.stream()
-                .mapToInt(CombinationProductDto::getDiscountedPrice)
+        Long totalPrice = products.stream()
+                .mapToLong(CombinationProductDto::getDiscountedPrice)
                 .sum();
 
         return CombinationResponse.builder()
@@ -45,5 +46,34 @@ public class CombinationServiceImpl implements CombinationService {
                 .products(products)
                 .totalPrice(totalPrice)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CombinationsResponse getLikedCombinations(List<Long> ids) {
+        List<MyCombinationDto> combinations = combinationMapper.findCombinationsByIds(ids);
+
+        List<MyCombinationDto> dtoList = combinations.stream().map(combination -> {
+            List<CombinationProductDto> items = combinationMapper.findProductsByCombinationId(combination.getCombinationId());
+
+            long originalTotalPrice = items.stream().mapToLong(CombinationProductDto::getPrice).sum();
+            long discountedTotalPrice = items.stream()
+                    .mapToLong(item -> item.getPrice() - (item.getPrice() * item.getDiscountRate() / 100))
+                    .sum();
+
+            return MyCombinationDto.builder()
+                    .combinationId(combination.getCombinationId())
+                    .memberId(combination.getMemberId())
+                    .nickname(combination.getNickname())
+                    .profileUrl(combination.getProfileUrl())
+                    .combinationName(combination.getCombinationName())
+                    .likes(combination.getLikes())
+                    .originalTotalPrice(originalTotalPrice)
+                    .discountedTotalPrice(discountedTotalPrice)
+                    .productImages(items.stream().map(CombinationProductDto::getThumbnailUrl).toList())
+                    .build();
+        }).toList();
+
+        return new CombinationsResponse(dtoList);
     }
 }

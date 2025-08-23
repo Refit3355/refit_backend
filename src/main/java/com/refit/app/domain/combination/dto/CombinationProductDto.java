@@ -13,8 +13,8 @@ public class CombinationProductDto {
     private Long productId;
     private String productName;
     private String brandName;
-    private int price;
-    private int discountRate;
-    private int discountedPrice;
+    private Long price;
+    private Integer discountRate;
+    private Long discountedPrice;
     private String thumbnailUrl;
 }
