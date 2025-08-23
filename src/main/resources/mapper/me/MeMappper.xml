@@ -27,7 +27,7 @@
 
 
     <!-- 조합 목록 조회 -->
-    <select id="findCombinationsByMember" resultType="com.refit.app.domain.me.dto.response.CombinationResponse">
+    <select id="findCombinationsByMember" resultType="com.refit.app.domain.me.dto.response.MyCombinationResponse">
         SELECT
             c.COMBINATION_ID AS combinationId,
             c.COMBINATION_NAME AS combinationName
@@ -48,7 +48,7 @@
                  JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
         WHERE ci.COMBINATION_ID = #{combinationId}
         ORDER BY p.PRODUCT_ID ASC
-            FETCH FIRST 4 ROWS ONLY
+            FETCH FIRST 6 ROWS ONLY
     </select>
 
 </mapper>

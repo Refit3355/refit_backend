@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CombinationResponse {
+public class MyCombinationResponse {
     private Long combinationId;        // 조합 ID
     private String combinationName;    // 조합 이름
     private Long originalTotalPrice;   // 원가 합계

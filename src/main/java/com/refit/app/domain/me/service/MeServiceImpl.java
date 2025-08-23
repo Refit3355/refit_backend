@@ -3,7 +3,7 @@ package com.refit.app.domain.me.service;
 import com.refit.app.domain.me.dto.CombinationItemDto;
 import com.refit.app.domain.me.dto.MyOrderDto;
 import com.refit.app.domain.me.dto.MyOrderItemDto;
-import com.refit.app.domain.me.dto.response.CombinationResponse;
+import com.refit.app.domain.me.dto.response.MyCombinationResponse;
 import com.refit.app.domain.me.dto.response.RecentMyOrderResponse;
 import com.refit.app.domain.me.mapper.MeMapper;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +55,8 @@ public class MeServiceImpl implements MeService{
 
     @Override
     @Transactional(readOnly = true)
-    public List<CombinationResponse> getMyCombinations(Long memberId) {
-        List<CombinationResponse> combinations = meMapper.findCombinationsByMember(memberId);
+    public List<MyCombinationResponse> getMyCombinations(Long memberId) {
+        List<MyCombinationResponse> combinations = meMapper.findCombinationsByMember(memberId);
 
         return combinations.stream().map(combination -> {
             List<CombinationItemDto> items = meMapper.findCombinationItems(combination.getCombinationId());
@@ -70,7 +70,7 @@ public class MeServiceImpl implements MeService{
                     .mapToLong(item -> item.getPrice() - (item.getPrice() * item.getDiscountRate() / 100))
                     .sum();
 
-            return CombinationResponse.builder()
+            return MyCombinationResponse.builder()
                     .combinationId(combination.getCombinationId())
                     .combinationName(combination.getCombinationName())
                     .originalTotalPrice(originalTotalPrice)
