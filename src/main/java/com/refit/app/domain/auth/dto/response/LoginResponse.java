@@ -1,7 +1,9 @@
 package com.refit.app.domain.auth.dto.response;
 
 
+import com.refit.app.domain.auth.dto.HairInfoDto;
 import com.refit.app.domain.auth.dto.HealthInfoDto;
+import com.refit.app.domain.auth.dto.SkinInfoDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,5 +18,7 @@ public class LoginResponse {
     private Long memberId;
     private String nickname;
     private HealthInfoDto health;
+    private HairInfoDto hair;
+    private SkinInfoDto skin;
     private String refreshToken;
 }
