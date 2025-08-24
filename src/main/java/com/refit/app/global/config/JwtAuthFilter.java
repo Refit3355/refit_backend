@@ -28,6 +28,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
+        String uri = request.getRequestURI();
+        if (uri.startsWith("/ws-stomp") || uri.startsWith("/ws-stomp-sockjs")) {
+            // 웹소켓 핸드셰이크/전송 관련 요청은 JWT 필터 우회
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (auth != null && auth.startsWith("Bearer ")) {
