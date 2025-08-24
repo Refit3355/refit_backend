@@ -34,6 +34,7 @@ public class MeServiceImpl implements MeService{
         Map<String, List<MyOrderItemDto>> orderMap = rows.stream()
                 .map(row -> MyOrderItemDto.builder()
                         .orderItemId(row.getOrderItemId())
+                        .productId(row.getProductId())
                         .orderNumber(row.getOrderNumber())
                         .productName(row.getProductName())
                         .thumbnailUrl(row.getThumbnailUrl())
