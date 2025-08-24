@@ -78,13 +78,17 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         Long memberId = memberMapper.findIdByOauthId(u.id());
 
         if (memberId == null) {
-            return new KakaoVerifyResponse(true, u.id(), u.email(), u.nickname(),
-                    u.profileImageUrl(),
-                    null, null, null, null, null);
+            return new KakaoVerifyResponse(
+                    true, u.id(), u.email(), u.nickname(), u.profileImageUrl(),
+                    null, null, null, null, null,
+                    null, null, null
+            );
         }
 
         MemberRowDto m = memberMapper.findBasicById(memberId);
         String refresh = jwtProvider.createRefreshToken(memberId);
+
+        var summary = memberMapper.findHealthSummary(memberId);
 
         KakaoVerifyResponse res = new KakaoVerifyResponse();
         res.setNeedSignup(false);
@@ -97,6 +101,13 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         res.setUserNickname(m.getNickname());
         res.setName(m.getMemberName());
         res.setRefreshToken(refresh);
+
+        if (summary != null) {
+            res.setHealth(summary.getHealth());
+            res.setHair(summary.getHair());
+            res.setSkin(summary.getSkin());
+        }
+
         return res;
     }
 
