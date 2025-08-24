@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.me.mapper.MeMapper">
+
+    <!-- 주문 내역 조회 -->
+    <select id="findOrdersByMemberId" resultType="com.refit.app.domain.me.dto.MyOrderItemDto">
+        SELECT
+        o.ORDER_ID         AS orderId,
+        oi.ORDER_ITEM_ID   AS orderItemId,
+        o.ORDER_NUMBER     AS orderNumber,
+        p.PRODUCT_NAME     AS productName,
+        p.THUMBNAIL_URL    AS thumbnailUrl,
+        oi.CREATED_AT      AS createdAt,
+        oi.ITEM_PRICE      AS price,
+        p.PRICE            AS originalPrice,
+        oi.ORDER_STATUS    AS status,
+        oi.ITEM_COUNT      AS quantity,
+        p.BRAND_NAME       AS brand
+        FROM ORDERS o
+        JOIN ORDER_ITEM oi ON o.ORDER_ID = oi.ORDER_ID
+        JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
+        WHERE o.MEMBER_ID = #{memberId}
+        ORDER BY oi.CREATED_AT DESC
+    </select>
+
+    <!-- 조합 목록 조회 -->
+    <select id="findCombinationsByMember" resultType="com.refit.app.domain.me.dto.MyCombinationDto">
+        SELECT
+            c.COMBINATION_ID   AS combinationId,
+            c.MEMBER_ID        AS memberId,
+            m.NICKNAME         AS nickname,
+            m.PROFILE_URL      AS profileUrl,
+            c.COMBINATION_NAME AS combinationName,
+            c.LIKES            AS likes
+        FROM COMBINATION c
+                 JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
+        WHERE c.MEMBER_ID = #{memberId}
+          AND c.DELETED_AT IS NULL
+        ORDER BY c.CREATED_AT DESC
+    </select>
+
+    <!-- 조합 내 상품들 조회 -->
+    <select id="findCombinationItems" resultType="com.refit.app.domain.me.dto.CombinationItemDto">
+        SELECT
+            p.PRODUCT_ID     AS productId,
+            p.THUMBNAIL_URL  AS thumbnailUrl,
+            p.PRICE          AS price,
+            p.DISCOUNT_RATE  AS discountRate
+        FROM COMBINATION_ITEM ci
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        WHERE ci.COMBINATION_ID = #{combinationId}
+        ORDER BY p.PRODUCT_ID ASC
+            FETCH FIRST 6 ROWS ONLY
+    </select>
+
+</mapper>
