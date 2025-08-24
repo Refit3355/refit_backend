@@ -1,6 +1,7 @@
 package com.refit.app.domain.combination.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
+import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationResponse;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
 import com.refit.app.domain.me.dto.MyCombinationDto;
@@ -75,5 +76,25 @@ public class CombinationServiceImpl implements CombinationService {
         }).toList();
 
         return new CombinationsResponse(dtoList);
+    }
+
+    @Override
+    @Transactional
+    public CombinationLikeResponse likeCombination(Long combinationId) {
+        int updated = combinationMapper.increaseLike(combinationId);
+        if (updated == 0) {
+            throw new IllegalArgumentException("존재하지 않는 조합입니다.");
+        }
+        return new CombinationLikeResponse(combinationId, "좋아요 등록 완료");
+    }
+
+    @Override
+    @Transactional
+    public CombinationLikeResponse dislikeCombination(Long combinationId) {
+        int updated = combinationMapper.decreaseLike(combinationId);
+        if (updated == 0) {
+            throw new IllegalArgumentException("존재하지 않는 조합입니다.");
+        }
+        return new CombinationLikeResponse(combinationId, "좋아요 해제 완료");
     }
 }

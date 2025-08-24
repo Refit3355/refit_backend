@@ -50,5 +50,20 @@
         ORDER BY ci.COMBINATION_ITEM_ID
     </select>
 
+    <!-- 조합 좋아요 증가 -->
+    <update id="increaseLike">
+        UPDATE COMBINATION
+        SET LIKES = LIKES + 1,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE COMBINATION_ID = #{combinationId}
+    </update>
+
+    <!-- 조합 좋아요 감소 -->
+    <update id="decreaseLike">
+        UPDATE COMBINATION
+        SET LIKES = CASE WHEN LIKES > 0 THEN LIKES - 1 ELSE 0 END,
+            UPDATED_AT = SYSTIMESTAMP
+        WHERE COMBINATION_ID = #{combinationId}
+    </update>
 
 </mapper>

@@ -1,6 +1,7 @@
 package com.refit.app.domain.combination.controller;
 
 import com.refit.app.domain.combination.dto.request.LikedCombinationRequest;
+import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationResponse;
 import com.refit.app.domain.combination.service.CombinationService;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
@@ -30,6 +31,20 @@ public class CombinationController {
         CombinationsResponse likedCombinations = combinationService.getLikedCombinations(
                 request.getIds());
         return ResponseEntity.ok(likedCombinations);
+    }
+
+    // 조합 좋아요
+    @PostMapping("/{combinationId}/like")
+    public ResponseEntity<CombinationLikeResponse> likeCombination(
+            @PathVariable Long combinationId) {
+        return ResponseEntity.ok(combinationService.likeCombination(combinationId));
+    }
+
+    // 조합 좋아요 해재
+    @PostMapping("/{combinationId}/dislike")
+    public ResponseEntity<CombinationLikeResponse> dislikeCombination(
+            @PathVariable Long combinationId) {
+        return ResponseEntity.ok(combinationService.dislikeCombination(combinationId));
     }
 
 }
