@@ -5,6 +5,7 @@ import com.refit.app.domain.combination.dto.response.CombinationResponse;
 import com.refit.app.domain.combination.service.CombinationService;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,14 +18,18 @@ public class CombinationController {
 
     // 단일 조합 상세 조회
     @GetMapping("/{combinationId}")
-    public CombinationResponse getCombinationDetail(@PathVariable Long combinationId) {
-        return combinationService.getCombinationDetail(combinationId);
+    public ResponseEntity<CombinationResponse> getCombinationDetail(@PathVariable Long combinationId) {
+        CombinationResponse combinationDetail = combinationService.getCombinationDetail(
+                combinationId);
+        return ResponseEntity.ok(combinationDetail);
     }
 
     // 저장한 조합 목록 조회
     @PostMapping("/like")
-    public CombinationsResponse getLikedCombinations(@RequestBody LikedCombinationRequest request) {
-        return combinationService.getLikedCombinations(request.getIds());
+    public ResponseEntity<CombinationsResponse> getLikedCombinations(@RequestBody LikedCombinationRequest request) {
+        CombinationsResponse likedCombinations = combinationService.getLikedCombinations(
+                request.getIds());
+        return ResponseEntity.ok(likedCombinations);
     }
 
 }

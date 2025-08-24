@@ -55,4 +55,12 @@
             FETCH FIRST 6 ROWS ONLY
     </select>
 
+    <!-- 프로필 이미지 갱신 -->
+    <update id="updateProfileImage">
+        UPDATE MEMBER
+        SET PROFILE_URL = #{url},
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+        WHERE MEMBER_ID = #{memberId}
+    </update>
 </mapper>
