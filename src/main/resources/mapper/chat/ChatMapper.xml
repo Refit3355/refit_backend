@@ -32,6 +32,7 @@
       m.NICKNAME           AS nickname,
       cm.PRODUCT_ID        AS productId,
       cm.MESSAGE_CONTENT   AS message,
+      m.PROFILE_URL        AS profileUrl,
       cm.CREATED_AT        AS createdAt
     FROM CHAT cm
            LEFT JOIN MEMBER m ON m.MEMBER_ID = cm.MEMBER_ID

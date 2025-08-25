@@ -12,5 +12,6 @@ public class ChatMessageResponse {
     private String nickname;
     private Long productId;
     private String message;
+    private String profileUrl;
     private LocalDateTime createdAt;
 }
