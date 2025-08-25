@@ -3,6 +3,7 @@
   "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.refit.app.domain.analysis.mapper.AnalysisMapper">
 
+  <!-- 헬스 워치 건강 데이터 조회 -->
   <select id="selectHealthInfo" parameterType="long"
     resultType="com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto">
     SELECT MEMBER_ID, BLOOD_PRESSURE, BLOOD_GLUCOSE,
@@ -11,6 +12,7 @@
     WHERE MEMBER_ID = #{memberId}
   </select>
 
+  <!-- 피부 고민 데이터 조회 -->
   <select id="selectSkinConcern" parameterType="long"
     resultType="com.refit.app.domain.analysis.dto.AnalysisSkinConcernDto">
     SELECT SKIN_TYPE, ATOPIC, ACNE, WHITENING, SEBUM, INNER_DRYNESS,
@@ -19,6 +21,7 @@
     WHERE MEMBER_ID = #{memberId}
   </select>
 
+  <!-- 건강 고민 데이터 조회 -->
   <select id="selectHealthConcern" parameterType="long"
     resultType="com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto">
     SELECT EYE_HEALTH, FATIGUE, SLEEP_STRESS, IMMUNE_CARE,
@@ -27,6 +30,7 @@
     WHERE MEMBER_ID = #{memberId}
   </select>
 
+  <!-- 헤어 고민 데이터 조회 -->
   <select id="selectHairConcern" parameterType="java.lang.Long"
     resultType="com.refit.app.domain.analysis.dto.AnalysisHairConcernDto">
     SELECT HAIR_LOSS, DAMAGED_HAIR, SCALP_TROUBLE, DANDRUFF
