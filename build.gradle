@@ -83,6 +83,10 @@ dependencies {
 
     // Firebase
     implementation("com.google.firebase:firebase-admin:9.3.0")
+
+    // 웹소켓
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework:spring-messaging'
 }
 
 tasks.named('test') {
