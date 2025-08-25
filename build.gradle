@@ -80,6 +80,10 @@ dependencies {
     // Testcontainers (GenericContainer 사용)
     testImplementation 'org.testcontainers:junit-jupiter:1.20.1'
     testImplementation 'org.testcontainers:testcontainers:1.20.1'
+
+    // 웹소켓
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework:spring-messaging'
 }
 
 tasks.named('test') {
