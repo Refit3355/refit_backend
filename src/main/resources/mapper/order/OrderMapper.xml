@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.order.mapper.OrderMapper">
+
+  <select id="selectUnregisteredOrderItems"
+    parameterType="long"
+    resultType="com.refit.app.domain.order.dto.OrderItemDto">
+    SELECT oi.ORDER_ITEM_ID       AS orderItemId,
+           oi.PRODUCT_ID          AS productId,
+           p.PRODUCT_NAME         AS productName,
+           p.BRAND_NAME           AS brandName,
+           p.THUMBNAIL_URL        AS thumbnailUrl,
+           oi.ITEM_COUNT          AS itemCount,
+           oi.ITEM_PRICE          AS price,
+           NVL(p.DISCOUNT_RATE, 0)                 AS discountRate,
+           ROUND(oi.ITEM_PRICE * (100 - NVL(p.DISCOUNT_RATE, 0)) / 100)  AS discountedPrice,
+           TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD')     AS purchaseDate
+    FROM ORDER_ITEM oi
+           JOIN ORDERS o ON oi.ORDER_ID = o.ORDER_ID
+           JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
+    WHERE o.MEMBER_ID = #{memberId, javaType=long, jdbcType=NUMERIC}
+      AND p.BH_TYPE = #{bhType,   javaType=int,  jdbcType=NUMERIC}
+      AND NOT EXISTS (
+      SELECT 1
+      FROM MEMBER_PRODUCT mp
+      WHERE mp.MEMBER_ID = o.MEMBER_ID
+        AND mp.ORDER_ITEM_ID = oi.ORDER_ITEM_ID
+    )
+    ORDER BY oi.ORDER_ITEM_ID DESC
+  </select>
+
+    <update id="updateOrderItemStatus">
+        UPDATE ORDER_ITEM
+        SET ORDER_STATUS = #{status},
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+        WHERE ORDER_ITEM_ID = #{orderItemId}
+    </update>
+</mapper>

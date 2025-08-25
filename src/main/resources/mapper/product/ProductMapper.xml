@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.product.mapper.ProductMapper">
+
+  <sql id="ProductColumns">
+    p.product_id AS id,
+    p.thumbnail_url     AS thumbnailUrl,
+    p.brand_name        AS brandName,
+    p.product_name      AS productName,
+    p.discount_rate     AS discountRate,
+    p.price             AS price,
+    TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
+  </sql>
+
+  <sql id="NameKeywordWhere">
+    AND LOWER(p.product_name) LIKE CONCAT(CONCAT('%', LOWER(#{keyword})), '%')
+  </sql>
+
+
+  <!-- 1) 최신순: id DESC, 커서 id < lastId -->
+  <select id="findByLatest"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastId != null">
+      AND p.product_id &lt; #{lastId}
+    </if>
+    ORDER BY p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 3) 높은 가격순: discountedPrice DESC, id DESC -->
+  <select id="findByPriceDesc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>, 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastPrice != null">
+      AND (
+      <![CDATA[
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) < #{lastPrice}
+        OR (
+          TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+          AND p.product_id < #{lastId}
+        )
+      ]]>
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 3) 낮은 가격순: discountedPrice ASC, id ASC -->
+  <select id="findByPriceAsc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , 0 AS sales
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="lastPrice != null">
+      AND (
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) > #{lastPrice}
+        OR (
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+        AND p.product_id > #{lastId}
+        )
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) ASC, p.product_id ASC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+
+  <!-- 4) 판매량순: (취소=3 제외) 누적 판매량 DESC, 동일 판매량이면 id DESC -->
+  <select id="findBySalesDesc"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    , NVL(ps.sales, 0) AS sales
+    FROM product p
+    LEFT JOIN (
+    SELECT
+    oi.product_id,
+    SUM(oi.item_count) AS sales
+    FROM order_item oi
+    WHERE oi.deleted_at IS NULL
+    AND oi.order_status IN (0, 1, 2)   <!-- 3(취소) 제외 -->
+    GROUP BY oi.product_id
+    ) ps ON ps.product_id = p.product_id   <!--  키 일치 -->
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+
+    <!-- 커서 조건: 판매량 DESC 페이징 (동률 시 id DESC) -->
+    <if test="lastSales != null">
+      AND (
+      NVL(ps.sales, 0) &lt; #{lastSales}
+      OR (NVL(ps.sales, 0) = #{lastSales} AND p.product_id &lt; #{lastId})
+      )
+    </if>
+
+    ORDER BY NVL(ps.sales, 0) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <select id="countProducts" resultType="int">
+    SELECT COUNT(*)
+    FROM product p
+    WHERE 1=1
+    <if test="categoryId != null">
+      AND p.category_id = #{categoryId}
+    </if>
+    <if test="categoryId == null and catFrom != null and catTo != null">
+      AND p.category_id BETWEEN #{catFrom} AND #{catTo}
+    </if>
+  </select>
+
+  <!-- 상품 상세 조회 -->
+  <select id="selectProductDetail" parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ProductDetailDto">
+    SELECT
+      p.product_id AS id,
+      p.brand_name      AS brandName,
+      p.thumbnail_url   AS thumbnailUrl,
+      p.product_name    AS productName,
+      p.discount_rate   AS discountRate,
+      p.price,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice,
+      p.recommended_period AS recommendedPeriod
+    FROM product p
+    WHERE p.product_id = #{id}
+  </select>
+
+  <!-- 상품 이미지 조회 -->
+  <select id="selectProductImages" parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ImageDto">
+    SELECT
+    i.product_image_id AS id,
+    i.image_url AS url,
+    i.image_order    AS "order"
+    FROM product_image i
+    WHERE i.product_id = #{id}
+    ORDER BY i.image_order
+  </select>
+
+  <!-- 상품 이름 검색 최신순 (id DESC) -->
+  <select id="searchByNameLatest" resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    0 AS sales
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastId != null">
+      AND p.product_id &lt; #{lastId}
+    </if>
+    ORDER BY p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 상품 이름 검색 판매량순 (sales DESC, id DESC) -->
+  <select id="searchByNameSalesDesc" resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    NVL(ps.sales, 0) AS sales
+    FROM product p
+    LEFT JOIN (
+    SELECT oi.product_id, SUM(oi.item_count) AS sales
+    FROM order_item oi
+    WHERE oi.deleted_at IS NULL
+    AND oi.order_status IN (0, 1, 2)  <!-- 취소 제외 -->
+    GROUP BY oi.product_id
+    ) ps ON ps.product_id = p.product_id
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastSales != null">
+      AND (NVL(ps.sales, 0) &lt; #{lastSales}
+      OR (NVL(ps.sales, 0) = #{lastSales} AND p.product_id &lt; #{lastId}))
+    </if>
+    ORDER BY NVL(ps.sales, 0) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 상품 이름 검색 높은 가격순 (할인적용가 DESC, id DESC) -->
+  <select id="searchByNamePriceDesc" resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    0 AS sales
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastPrice != null">
+      AND (
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) &lt; #{lastPrice}
+      OR (
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+      AND p.product_id &lt; #{lastId}
+      )
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) DESC,
+    p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 상품 이름 검색 낮은 가격순 (할인적용가 ASC, id ASC) -->
+  <select id="searchByNamePriceAsc" resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    0 AS sales
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastPrice != null">
+      AND (
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) &gt; #{lastPrice}
+      OR (
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) = #{lastPrice}
+      AND p.product_id &gt; #{lastId}
+      )
+      )
+    </if>
+    ORDER BY TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) ASC,
+    p.product_id ASC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <select id="countProductsByName" resultType="int">
+    SELECT COUNT(*)
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+  </select>
+
+  <!-- 상품 검색 간단한 버전 -->
+  <select id="findSuggestProducts"
+    resultType="com.refit.app.domain.product.dto.ProductSimpleDto">
+    SELECT
+    p.product_id    AS id,
+    p.thumbnail_url AS thumbnailUrl,
+    p.product_name  AS productName
+    FROM product p
+    WHERE 1=1
+    <include refid="NameKeywordWhere"/>
+    <if test="lastId != null">
+      AND p.product_id &lt; #{lastId}   <!-- id DESC 커서 -->
+    </if>
+    ORDER BY p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <!-- 찜 목록 조회: 요청한 id 순서를 그대로 유지하여 반환 -->
+  <select id="getLikedProducts"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    0 AS sales
+    FROM product p
+    WHERE 1=1
+    <!-- ids 비었을 때는 빈 결과를 주기 위해 가드 -->
+    <if test="ids != null and ids.size() > 0">
+      AND p.product_id IN
+      <foreach collection="ids" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+    </if>
+    <if test="ids == null or ids.size() == 0">
+      AND 1 = 0
+    </if>
+    ORDER BY
+    CASE
+    <foreach collection="ids" item="id" index="idx" separator=" ">
+      WHEN p.product_id = #{id} THEN #{idx}
+    </foreach>
+    ELSE 1000000000
+    END DESC
+  </select>
+
+  <!-- 판매량 인기순 -->
+  <select id="selectTopProductsByOrderCount"
+    parameterType="int"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>,
+    NVL(ps.sales, 0)              AS sales
+    FROM product p
+    LEFT JOIN (
+    SELECT
+    oi.product_id,
+    SUM(oi.item_count) AS sales
+    FROM order_item oi
+    WHERE oi.deleted_at IS NULL
+    AND oi.order_status IN (0, 1, 2)
+    GROUP BY oi.product_id
+    ) ps ON ps.product_id = p.product_id
+    ORDER BY NVL(ps.sales, 0) DESC, p.product_id DESC
+    FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+</mapper>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.refit.app.domain.auth.mapper.ConcernMapper">
+
+  <!-- HEALTH_CONCERN 테이블에 upsert 하는 쿼리 -->
+  <insert id="mergeHealth">
+    MERGE INTO HEALTH_CONCERN t
+    USING (
+    SELECT
+    #{memberId} AS MEMBER_ID,
+    NVL(#{h.eyeHealth},0) AS EYE_HEALTH,
+    NVL(#{h.fatigue},0) AS FATIGUE,
+    NVL(#{h.sleepStress},0) AS SLEEP_STRESS,
+    NVL(#{h.immuneCare},0) AS IMMUNE_CARE,
+    NVL(#{h.muscleHealth},0) AS MUSCLE_HEALTH,
+    NVL(#{h.gutHealth},0) AS GUT_HEALTH,
+    NVL(#{h.bloodCirculation},0) AS BLOOD_CIRCULATION
+    FROM dual
+    ) s
+    ON (t.MEMBER_ID = s.MEMBER_ID)
+    WHEN MATCHED THEN
+    UPDATE SET
+    t.EYE_HEALTH = NVL(s.EYE_HEALTH, t.EYE_HEALTH),
+    t.FATIGUE = NVL(s.FATIGUE, t.FATIGUE),
+    t.SLEEP_STRESS = NVL(s.SLEEP_STRESS, t.SLEEP_STRESS),
+    t.IMMUNE_CARE = NVL(s.IMMUNE_CARE, t.IMMUNE_CARE),
+    t.MUSCLE_HEALTH = NVL(s.MUSCLE_HEALTH, t.MUSCLE_HEALTH),
+    t.GUT_HEALTH = NVL(s.GUT_HEALTH, t.GUT_HEALTH),
+    t.BLOOD_CIRCULATION = NVL(s.BLOOD_CIRCULATION, t.BLOOD_CIRCULATION),
+    t.UPDATED_AT = SYSTIMESTAMP,
+    t.UPDATED_BY = #{memberId}
+    WHEN NOT MATCHED THEN
+    INSERT (MEMBER_ID, EYE_HEALTH, FATIGUE, SLEEP_STRESS, IMMUNE_CARE, MUSCLE_HEALTH, GUT_HEALTH,
+    BLOOD_CIRCULATION,
+    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)
+    VALUES (s.MEMBER_ID, s.EYE_HEALTH, s.FATIGUE, s.SLEEP_STRESS, s.IMMUNE_CARE, s.MUSCLE_HEALTH,
+    s.GUT_HEALTH,
+    s.BLOOD_CIRCULATION, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
+  </insert>
+
+  <!-- HAIR_CONCERN 테이블에 업서트하는 쿼리 -->
+  <insert id="mergeHair">
+    MERGE INTO HAIR_CONCERN t
+    USING (
+    SELECT
+    #{memberId} AS MEMBER_ID,
+    NVL(#{h.hairLoss},0) AS HAIR_LOSS,
+    NVL(#{h.damagedHair},0) AS DAMAGED_HAIR,
+    NVL(#{h.scalpTrouble},0) AS SCALP_TROUBLE,
+    NVL(#{h.dandruff},0) AS DANDRUFF
+    FROM dual
+    ) s
+    ON (t.MEMBER_ID = s.MEMBER_ID)
+    WHEN MATCHED THEN
+    UPDATE SET
+    t.HAIR_LOSS = s.HAIR_LOSS,
+    t.DAMAGED_HAIR = s.DAMAGED_HAIR,
+    t.SCALP_TROUBLE = s.SCALP_TROUBLE,
+    t.DANDRUFF = s.DANDRUFF,
+    t.UPDATED_AT = SYSTIMESTAMP,
+    t.UPDATED_BY = 0
+    WHEN NOT MATCHED THEN
+    INSERT (MEMBER_ID, HAIR_LOSS, DAMAGED_HAIR, SCALP_TROUBLE, DANDRUFF, CREATED_AT, CREATED_BY,
+    UPDATED_AT,
+    UPDATED_BY)
+    VALUES (s.MEMBER_ID, s.HAIR_LOSS, s.DAMAGED_HAIR, s.SCALP_TROUBLE, s.DANDRUFF, SYSTIMESTAMP, 0,
+    SYSTIMESTAMP, 0)
+  </insert>
+
+  <!-- SKIN_CONCERN 테이블에 업서트하는 쿼리 -->
+  <insert id="mergeSkin">
+    MERGE INTO SKIN_CONCERN t
+    USING (
+    SELECT
+    #{memberId} AS MEMBER_ID,
+    NVL(#{s.atopic},0) AS ATOPIC,
+    NVL(#{s.acne},0) AS ACNE,
+    NVL(#{s.whitening},0) AS WHITENING,
+    NVL(#{s.sebum},0) AS SEBUM,
+    NVL(#{s.innerDryness},0) AS INNER_DRYNESS,
+    NVL(#{s.wrinkles},0) AS WRINKLES,
+    NVL(#{s.enlargedPores},0) AS ENLARGED_PORES,
+    NVL(#{s.redness},0) AS REDNESS,
+    NVL(#{s.keratin},0) AS KERATIN,
+    NVL(#{s.skinType},0) AS SKIN_TYPE
+    FROM dual
+    ) s
+    ON (t.MEMBER_ID = s.MEMBER_ID)
+    WHEN MATCHED THEN
+    UPDATE SET
+    t.ATOPIC = NVL(s.ATOPIC, t.ATOPIC),
+    t.ACNE = NVL(s.ACNE, t.ACNE),
+    t.WHITENING = NVL(s.WHITENING, t.WHITENING),
+    t.SEBUM = NVL(s.SEBUM, t.SEBUM),
+    t.INNER_DRYNESS = NVL(s.INNER_DRYNESS, t.INNER_DRYNESS),
+    t.WRINKLES = NVL(s.WRINKLES, t.WRINKLES),
+    t.ENLARGED_PORES = NVL(s.ENLARGED_PORES, t.ENLARGED_PORES),
+    t.REDNESS = NVL(s.REDNESS, t.REDNESS),
+    t.KERATIN = NVL(s.KERATIN, t.KERATIN),
+    t.SKIN_TYPE = NVL(s.SKIN_TYPE, t.SKIN_TYPE),
+    t.UPDATED_AT = SYSTIMESTAMP,
+    t.UPDATED_BY = #{memberId}
+    WHEN NOT MATCHED THEN
+    INSERT (MEMBER_ID, ATOPIC, ACNE, WHITENING, SEBUM, INNER_DRYNESS, WRINKLES, ENLARGED_PORES,
+    REDNESS, KERATIN, SKIN_TYPE,
+    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)
+    VALUES (s.MEMBER_ID, s.ATOPIC, s.ACNE, s.WHITENING, s.SEBUM, s.INNER_DRYNESS, s.WRINKLES,
+    s.ENLARGED_PORES,
+    s.REDNESS, s.KERATIN, s.SKIN_TYPE, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0)
+  </insert>
+</mapper>
