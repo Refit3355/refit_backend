@@ -1,5 +1,6 @@
 package com.refit.app.domain.analysis.mapper;
 
+import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
 import com.refit.app.domain.analysis.dto.AnalysisSkinConcernDto;
@@ -14,4 +15,6 @@ public interface AnalysisMapper {
     AnalysisSkinConcernDto selectSkinConcern(@Param("memberId") Long memberId);
 
     AnalysisHealthConcernDto selectHealthConcern(@Param("memberId") Long memberId);
+
+    AnalysisHairConcernDto selectHairConcern(@Param("memberId") Long memberId);
 }

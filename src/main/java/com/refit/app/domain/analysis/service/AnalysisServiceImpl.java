@@ -1,5 +1,6 @@
 package com.refit.app.domain.analysis.service;
 
+import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
 import com.refit.app.domain.analysis.dto.AnalysisSkinConcernDto;
@@ -22,6 +23,7 @@ public class AnalysisServiceImpl implements AnalysisService {
         AnalysisHealthInfoDto hi = analysisMapper.selectHealthInfo(memberId);
         AnalysisSkinConcernDto sc = analysisMapper.selectSkinConcern(memberId);
         AnalysisHealthConcernDto hc = analysisMapper.selectHealthConcern(memberId);
+        AnalysisHairConcernDto hcHair = analysisMapper.selectHairConcern(memberId);
 
         int skinType = 1;
         if (sc != null && sc.getSkinType() != null) {
@@ -85,6 +87,22 @@ public class AnalysisServiceImpl implements AnalysisService {
             }
         }
 
+        List<String> hairConcerns = new ArrayList<>();
+        if (hcHair != null) {
+            if (on(hcHair.getHairLoss())) {
+                hairConcerns.add("HAIR_LOSS");
+            }
+            if (on(hcHair.getDamagedHair())) {
+                hairConcerns.add("DAMAGED_HAIR");
+            }
+            if (on(hcHair.getScalpTrouble())) {
+                hairConcerns.add("SCALP_TROUBLE");
+            }
+            if (on(hcHair.getDandruff())) {
+                hairConcerns.add("DANDRUFF");
+            }
+        }
+
         var metrics = MemberStatusResponse.Metrics.builder()
                 .bloodPressure(hi != null ? hi.getBloodPressure() : null)
                 .bloodGlucose(hi != null ? hi.getBloodGlucose() : null)
@@ -98,6 +116,7 @@ public class AnalysisServiceImpl implements AnalysisService {
                 .skinTypeName(skinTypeName)
                 .skinConcerns(skinConcerns)
                 .healthConcerns(healthConcerns)
+                .hairConcerns(hairConcerns)
                 .metrics(metrics)
                 .build();
     }

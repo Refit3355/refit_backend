@@ -27,4 +27,11 @@
     WHERE MEMBER_ID = #{memberId}
   </select>
 
+  <select id="selectHairConcern" parameterType="java.lang.Long"
+    resultType="com.refit.app.domain.analysis.dto.AnalysisHairConcernDto">
+    SELECT HAIR_LOSS, DAMAGED_HAIR, SCALP_TROUBLE, DANDRUFF
+    FROM HAIR_CONCERN
+    WHERE MEMBER_ID = #{memberId}
+  </select>
+
 </mapper>

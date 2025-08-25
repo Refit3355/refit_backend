@@ -19,6 +19,7 @@ public class MemberStatusResponse {
     private String skinTypeName;
     private List<String> skinConcerns;
     private List<String> healthConcerns;
+    private List<String> hairConcerns;
     private Metrics metrics;
 
     @Getter
