@@ -75,4 +75,33 @@
     ) THEN 1 ELSE 0 END
     FROM DUAL
   </select>
+
+  <select id="findRoomsByTab"
+    resultType="com.refit.app.domain.chat.dto.ChatRoomDto">
+    SELECT
+    cat.CATEGORY_ID                           AS categoryId,
+    cat.CATEGORY_NAME                         AS categoryName,
+    MAX(c.CHAT_ID)                            AS lastChatId,
+    MAX(c.MESSAGE_CONTENT)
+    KEEP (DENSE_RANK LAST ORDER BY c.CHAT_ID) AS lastMessage,
+    MAX(c.CREATED_AT)
+    KEEP (DENSE_RANK LAST ORDER BY c.CHAT_ID) AS lastAt
+    FROM CATEGORY cat
+    LEFT JOIN CHAT c
+    ON c.CATEGORY_ID = cat.CATEGORY_ID
+    WHERE 1=1
+    <choose>
+      <when test="tab == 'beauty'">
+        AND cat.CATEGORY_ID BETWEEN 0 AND 7
+      </when>
+      <when test="tab == 'health'">
+        AND cat.CATEGORY_ID BETWEEN 8 AND 11
+      </when>
+      <otherwise>
+        <!-- all: 필터 없음 -->
+      </otherwise>
+    </choose>
+    GROUP BY cat.CATEGORY_ID, cat.CATEGORY_NAME
+    ORDER BY NVL(MAX(c.CHAT_ID), 0) DESC
+  </select>
 </mapper>

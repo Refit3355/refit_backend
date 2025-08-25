@@ -1,6 +1,7 @@
 package com.refit.app.domain.chat.mapper;
 
 import com.refit.app.domain.chat.dto.ChatMessageDto;
+import com.refit.app.domain.chat.dto.ChatRoomDto;
 import com.refit.app.domain.chat.dto.response.ChatMessageResponse;
 import java.util.List;
 import java.util.Map;
@@ -18,4 +19,6 @@ public interface ChatMapper {
 
     int existsOlder(@Param("categoryId") Long categoryId,
             @Param("beforeId") Long beforeId);
+
+    List<ChatRoomDto> findRoomsByTab(@Param("tab") String tab);
 }

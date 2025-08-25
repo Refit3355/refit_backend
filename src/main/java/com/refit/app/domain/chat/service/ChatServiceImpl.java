@@ -1,6 +1,7 @@
 package com.refit.app.domain.chat.service;
 
 import com.refit.app.domain.chat.dto.ChatMessageDto;
+import com.refit.app.domain.chat.dto.ChatRoomDto;
 import com.refit.app.domain.chat.dto.request.ChatSendRequest;
 import com.refit.app.domain.chat.dto.response.ChatListResponse;
 import com.refit.app.domain.chat.dto.response.ChatMessageResponse;
@@ -94,6 +95,12 @@ public class ChatServiceImpl implements ChatService {
         }
 
         return new ChatListResponse(items, nextCursor, hasNext);
+    }
+
+    @Override
+    public List<ChatRoomDto> getRooms(String tab) {
+        String t = (tab == null) ? "all" : tab.toLowerCase();
+        return chatMapper.findRoomsByTab(t);
     }
 
     private Long getLastChatId(List<ChatMessageDto> items) {

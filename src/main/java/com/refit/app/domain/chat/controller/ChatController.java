@@ -1,7 +1,9 @@
 package com.refit.app.domain.chat.controller;
 
+import com.refit.app.domain.chat.dto.ChatRoomDto;
 import com.refit.app.domain.chat.dto.response.ChatListResponse;
 import com.refit.app.domain.chat.service.ChatService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,5 +26,11 @@ public class ChatController {
             @RequestParam(name = "size", defaultValue = "10") Integer size
     ) {
         return ResponseEntity.ok(chatService.getHistory(categoryId, cursor, size));
+    }
+
+    @GetMapping("/rooms")
+    public ResponseEntity<List<ChatRoomDto>> listRooms(
+            @RequestParam(name = "tab", defaultValue = "all") String tab) {
+        return ResponseEntity.ok(chatService.getRooms(tab));
     }
 }
