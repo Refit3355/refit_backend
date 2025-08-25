@@ -1,10 +1,14 @@
 package com.refit.app.domain.chat.service;
 
+import com.refit.app.domain.chat.dto.ChatMessageDto;
 import com.refit.app.domain.chat.dto.request.ChatSendRequest;
+import com.refit.app.domain.chat.dto.response.ChatListResponse;
 import com.refit.app.domain.chat.dto.response.ChatMessageResponse;
 import com.refit.app.domain.chat.mapper.ChatMapper;
+import com.refit.app.global.util.CursorUtil;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,4 +58,55 @@ public class ChatServiceImpl implements ChatService {
 
         return saved;
     }
+
+    @Transactional(readOnly = true)
+    public ChatListResponse getHistory(Long categoryId, String cursor, Integer size) {
+        if (categoryId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "categoryId required");
+        }
+
+        // 커서 해석
+        Map<String, Object> c = CursorUtil.decode(cursor);
+        Long beforeId = CursorUtil.asLong(c.get("beforeId"));
+
+        // 조회
+        Map<String, Object> p = new HashMap<>();
+        p.put("categoryId", categoryId);
+        p.put("beforeId", beforeId);
+        p.put("size", size);
+
+        List<ChatMessageDto> items = chatMapper.findHistory(p);
+
+        // nextCursor / hasNext 계산
+        String nextCursor = null;
+        boolean hasNext = false;
+
+        if (!items.isEmpty()) {
+            Long lastId = items.get(items.size() - 1).getChatId();
+
+            // 별도 EXISTS 조회로 hasNext 판단
+            int exists = chatMapper.existsOlder(categoryId, lastId);
+            hasNext = (exists == 1);
+
+            if (hasNext) {
+                nextCursor = CursorUtil.encode(Map.of("beforeId", lastId));
+            }
+        }
+
+        return new ChatListResponse(items, nextCursor, hasNext);
+    }
+
+    private Long getLastChatId(List<ChatMessageDto> items) {
+        // 정렬이 DESC라면 리스트의 마지막 요소가 가장 오래된 메시지
+        ChatMessageDto last = items.get(items.size() - 1);
+        try {
+            var f = last.getClass().getDeclaredField("chatId");
+            f.setAccessible(true);
+            return (Long) f.get(last);
+        } catch (Exception ignore) {
+            // chatId 필드가 없다면, 필요 시 별도 DTO/매핑으로 처리
+            return null;
+        }
+    }
+
 }

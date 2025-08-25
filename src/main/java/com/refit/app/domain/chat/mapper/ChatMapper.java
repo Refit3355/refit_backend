@@ -1,13 +1,21 @@
 package com.refit.app.domain.chat.mapper;
 
+import com.refit.app.domain.chat.dto.ChatMessageDto;
 import com.refit.app.domain.chat.dto.response.ChatMessageResponse;
+import java.util.List;
 import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface ChatMapper {
 
     void insertFromRequest(Map<String, Object> param);
 
-    ChatMessageResponse findByIdWithNickname(Long chatId);
+    ChatMessageResponse findByIdWithNickname(@Param("chatId") Long chatId);
+
+    List<ChatMessageDto> findHistory(Map<String, Object> param);
+
+    int existsOlder(@Param("categoryId") Long categoryId,
+            @Param("beforeId") Long beforeId);
 }

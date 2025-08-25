@@ -38,4 +38,41 @@
            LEFT JOIN MEMBER m ON m.MEMBER_ID = cm.MEMBER_ID
     WHERE cm.CHAT_ID = #{chatId}
   </select>
+
+  <!-- 카테고리 과거 히스토리: 최신 → 과거 (DESC) 정렬, beforeId 커서로 더 과거 페이지 -->
+  <select id="findHistory" parameterType="map"
+    resultType="com.refit.app.domain.chat.dto.ChatMessageDto">
+    SELECT *
+    FROM (
+    SELECT
+    c.CHAT_ID          AS chatId,
+    c.CATEGORY_ID      AS categoryId,
+    c.MEMBER_ID        AS memberId,
+    m.NICKNAME         AS nickname,
+    c.PRODUCT_ID       AS productId,
+    c.MESSAGE_CONTENT  AS message,
+    m.PROFILE_URL      AS profileUrl,
+    c.CREATED_AT       AS createdAt
+    FROM CHAT c
+    LEFT JOIN MEMBER m
+    ON m.MEMBER_ID = c.MEMBER_ID
+    WHERE c.CATEGORY_ID = #{categoryId, jdbcType=NUMERIC}
+    <if test="beforeId != null">
+      AND c.CHAT_ID <![CDATA[ < ]]> #{beforeId, jdbcType=NUMERIC}
+    </if>
+    ORDER BY c.CHAT_ID DESC
+    )
+    WHERE ROWNUM &lt;= #{size, jdbcType=NUMERIC}
+  </select>
+
+  <select id="existsOlder" resultType="int">
+    SELECT CASE WHEN EXISTS (
+      SELECT 1
+      FROM CHAT c
+      WHERE c.CATEGORY_ID = #{categoryId, jdbcType=NUMERIC}
+        AND c.CHAT_ID <![CDATA[ < ]]> #{beforeId, jdbcType=NUMERIC}
+        AND ROWNUM &lt;= 1
+    ) THEN 1 ELSE 0 END
+    FROM DUAL
+  </select>
 </mapper>
