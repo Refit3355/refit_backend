@@ -57,7 +57,6 @@ public class S3Uploader {
                     .bucket(bucket)
                     .key(key)
                     .contentType(file.getContentType())
-                    .acl(ObjectCannedACL.PUBLIC_READ) // 버킷 정책에 따라 무시될 수 있음
                     .build();
 
             s3.putObject(put, RequestBody.fromBytes(file.getBytes()));

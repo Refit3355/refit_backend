@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.auth.mapper.HealthInfoMapper">
+
+    <select id="existsByMemberId" resultType="int">
+        SELECT COUNT(*)
+        FROM HEALTH_INFO
+        WHERE MEMBER_ID = #{memberId}
+    </select>
+
+    <insert id="insertHealthInfo">
+        INSERT INTO HEALTH_INFO (
+            MEMBER_ID, STEPS, TOTAL_CALORIES_BURNED, BLOOD_GLUCOSE,
+            BLOOD_PRESSURE, NUTRITION, SLEEPSESSION,
+            CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+        ) VALUES (
+                     #{memberId}, #{req.steps}, #{req.totalKcal}, #{req.bloodGlucoseMgdl},
+                     NULL, #{req.intakeKcal}, #{req.sleepMinutes},
+                     SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+                 )
+    </insert>
+
+    <update id="updateHealthInfo">
+        UPDATE HEALTH_INFO
+        SET STEPS = #{req.steps},
+            TOTAL_CALORIES_BURNED = #{req.totalKcal},
+            BLOOD_GLUCOSE = #{req.bloodGlucoseMgdl},
+            BLOOD_PRESSURE = NULL,
+            NUTRITION = #{req.intakeKcal},
+            SLEEPSESSION = #{req.sleepMinutes},
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+        WHERE MEMBER_ID = #{memberId}
+    </update>
+
+</mapper>

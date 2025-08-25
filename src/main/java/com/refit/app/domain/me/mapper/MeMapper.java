@@ -17,4 +17,7 @@ public interface MeMapper {
 
     // 회원의 상품 목록
     List<CombinationItemDto> findCombinationItems(@Param("combinationId") Long combinationId);
+
+    // 프로필 이미지 갱신
+    void updateProfileImage(@Param("memberId") Long memberId, @Param("url") String url);
 }
