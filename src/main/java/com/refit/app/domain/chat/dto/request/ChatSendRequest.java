@@ -11,7 +11,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 public class ChatSendRequest {
+    private Long categoryId;
     private Long memberId;
-    private Long productId;        // 선택
+    private Long productId;
     @NotNull private String message;
 }

@@ -5,16 +5,22 @@
 <mapper namespace="com.refit.app.domain.chat.mapper.ChatMapper">
   <insert id="insertFromRequest" parameterType="map">
     <selectKey keyProperty="chatId" resultType="long" order="BEFORE">
-      SELECT CHAT_MESSAGE_SEQ.NEXTVAL FROM DUAL
+      SELECT SEQ_CHAT.NEXTVAL FROM DUAL
     </selectKey>
-    INSERT INTO CHAT_MESSAGE (
-    CHAT_ID, CATEGORY_ID, MEMBER_ID, PRODUCT_ID, MESSAGE_CONTENT
+    INSERT INTO CHAT (
+    CHAT_ID,
+    CATEGORY_ID,
+    MEMBER_ID,
+    PRODUCT_ID,
+    MESSAGE_CONTENT,
+    CREATED_AT
     ) VALUES (
-    #{chatId},
-    #{req.categoryId},
-    #{req.memberId},
-    #{req.productId},
-    #{req.message}
+    #{chatId,         jdbcType=NUMERIC},
+    #{req.categoryId, jdbcType=NUMERIC},
+    #{memberId,       jdbcType=NUMERIC},
+    #{req.productId,  jdbcType=NUMERIC},
+    #{req.message,    jdbcType=VARCHAR},
+    SYSTIMESTAMP
     )
   </insert>
 
@@ -27,7 +33,7 @@
       cm.PRODUCT_ID        AS productId,
       cm.MESSAGE_CONTENT   AS message,
       cm.CREATED_AT        AS createdAt
-    FROM CHAT_MESSAGE cm
+    FROM CHAT cm
            LEFT JOIN MEMBER m ON m.MEMBER_ID = cm.MEMBER_ID
     WHERE cm.CHAT_ID = #{chatId}
   </select>

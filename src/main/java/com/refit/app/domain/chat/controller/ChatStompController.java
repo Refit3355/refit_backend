@@ -6,14 +6,11 @@ import com.refit.app.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.stereotype.Controller;
 
 @RequiredArgsConstructor
-@RestController
+@Controller
 @Slf4j
 @MessageMapping("/chat")
 public class ChatStompController {
@@ -22,24 +19,23 @@ public class ChatStompController {
     private final ChatService chatService;
 
     @MessageMapping("/send")
-    public void send(@AuthenticationPrincipal Long memberId,
-            ChatSendRequest req,
-            SimpMessageHeaderAccessor headers) {
+    public void send(@org.springframework.messaging.handler.annotation.Payload ChatSendRequest req,
+            org.springframework.messaging.simp.SimpMessageHeaderAccessor headers,
+            java.security.Principal principal) {
 
-        // 1) 들어온 프레임 로그
-        log.info("==== Chat SEND 요청 수신 ====");
-        log.info("memberId from @AuthenticationPrincipal = {}", memberId);
-        log.info("ChatSendRequest = {}", req);
-        log.info("Session Attributes = {}", headers.getSessionAttributes());
+        Long memberId = null;
+        if (principal instanceof org.springframework.security.authentication.UsernamePasswordAuthenticationToken a
+                && a.getPrincipal() instanceof Long u) {
+            memberId = u;
+        }
+        if (memberId == null) {
+            Object mid = headers.getSessionAttributes().get("memberId");
+            if (mid != null) memberId = Long.valueOf(String.valueOf(mid));
+        }
+        if (memberId == null) throw new org.springframework.security.access.AccessDeniedException("login required");
 
-        // 2) 서비스 호출
         ChatMessageResponse saved = chatService.saveMessage(memberId, req);
-
-        // 3) DB 저장 후 응답 로그
-        log.info("==== ChatMessageResponse (브로드캐스트 직전) ====");
-        log.info("saved = {}", saved);
-
-        // 4) 브로드캐스트
-        template.convertAndSend("/topic/chat." + saved.getCategoryId(), saved);
+        Long catId = (saved.getCategoryId() != null) ? saved.getCategoryId() : req.getCategoryId();
+        template.convertAndSend("/topic/chat." + catId, saved);
     }
 }

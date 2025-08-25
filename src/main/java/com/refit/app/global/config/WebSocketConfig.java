@@ -1,30 +1,35 @@
 package com.refit.app.global.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.*;
 
-@Configuration
+@RequiredArgsConstructor
 @EnableWebSocketMessageBroker
+@Configuration
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final StompAuthInterceptor stompAuthInterceptor;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // 1) 네이티브 WebSocket (Postman/안드로이드 테스트용)
         registry.addEndpoint("/ws-stomp")
-                .setAllowedOriginPatterns("*");
-
-        // 2) SockJS (브라우저 폴백이 필요하면 별도로 유지)
+                .setAllowedOriginPatterns("http://127.0.0.1:5502","http://localhost:5502","*"); // 개발 중
         registry.addEndpoint("/ws-stomp-sockjs")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+                .setAllowedOriginPatterns("http://127.0.0.1:5502","http://localhost:5502","*")
+                .withSockJS(); // 네이티브와 분리
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // 메세지 구독 요청 url -> 메세지 받을 때
-        registry.enableSimpleBroker("/topic");
-
-        // 메세지 발행 요청 url -> 메세지 보낼 때
         registry.setApplicationDestinationPrefixes("/app");
+        registry.enableSimpleBroker("/topic");
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(stompAuthInterceptor);
     }
 }
