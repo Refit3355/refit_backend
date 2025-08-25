@@ -5,20 +5,24 @@ import com.refit.app.domain.me.dto.MyOrderDto;
 import com.refit.app.domain.me.dto.MyOrderItemDto;
 import com.refit.app.domain.me.dto.MyCombinationDto;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
+import com.refit.app.domain.me.dto.response.ProfileImageSaveResponse;
 import com.refit.app.domain.me.dto.response.RecentMyOrderResponse;
 import com.refit.app.domain.me.mapper.MeMapper;
+import com.refit.app.infra.file.s3.S3Uploader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 public class MeServiceImpl implements MeService{
 
     private final MeMapper meMapper;
+    private final S3Uploader s3Uploader;
 
     @Override
     @Transactional(readOnly = true)
@@ -30,6 +34,7 @@ public class MeServiceImpl implements MeService{
         Map<String, List<MyOrderItemDto>> orderMap = rows.stream()
                 .map(row -> MyOrderItemDto.builder()
                         .orderItemId(row.getOrderItemId())
+                        .productId(row.getProductId())
                         .orderNumber(row.getOrderNumber())
                         .productName(row.getProductName())
                         .thumbnailUrl(row.getThumbnailUrl())
@@ -86,5 +91,17 @@ public class MeServiceImpl implements MeService{
         }).collect(Collectors.toList());
 
         return new CombinationsResponse(dtoList);
+    }
+
+    @Override
+    @Transactional
+    public ProfileImageSaveResponse updateProfileImage(Long memberId, MultipartFile profileImage) {
+        // S3에 프사 파일 업로드
+        String url = s3Uploader.uploadProfile(profileImage);
+
+        // DB 업데이트
+        meMapper.updateProfileImage(memberId, url);
+
+        return new ProfileImageSaveResponse(url, "프로필 이미지가 성공적으로 업데이트되었습니다.");
     }
 }

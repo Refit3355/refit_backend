@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MyOrderItemDto {
     private Long orderItemId;
+    private Long productId;
     private String orderNumber;
     private String productName;
     private String thumbnailUrl;

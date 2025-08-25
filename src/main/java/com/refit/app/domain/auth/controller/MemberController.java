@@ -3,10 +3,12 @@ package com.refit.app.domain.auth.controller;
 import com.refit.app.domain.auth.dto.ConcernSummaryDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
 import com.refit.app.domain.auth.dto.request.LoginRequest;
+import com.refit.app.domain.auth.dto.request.SamsungHealthSaveRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
 import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
+import com.refit.app.domain.auth.dto.response.SamsungHealthSaveResponse;
 import com.refit.app.domain.auth.dto.response.SignupResponse;
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.auth.service.MemberService;
@@ -18,7 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -125,4 +129,12 @@ public class MemberController {
         return new UtilResponse<>("SUCCESS", "조회가 완료되었습니다.", data);
     }
 
+    @PostMapping("/health/samsung")
+    public ResponseEntity<SamsungHealthSaveResponse> saveSamsungHealth(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody SamsungHealthSaveRequest request
+    ) {
+        SamsungHealthSaveResponse res = memberService.saveSamsungHealth(memberId, request);
+        return ResponseEntity.ok(res);
+    }
 }

@@ -15,4 +15,7 @@ public interface CombinationMapper {
     List<CombinationProductDto> findProductsByCombinationId(@Param("combinationId") Long combinationId);
 
     List<MyCombinationDto> findCombinationsByIds(@Param("ids") List<Long> ids);
+
+    int increaseLike(@Param("combinationId") Long combinationId);
+    int decreaseLike(@Param("combinationId") Long combinationId);
 }

@@ -11,4 +11,9 @@ public interface OrderMapper {
     List<OrderItemDto> selectUnregisteredOrderItems(
             @Param("memberId") Long memberId,
             @Param("bhType") Integer bhType);
+
+    long updateOrderItemStatus(
+            @Param("memberId") Long memberId,
+            @Param("orderItemId") Long orderItemId,
+            @Param("status") int status);
 }
