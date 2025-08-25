@@ -38,7 +38,7 @@ public class SecurityConfig {
                                 "/auth/refresh",
                                 "/auth/oauth/kakao/**",
                                 "/products/**",
-                                "/api/test/**"
+                                "/api/analysis/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
