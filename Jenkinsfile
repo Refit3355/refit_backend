@@ -136,7 +136,10 @@ pipeline {
               \\"docker rm -f redis || true\\", \\
               \\"docker run -d --name redis --restart=always -p 6379:6379 redis:7\\", \\
               \\"docker rm -f refit || true\\", \\
-              \\"docker run -d --name refit --restart=always -p 8080:8080 -v /opt/config/application.yml:/app/config/application.yml -e TNS_ADMIN=/home/ec2-user/oci-wallet ${IMAGE_URI}\\" \\
+              \\"docker run -d --name refit --restart=always -p 8080:8080 \\
+                    -v /opt/config/application.yml:/app/config/application.yml \\
+                    -v /home/ec2-user/oci-wallet:/app/oci-wallet \\
+                    -e TNS_ADMIN=/app/oci-wallet ${IMAGE_URI}\\" \\
             ]" \
             --output text >/dev/null
         '''
