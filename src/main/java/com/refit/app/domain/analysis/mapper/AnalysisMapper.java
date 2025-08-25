@@ -1,0 +1,17 @@
+package com.refit.app.domain.analysis.mapper;
+
+import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
+import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
+import com.refit.app.domain.analysis.dto.AnalysisSkinConcernDto;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+@Mapper
+public interface AnalysisMapper {
+
+    AnalysisHealthInfoDto selectHealthInfo(@Param("memberId") Long memberId);
+
+    AnalysisSkinConcernDto selectSkinConcern(@Param("memberId") Long memberId);
+
+    AnalysisHealthConcernDto selectHealthConcern(@Param("memberId") Long memberId);
+}
