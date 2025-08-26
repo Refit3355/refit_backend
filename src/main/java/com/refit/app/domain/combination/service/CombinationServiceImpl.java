@@ -1,8 +1,10 @@
 package com.refit.app.domain.combination.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
+import com.refit.app.domain.combination.dto.CombinationResponseDto;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
-import com.refit.app.domain.combination.dto.response.CombinationResponse;
+import com.refit.app.domain.combination.dto.response.CombinationListResponse;
+import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
 import com.refit.app.domain.me.dto.MyCombinationDto;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
@@ -20,8 +22,8 @@ public class CombinationServiceImpl implements CombinationService {
     private final CombinationMapper combinationMapper;
 
     @Override
-    public CombinationResponse getCombinationDetail(Long combinationId) {
-        CombinationResponse combination = combinationMapper.findCombinationById(combinationId);
+    public MyCombinationResponse getCombinationDetail(Long combinationId) {
+        MyCombinationResponse combination = combinationMapper.findCombinationById(combinationId);
 
         List<CombinationProductDto> products = combinationMapper.findProductsByCombinationId(combinationId)
                 .stream()
@@ -40,7 +42,7 @@ public class CombinationServiceImpl implements CombinationService {
                 .mapToLong(CombinationProductDto::getDiscountedPrice)
                 .sum();
 
-        return CombinationResponse.builder()
+        return MyCombinationResponse.builder()
                 .combinationId(combination.getCombinationId())
                 .combinationName(combination.getCombinationName())
                 .combinationDescription(combination.getCombinationDescription())
@@ -97,4 +99,23 @@ public class CombinationServiceImpl implements CombinationService {
         }
         return new CombinationLikeResponse(combinationId, "좋아요 해제 완료");
     }
+
+    @Override
+    @Transactional
+    public CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit) {
+        Integer bhType = null;
+        if ("beauty".equalsIgnoreCase(type)) bhType = 0;
+        else if ("health".equalsIgnoreCase(type)) bhType = 1;
+
+        List<CombinationResponseDto> combos = combinationMapper.findCombinations(bhType, sort, combinationId, limit);
+        Long totalCount = combinationMapper.countCombinations();
+
+        combos.forEach(c -> {
+            List<String> images = combinationMapper.findProductImagesByCombinationId(c.getCombinationId());
+            c.setProductImages(images);
+        });
+
+        return new CombinationListResponse(combos, totalCount);
+    }
+
 }
