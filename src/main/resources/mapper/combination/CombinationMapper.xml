@@ -70,27 +70,31 @@
     <select id="findCombinations"
             parameterType="map"
             resultType="com.refit.app.domain.combination.dto.CombinationResponseDto">
+        WITH COMB_PRICE AS (
         SELECT
-        c.COMBINATION_ID     AS combinationId,
-        c.COMBINATION_NAME   AS combinationName,
-        c.LIKES              AS likes,
-        c.CREATED_AT         AS createdAt,
-        (
-        SELECT SUM(p.PRICE)
-        FROM COMBINATION_ITEM ci
-        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-        ) AS originalTotalPrice,
-        (
-        SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-        FROM COMBINATION_ITEM ci
-        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-        ) AS discountedTotalPrice
+        c.COMBINATION_ID,
+        c.COMBINATION_NAME,
+        c.LIKES,
+        c.CREATED_AT,
+        c.BH_TYPE,
+        SUM(p.PRICE) AS originalTotalPrice,
+        SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100)) AS discountedTotalPrice
         FROM COMBINATION c
+        JOIN COMBINATION_ITEM ci ON ci.COMBINATION_ID = c.COMBINATION_ID
+        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        GROUP BY c.COMBINATION_ID, c.COMBINATION_NAME, c.LIKES, c.CREATED_AT, c.BH_TYPE
+        )
+        SELECT
+        cp.COMBINATION_ID     AS combinationId,
+        cp.COMBINATION_NAME   AS combinationName,
+        cp.LIKES              AS likes,
+        cp.CREATED_AT         AS createdAt,
+        cp.originalTotalPrice,
+        cp.discountedTotalPrice
+        FROM COMB_PRICE cp
         <where>
             <if test="bhType != null">
-                AND c.BH_TYPE = #{bhType}
+                AND cp.BH_TYPE = #{bhType}
             </if>
 
             <if test="combinationId != null">
@@ -98,117 +102,64 @@
                     <!-- 인기순 -->
                     <when test="sort == 'popular'">
                         AND (
-                        (c.LIKES < (SELECT c2.LIKES FROM COMBINATION c2 WHERE c2.COMBINATION_ID = #{combinationId}))
-                        OR (
-                        c.LIKES = (SELECT c2.LIKES FROM COMBINATION c2 WHERE c2.COMBINATION_ID = #{combinationId})
-                        AND c.COMBINATION_ID > #{combinationId}
-                        )
+                        (cp.LIKES &lt; (SELECT c2.LIKES FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.LIKES = (SELECT c2.LIKES FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
                         )
                     </when>
 
                     <!-- 최신순 -->
                     <when test="sort == 'latest'">
                         AND (
-                        (c.CREATED_AT < (SELECT c2.CREATED_AT FROM COMBINATION c2 WHERE c2.COMBINATION_ID = #{combinationId}))
-                        OR (
-                        c.CREATED_AT = (SELECT c2.CREATED_AT FROM COMBINATION c2 WHERE c2.COMBINATION_ID = #{combinationId})
-                        AND c.COMBINATION_ID > #{combinationId}
-                        )
+                        (cp.CREATED_AT &lt; (SELECT c2.CREATED_AT FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.CREATED_AT = (SELECT c2.CREATED_AT FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
                         )
                     </when>
 
                     <!-- 낮은 가격순 -->
                     <when test="sort == 'lowPrice'">
                         AND (
-                        (
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-                        )
-                        >
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = #{combinationId}
-                        )
-                        )
-                        OR (
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-                        )
-                        =
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = #{combinationId}
-                        )
-                        AND c.COMBINATION_ID > #{combinationId}
-                        )
+                        (cp.discountedTotalPrice &gt; (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.discountedTotalPrice = (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
                         )
                     </when>
 
                     <!-- 높은 가격순 -->
                     <when test="sort == 'highPrice'">
                         AND (
-                        (
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-                        )
-                        <
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = #{combinationId}
-                        )
-                        )
-                        OR (
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = c.COMBINATION_ID
-                        )
-                        =
-                        (SELECT SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
-                        FROM COMBINATION_ITEM ci
-                        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-                        WHERE ci.COMBINATION_ID = #{combinationId}
-                        )
-                        AND c.COMBINATION_ID > #{combinationId}
-                        )
+                        (cp.discountedTotalPrice &lt; (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.discountedTotalPrice = (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
                         )
                     </when>
                 </choose>
             </if>
         </where>
 
-        <!-- 정렬 (무조건 tie-breaker ID 포함) -->
         <choose>
             <when test="sort == 'popular'">
-                ORDER BY c.LIKES DESC, c.COMBINATION_ID ASC
+                ORDER BY cp.LIKES DESC, cp.COMBINATION_ID ASC
             </when>
             <when test="sort == 'latest'">
-                ORDER BY c.CREATED_AT DESC, c.COMBINATION_ID ASC
+                ORDER BY cp.CREATED_AT DESC, cp.COMBINATION_ID ASC
             </when>
             <when test="sort == 'lowPrice'">
-                ORDER BY discountedTotalPrice ASC, c.COMBINATION_ID ASC
+                ORDER BY cp.discountedTotalPrice ASC, cp.COMBINATION_ID ASC
             </when>
             <when test="sort == 'highPrice'">
-                ORDER BY discountedTotalPrice DESC, c.COMBINATION_ID ASC
+                ORDER BY cp.discountedTotalPrice DESC, cp.COMBINATION_ID ASC
             </when>
             <otherwise>
-                ORDER BY c.CREATED_AT DESC, c.COMBINATION_ID ASC
+                ORDER BY cp.CREATED_AT DESC, cp.COMBINATION_ID ASC
             </otherwise>
         </choose>
 
         FETCH NEXT #{limit} ROWS ONLY
     </select>
 
-    <!-- productImages 따로 조회 -->
+    <!-- 조합 내 productImages 조회 -->
     <select id="findProductImagesByCombinationId" parameterType="long" resultType="string">
         SELECT pi.IMAGE_URL
         FROM COMBINATION_ITEM ci
@@ -217,8 +168,15 @@
           AND pi.IMAGE_ORDER = 1
     </select>
 
-    <select id="countCombinations" resultType="long">
-        SELECT COUNT(*) FROM COMBINATION
+    <!-- 조합 개수 -->
+    <select id="countCombinations" parameterType="long" resultType="long">
+        SELECT COUNT(*)
+        FROM COMBINATION
+        <where>
+            <if test="bhType != null">
+                AND BH_TYPE = #{bhType}
+            </if>
+        </where>
     </select>
 
 </mapper>

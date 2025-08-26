@@ -108,7 +108,7 @@ public class CombinationServiceImpl implements CombinationService {
         else if ("health".equalsIgnoreCase(type)) bhType = 1;
 
         List<CombinationResponseDto> combos = combinationMapper.findCombinations(bhType, sort, combinationId, limit);
-        Long totalCount = combinationMapper.countCombinations();
+        Long totalCount = combinationMapper.countCombinations(bhType);
 
         combos.forEach(c -> {
             List<String> images = combinationMapper.findProductImagesByCombinationId(c.getCombinationId());

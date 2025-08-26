@@ -25,7 +25,7 @@ public interface CombinationMapper {
             @Param("combinationId") Long combinationId,
             @Param("limit") Integer limit);
 
-    Long countCombinations();
+    Long countCombinations(@Param("bhType") Integer bhType);
 
     List<String> findProductImagesByCombinationId(@Param("combinationId") Long combinationId);
 }
