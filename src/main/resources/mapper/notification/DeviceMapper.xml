@@ -24,10 +24,10 @@
                   )
   </insert>
 
-  <delete id="deleteDeviceByToken" parameterType="map">
+  <delete id="deleteDeviceByDeviceId" parameterType="map">
     DELETE FROM MEMBER_DEVICE
     WHERE MEMBER_ID = #{memberId}
-      AND FCM_TOKEN = #{fcmToken}
+      AND DEVICE_ID = #{deviceId}
   </delete>
 
   <select id="selectTokensByMemberId" parameterType="long" resultType="string">

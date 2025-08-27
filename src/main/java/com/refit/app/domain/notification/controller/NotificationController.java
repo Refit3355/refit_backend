@@ -37,10 +37,10 @@ public class NotificationController {
     // 토큰 삭제(로그아웃 시)
     @DeleteMapping("/devices/token")
     public ResponseEntity<BaseResponse> deleteToken(
-            @RequestParam("fcmToken") String token,
+            @RequestParam("deviceId") String deviceId,
             @AuthenticationPrincipal Long memberId
     ) {
-        deviceService.deleteByToken(memberId, token);
+        deviceService.deleteByDeviceId(memberId, deviceId);
         return ResponseEntity.ok(BaseResponse.ok("DELETED"));
     }
 

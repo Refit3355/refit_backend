@@ -20,8 +20,8 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     @Transactional
-    public void deleteByToken(Long memberId, String fcmToken) {
-        deviceMapper.deleteDeviceByToken(memberId, fcmToken);
+    public void deleteByDeviceId(Long memberId, String deviceId) {
+        deviceMapper.deleteDeviceByDeviceId(memberId, deviceId);
     }
 
     @Override

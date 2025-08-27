@@ -12,8 +12,8 @@ public interface DeviceMapper {
             @Param("fcmToken") String fcmToken,
             @Param("deviceId") String deviceId);
 
-    int deleteDeviceByToken(@Param("memberId") Long memberId,
-            @Param("fcmToken") String fcmToken);
+    int deleteDeviceByDeviceId(@Param("memberId") Long memberId,
+            @Param("deviceId") String deviceId);
 
     List<String> selectTokensByMemberId(@Param("memberId") Long memberId);
 
