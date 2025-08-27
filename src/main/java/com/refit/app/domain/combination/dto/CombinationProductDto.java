@@ -11,10 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CombinationProductDto {
     private Long productId;
-    private String productName;
     private String brandName;
-    private Long price;
-    private Integer discountRate;
-    private Long discountedPrice;
+    private String productName;
+    private Long price;            // 원가
+    private Integer discountRate;  // 할인율 (%)
     private String thumbnailUrl;
+    private Long discountedPrice;  // 할인 적용가 (100원 단위 절사)
 }

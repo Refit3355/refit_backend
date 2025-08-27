@@ -77,15 +77,22 @@
         c.LIKES,
         c.CREATED_AT,
         c.BH_TYPE,
+        c.MEMBER_ID,
+        m.NICKNAME,
+        m.PROFILE_URL,
         SUM(p.PRICE) AS originalTotalPrice,
         SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100)) AS discountedTotalPrice
         FROM COMBINATION c
+        JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
         JOIN COMBINATION_ITEM ci ON ci.COMBINATION_ID = c.COMBINATION_ID
         JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
-        GROUP BY c.COMBINATION_ID, c.COMBINATION_NAME, c.LIKES, c.CREATED_AT, c.BH_TYPE
+        GROUP BY c.COMBINATION_ID, c.COMBINATION_NAME, c.LIKES, c.CREATED_AT, c.BH_TYPE, c.MEMBER_ID,m.NICKNAME, m.PROFILE_URL
         )
         SELECT
         cp.COMBINATION_ID     AS combinationId,
+        cp.MEMBER_ID          AS memberId,
+        cp.NICKNAME           AS nickname,
+        cp.PROFILE_URL        AS profileUrl,
         cp.COMBINATION_NAME   AS combinationName,
         cp.LIKES              AS likes,
         cp.CREATED_AT         AS createdAt,
@@ -161,11 +168,10 @@
 
     <!-- 조합 내 productImages 조회 -->
     <select id="findProductImagesByCombinationId" parameterType="long" resultType="string">
-        SELECT pi.IMAGE_URL
+        SELECT p.THUMBNAIL_URL
         FROM COMBINATION_ITEM ci
-                 JOIN PRODUCT_IMAGE pi ON ci.PRODUCT_ID = pi.PRODUCT_ID
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
         WHERE ci.COMBINATION_ID = #{combinationId}
-          AND pi.IMAGE_ORDER = 1
     </select>
 
     <!-- 조합 개수 -->
@@ -177,6 +183,45 @@
                 AND BH_TYPE = #{bhType}
             </if>
         </where>
+    </select>
+
+    <select id="findCombinationDetail" parameterType="long" resultType="com.refit.app.domain.combination.dto.response.CombinationDetailResponse">
+        SELECT
+            c.COMBINATION_ID   AS combinationId,
+            c.COMBINATION_NAME AS combinationName,
+            c.COMBINATION_DESCRIPTION AS combinationDescription,
+            m.MEMBER_ID        AS memberId,
+            m.NICKNAME         AS nickname,
+            m.PROFILE_URL      AS profileUrl,
+            (
+                SELECT SUM(p.PRICE)
+                FROM COMBINATION_ITEM ci
+                         JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+                WHERE ci.COMBINATION_ID = c.COMBINATION_ID
+            ) AS originalTotalPrice,
+            (
+                SELECT SUM(FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
+                FROM COMBINATION_ITEM ci
+                         JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+                WHERE ci.COMBINATION_ID = c.COMBINATION_ID
+            ) AS discountedTotalPrice
+        FROM COMBINATION c
+                 JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
+        WHERE c.COMBINATION_ID = #{combinationId}
+    </select>
+
+    <select id="findCombinationProducts" parameterType="long" resultType="com.refit.app.domain.combination.dto.CombinationProductDto">
+        SELECT
+            p.PRODUCT_ID    AS productId,
+            p.BRAND_NAME    AS brandName,
+            p.PRODUCT_NAME  AS productName,
+            p.PRICE         AS price,
+            p.DISCOUNT_RATE AS discountRate,
+            p.THUMBNAIL_URL AS thumbnailUrl,
+            FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100) AS discountedPrice
+        FROM COMBINATION_ITEM ci
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        WHERE ci.COMBINATION_ID = #{combinationId}
     </select>
 
 </mapper>

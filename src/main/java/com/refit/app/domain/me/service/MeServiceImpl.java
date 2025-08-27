@@ -35,7 +35,7 @@ public class MeServiceImpl implements MeService{
                 .map(row -> MyOrderItemDto.builder()
                         .orderItemId(row.getOrderItemId())
                         .productId(row.getProductId())
-                        .orderNumber(row.getOrderNumber())
+                        .orderCode(row.getOrderCode())
                         .productName(row.getProductName())
                         .thumbnailUrl(row.getThumbnailUrl())
                         .createdAt(row.getCreatedAt())
@@ -45,11 +45,11 @@ public class MeServiceImpl implements MeService{
                         .quantity(row.getQuantity())
                         .brand(row.getBrand())
                         .build())
-                .collect(Collectors.groupingBy(MyOrderItemDto::getOrderNumber));
+                .collect(Collectors.groupingBy(MyOrderItemDto::getOrderCode));
 
         List<MyOrderDto> orders = orderMap.entrySet().stream()
                 .map(e -> MyOrderDto.builder()
-                        .orderId(e.getKey()) // orderId 대신 orderNumber 기준
+                        .orderId(e.getKey())
                         .items(e.getValue())
                         .build())
                 .collect(Collectors.toList());
