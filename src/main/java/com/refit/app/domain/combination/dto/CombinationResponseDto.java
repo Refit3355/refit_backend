@@ -14,6 +14,9 @@ import java.util.List;
 @AllArgsConstructor
 public class CombinationResponseDto {
     private Long combinationId;
+    private Long memberId;
+    private String nickname;
+    private String profileUrl;
     private String combinationName;
     private Long likes;
     private Long originalTotalPrice;

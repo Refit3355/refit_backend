@@ -2,6 +2,7 @@ package com.refit.app.domain.combination.mapper;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.dto.CombinationResponseDto;
+import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
 import com.refit.app.domain.me.dto.MyCombinationDto;
 import org.apache.ibatis.annotations.Mapper;
@@ -28,4 +29,8 @@ public interface CombinationMapper {
     Long countCombinations(@Param("bhType") Integer bhType);
 
     List<String> findProductImagesByCombinationId(@Param("combinationId") Long combinationId);
+
+    CombinationDetailResponse findCombinationDetail(@Param("combinationId") Long combinationId);
+
+    List<CombinationProductDto> findCombinationProducts(@Param("combinationId") Long combinationId);
 }

@@ -1,9 +1,9 @@
 package com.refit.app.domain.combination.controller;
 
 import com.refit.app.domain.combination.dto.request.LikedCombinationRequest;
+import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationListResponse;
-import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
 import com.refit.app.domain.combination.service.CombinationService;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import lombok.RequiredArgsConstructor;
@@ -19,10 +19,8 @@ public class CombinationController {
 
     // 단일 조합 상세 조회
     @GetMapping("/{combinationId}")
-    public ResponseEntity<MyCombinationResponse> getCombinationDetail(@PathVariable Long combinationId) {
-        MyCombinationResponse combinationDetail = combinationService.getCombinationDetail(
-                combinationId);
-        return ResponseEntity.ok(combinationDetail);
+    public CombinationDetailResponse getCombinationDetail(@PathVariable Long combinationId) {
+        return combinationService.getCombinationDetail(combinationId);
     }
 
     // 저장한 조합 목록 조회

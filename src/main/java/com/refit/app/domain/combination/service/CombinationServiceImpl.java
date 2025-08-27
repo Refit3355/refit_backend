@@ -2,6 +2,7 @@ package com.refit.app.domain.combination.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.dto.CombinationResponseDto;
+import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationListResponse;
 import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
@@ -20,36 +21,6 @@ import java.util.stream.Collectors;
 public class CombinationServiceImpl implements CombinationService {
 
     private final CombinationMapper combinationMapper;
-
-    @Override
-    public MyCombinationResponse getCombinationDetail(Long combinationId) {
-        MyCombinationResponse combination = combinationMapper.findCombinationById(combinationId);
-
-        List<CombinationProductDto> products = combinationMapper.findProductsByCombinationId(combinationId)
-                .stream()
-                .map(p -> CombinationProductDto.builder()
-                        .productId(p.getProductId())
-                        .productName(p.getProductName())
-                        .brandName(p.getBrandName())
-                        .price(p.getPrice())
-                        .discountRate(p.getDiscountRate())
-                        .discountedPrice(p.getPrice() - (p.getPrice() * p.getDiscountRate() / 100))
-                        .thumbnailUrl(p.getThumbnailUrl())
-                        .build())
-                .collect(Collectors.toList());
-
-        Long totalPrice = products.stream()
-                .mapToLong(CombinationProductDto::getDiscountedPrice)
-                .sum();
-
-        return MyCombinationResponse.builder()
-                .combinationId(combination.getCombinationId())
-                .combinationName(combination.getCombinationName())
-                .combinationDescription(combination.getCombinationDescription())
-                .products(products)
-                .totalPrice(totalPrice)
-                .build();
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -116,6 +87,14 @@ public class CombinationServiceImpl implements CombinationService {
         });
 
         return new CombinationListResponse(combos, totalCount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CombinationDetailResponse getCombinationDetail(Long combinationId) {
+        CombinationDetailResponse detail = combinationMapper.findCombinationDetail(combinationId);
+        detail.setProducts(combinationMapper.findCombinationProducts(combinationId));
+        return detail;
     }
 
 }
