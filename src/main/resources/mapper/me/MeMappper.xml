@@ -10,7 +10,7 @@
         o.ORDER_ID         AS orderId,
         oi.ORDER_ITEM_ID   AS orderItemId,
         oi.PRODUCT_ID      AS productId,
-        o.ORDER_NUMBER     AS orderNumber,
+        o.ORDER_CODE     AS orderCode,
         p.PRODUCT_NAME     AS productName,
         p.THUMBNAIL_URL    AS thumbnailUrl,
         oi.CREATED_AT      AS createdAt,
