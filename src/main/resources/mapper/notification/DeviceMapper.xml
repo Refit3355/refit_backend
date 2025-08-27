@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.notification.mapper.DeviceMapper">
+
+  <insert id="upsertDevice" parameterType="map">
+    MERGE INTO MEMBER_DEVICE d
+      USING (
+        SELECT #{memberId} AS MEMBER_ID, #{fcmToken} AS FCM_TOKEN FROM DUAL
+      ) s
+      ON (d.MEMBER_ID = s.MEMBER_ID AND d.FCM_TOKEN = s.FCM_TOKEN)
+      WHEN MATCHED THEN UPDATE
+        SET d.LAST_REFRESHED_AT = SYSTIMESTAMP,
+          d.UPDATED_AT = SYSTIMESTAMP,
+          d.UPDATED_BY = #{memberId}
+      WHEN NOT MATCHED THEN
+        INSERT(
+               MEMBER_DEVICE_ID, MEMBER_ID, PLATFORM, FCM_TOKEN, DEVICE_ID,
+               LAST_REFRESHED_AT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+          ) VALUES(
+                    SEQ_MEMBER_DEVICE.NEXTVAL, #{memberId}, #{platform}, #{fcmToken}, #{deviceId},
+                    SYSTIMESTAMP, SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+                  )
+  </insert>
+
+  <delete id="deleteDeviceByDeviceId" parameterType="map">
+    DELETE FROM MEMBER_DEVICE
+    WHERE MEMBER_ID = #{memberId}
+      AND DEVICE_ID = #{deviceId}
+  </delete>
+
+  <select id="selectTokensByMemberId" parameterType="long" resultType="string">
+    SELECT FCM_TOKEN FROM MEMBER_DEVICE WHERE MEMBER_ID = #{memberId}
+  </select>
+
+</mapper>
