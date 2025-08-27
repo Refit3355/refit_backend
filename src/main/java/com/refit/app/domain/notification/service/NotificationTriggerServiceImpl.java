@@ -21,24 +21,24 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
 
     @Override
     @Transactional
-    public void notifyPaymentCompleted(Long memberId, Long orderId, String title, String body) {
+    public void notifyPaymentCompleted(Long memberId, Long orderId, String body) {
         String deeplink = "app://orders/" + orderId;
-        saveAndPush(memberId, title, body, null, deeplink, NotificationType.PAYMENT_COMPLETED.name());
+        saveAndPush(memberId, "결제 완료", body, null, deeplink, NotificationType.PAYMENT_COMPLETED.name());
     }
 
     @Override
     @Transactional
-    public void notifyPaymentCanceled(Long memberId, Long orderId, String title, String body) {
+    public void notifyPaymentCanceled(Long memberId, Long orderId, String body) {
         String deeplink = "app://orders/" + orderId;
-        saveAndPush(memberId, title, body, null, deeplink, NotificationType.PAYMENT_CANCELED.name());
+        saveAndPush(memberId, "결제 취소", body, null, deeplink, NotificationType.PAYMENT_CANCELED.name());
     }
 
     @Override
     @Transactional
-    public void notifyExpiryImminent(Long memberId, Long productId, String title, String body) {
+    public void notifyExpiryImminent(Long memberId, Long productId, String body) {
         // 마이핏 목록으로 이동
         String deeplink = "app://myfit";
-        saveAndPush(memberId, title, body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
+        saveAndPush(memberId, "소비기한 임박", body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
     }
 
     private void saveAndPush(
