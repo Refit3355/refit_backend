@@ -60,7 +60,7 @@
 
   <!-- 카테고리 과거 히스토리: 최신 → 과거 (DESC) 정렬, beforeId 커서로 더 과거 페이지 -->
   <select id="findHistory" parameterType="map"
-    resultType="com.refit.app.domain.chat.dto.ChatMessageDto">
+    resultMap="ChatMessageResponseMap">
     SELECT *
     FROM (
     SELECT
@@ -73,8 +73,7 @@
     m.PROFILE_URL      AS profileUrl,
     c.CREATED_AT       AS createdAt
     FROM CHAT c
-    LEFT JOIN MEMBER m
-    ON m.MEMBER_ID = c.MEMBER_ID
+    LEFT JOIN MEMBER m ON m.MEMBER_ID = c.MEMBER_ID
     WHERE c.CATEGORY_ID = #{categoryId, jdbcType=NUMERIC}
     <if test="beforeId != null">
       AND c.CHAT_ID <![CDATA[ < ]]> #{beforeId, jdbcType=NUMERIC}
