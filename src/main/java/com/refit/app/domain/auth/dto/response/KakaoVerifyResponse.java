@@ -1,5 +1,8 @@
 package com.refit.app.domain.auth.dto.response;
 
+import com.refit.app.domain.auth.dto.HairInfoDto;
+import com.refit.app.domain.auth.dto.HealthInfoDto;
+import com.refit.app.domain.auth.dto.SkinInfoDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,4 +26,8 @@ public class KakaoVerifyResponse {
     private String userNickname;
     private String name;
     private String refreshToken;
+
+    private HealthInfoDto health;
+    private HairInfoDto hair;
+    private SkinInfoDto skin;
 }

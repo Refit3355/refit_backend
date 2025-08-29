@@ -153,4 +153,12 @@
         </foreach>
   </select>
 
+    <update id="updateOrderItemStatus">
+        UPDATE ORDER_ITEM
+        SET ORDER_STATUS = #{status},
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+        WHERE ORDER_ITEM_ID = #{orderItemId}
+    </update>
+
 </mapper>

@@ -35,7 +35,7 @@ public interface MemberMapper {
     MemberRowDto findBasicById(@Param("memberId") Long memberId);
 
     int updateBasicById(@Param("memberId") Long memberId,
-            @Param("email") String email,
+            @Param("nickname") String nickname,
             @Param("memberName") String memberName,
             @Param("passwordHash") String passwordHash,
             @Param("zipcode") String zipcode,

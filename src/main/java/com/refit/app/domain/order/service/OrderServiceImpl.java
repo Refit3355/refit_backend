@@ -10,6 +10,7 @@ import com.refit.app.domain.order.dto.request.OrderLineItem;
 import com.refit.app.domain.order.dto.response.DraftOrderResponse;
 import com.refit.app.domain.order.dto.response.OrderItemSummary;
 import com.refit.app.domain.order.dto.response.ShippingInfo;
+import com.refit.app.domain.order.dto.response.UpdateOrderStatusResponse;
 import com.refit.app.domain.order.mapper.OrderMapper;
 import com.refit.app.domain.order.dto.CartLineRow;
 import com.refit.app.domain.order.dto.OrderItemInsertRow;
@@ -232,5 +233,18 @@ public class OrderServiceImpl implements OrderService {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String rand = java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         return "ORD-" + ts + "-" + memberId + "-" + rand;
+    }
+
+    @Override
+    @Transactional
+    public UpdateOrderStatusResponse updateOrderItemStatus(Long memberId, Long orderItemId, int status) {
+
+        long res = orderMapper.updateOrderItemStatus(memberId, orderItemId, status);
+
+        String message = "교환/반품 신청에 실패하였습니다.";
+        if (res == 1 && status == 4) message = "교환 신청이 완료되었습니다.";
+        else if (res == 1 && status == 6) message = "반품 신청이 완료되었습니다.";
+
+        return UpdateOrderStatusResponse.builder().message(message).build();
     }
 }

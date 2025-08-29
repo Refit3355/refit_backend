@@ -1,16 +1,21 @@
 package com.refit.app.domain.auth.service;
 
 import com.refit.app.domain.auth.dto.ConcernSummaryDto;
+import com.refit.app.domain.auth.dto.HairInfoDto;
 import com.refit.app.domain.auth.dto.HealthInfoDto;
 import com.refit.app.domain.auth.dto.MemberRowDto;
 import com.refit.app.domain.auth.dto.ReissueResultDto;
+import com.refit.app.domain.auth.dto.SkinInfoDto;
 import com.refit.app.domain.auth.dto.request.ConcernRequest;
+import com.refit.app.domain.auth.dto.request.SamsungHealthSaveRequest;
 import com.refit.app.domain.auth.dto.request.SignupAllRequest;
 import com.refit.app.domain.auth.dto.request.SignupRequest;
 import com.refit.app.domain.auth.dto.request.UpdateBasicRequest;
 import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import com.refit.app.domain.auth.dto.response.LoginResponse;
+import com.refit.app.domain.auth.dto.response.SamsungHealthSaveResponse;
 import com.refit.app.domain.auth.mapper.ConcernMapper;
+import com.refit.app.domain.auth.mapper.HealthInfoMapper;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.global.config.JwtProvider;
 import io.jsonwebtoken.Claims;
@@ -27,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberMapper memberMapper;
+    private final HealthInfoMapper healthInfoMapper;
 
     private final ConcernMapper concernMapper;
 
@@ -98,14 +104,25 @@ public class MemberServiceImpl implements MemberService {
         }
 
         ConcernSummaryDto summary = memberMapper.findHealthSummary(m.memberId);
+        // null-safe 기본값(모두 0)
         HealthInfoDto health = (summary != null && summary.getHealth() != null)
                 ? summary.getHealth()
                 : new HealthInfoDto(0, 0, 0, 0, 0, 0, 0);
+
+        HairInfoDto hair = (summary != null && summary.getHair() != null)
+                ? summary.getHair()
+                : new HairInfoDto(0, 0, 0, 0);
+
+        SkinInfoDto skin = (summary != null && summary.getSkin() != null)
+                ? summary.getSkin()
+                : new SkinInfoDto(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         LoginResponse res = new LoginResponse();
         res.setMemberId(m.memberId);
         res.setNickname(m.nickname);
         res.setHealth(health);
+        res.setHair(hair);
+        res.setSkin(skin);
         return res;
     }
 
@@ -166,7 +183,7 @@ public class MemberServiceImpl implements MemberService {
 
         memberMapper.updateBasicById(
                 memberId,
-                req.getEmail(),
+                req.getNickname(),
                 req.getName(),
                 passwordHash,
                 req.getZipcode(),
@@ -200,6 +217,17 @@ public class MemberServiceImpl implements MemberService {
         return me;
     }
 
+    @Override
+    @Transactional
+    public SamsungHealthSaveResponse saveSamsungHealth(Long memberId, SamsungHealthSaveRequest request) {
+        int count = healthInfoMapper.existsByMemberId(memberId);
+        if (count == 0) {
+            healthInfoMapper.insertHealthInfo(memberId, request);
+        } else {
+            healthInfoMapper.updateHealthInfo(memberId, request);
+        }
+        return SamsungHealthSaveResponse.builder().message("삼성헬스 정보 저장 완료").build();
+    }
 
 }
 

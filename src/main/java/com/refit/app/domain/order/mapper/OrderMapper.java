@@ -21,4 +21,8 @@ public interface OrderMapper {
     List<CartLineRow> findCartLines(@Param("memberId") long memberId,
             @Param("cartItemIds") List<Long> cartItemIds);
 
+    long updateOrderItemStatus(
+            @Param("memberId") Long memberId,
+            @Param("orderItemId") Long orderItemId,
+            @Param("status") int status);
 }

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.auth.mapper.HealthInfoMapper">
+
+    <select id="existsByMemberId" resultType="int">
+        SELECT COUNT(*)
+        FROM HEALTH_INFO
+        WHERE MEMBER_ID = #{memberId}
+    </select>
+
+    <insert id="insertHealthInfo">
+        INSERT INTO HEALTH_INFO (
+        MEMBER_ID, STEPS, TOTAL_CALORIES_BURNED, BLOOD_GLUCOSE,
+        BLOOD_PRESSURE, NUTRITION, SLEEPSESSION,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+        ) VALUES (
+        #{memberId, jdbcType=NUMERIC},
+        #{req.steps, jdbcType=NUMERIC},
+        #{req.totalKcal, jdbcType=NUMERIC},
+        #{req.bloodGlucoseMgdl, jdbcType=NUMERIC},
+        #{req.systolicMmhg, jdbcType=NUMERIC},
+        #{req.intakeKcal, jdbcType=NUMERIC},
+        #{req.sleepMinutes, jdbcType=NUMERIC},
+        SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+        )
+    </insert>
+
+    <update id="updateHealthInfo">
+        UPDATE HEALTH_INFO
+        SET STEPS = #{req.steps, jdbcType=NUMERIC},
+            TOTAL_CALORIES_BURNED = #{req.totalKcal, jdbcType=NUMERIC},
+            BLOOD_GLUCOSE = #{req.bloodGlucoseMgdl, jdbcType=NUMERIC},
+            BLOOD_PRESSURE = #{req.systolicMmhg, jdbcType=NUMERIC},
+            NUTRITION = #{req.intakeKcal, jdbcType=NUMERIC},
+            SLEEPSESSION = #{req.sleepMinutes, jdbcType=NUMERIC},
+            UPDATED_AT = SYSTIMESTAMP,
+            UPDATED_BY = #{memberId}
+        WHERE MEMBER_ID = #{memberId}
+    </update>
+
+</mapper>
