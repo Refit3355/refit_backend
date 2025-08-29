@@ -8,7 +8,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class ChatListResponse {
-    private List<ChatMessageDto> items;
+    private List<ChatMessageResponse> items;
     private String nextCursor;
     private boolean hasNext;
 }

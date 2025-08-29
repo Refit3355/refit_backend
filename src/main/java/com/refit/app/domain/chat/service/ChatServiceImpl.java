@@ -87,7 +87,7 @@ public class ChatServiceImpl implements ChatService {
         p.put("beforeId", beforeId);
         p.put("size", size);
 
-        List<ChatMessageDto> items = chatMapper.findHistory(p);
+        List<ChatMessageResponse> items = chatMapper.findHistory(p);
 
         // nextCursor / hasNext 계산
         String nextCursor = null;
