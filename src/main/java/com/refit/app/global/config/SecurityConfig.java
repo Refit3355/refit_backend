@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                        .requestMatchers("/payments/webhook").permitAll()
                         .requestMatchers(
                                 "/auth/check/**",
                                 "/auth/join/**",
