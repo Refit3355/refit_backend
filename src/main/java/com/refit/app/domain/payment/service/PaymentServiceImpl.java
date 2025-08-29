@@ -15,12 +15,13 @@ import com.refit.app.domain.product.mapper.ProductMapper;
 import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
+@Slf4j
 @Service
 @Transactional
 public class PaymentServiceImpl implements PaymentService {
@@ -110,17 +112,36 @@ public class PaymentServiceImpl implements PaymentService {
 
         // product 재고 차감
         List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
+        // 교착 방지: 항상 같은 순서로 잠금
+        orderItems.sort(Comparator.comparing(OrderItemRowDto::getProductId));
+
         for (OrderItemRowDto it : orderItems) {
             Long productId = it.getProductId();
-            int qty = it.getItemCount(); // 구매 수량
+            int qty = it.getItemCount();
+            if (qty <= 0) {
+                throw new RefitException(ErrorCode.OUT_OF_STOCK, "잘못된 수량: " + qty);
+            }
+
+            // 재고 행 잠금 + 현재 재고 확인
+            Integer stock = productMapper.selectStockForUpdate(productId);
+            if (stock == null) {
+                throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "상품 없음: " + productId);
+            }
+            if (stock < qty) {
+                throw new RefitException(ErrorCode.OUT_OF_STOCK,
+                        "재고 부족: productId=" + productId + ", stock=" + stock + ", need=" + qty);
+            }
 
             int updated = productMapper.decreaseStock(productId, qty);
-            if (updated <= 0) {
-                // 재고 부족 또는 동시성으로 이미 차감됨
+
+            // 배치인 경우 -2(SUCCESS_NO_INFO) 가능
+            log.info("PRODUCT 재고 UPDATE 결과:" + updated);
+            if (updated == 0) {
                 throw new RefitException(ErrorCode.OUT_OF_STOCK,
-                        "재고 부족: productId=" + productId + ", qty=" + qty);
+                        "차감 실패(동시성): productId=" + productId + ", qty=" + qty);
             }
         }
+
 
         return ConfirmPaymentResponse.builder()
                 .paymentId(row.getPaymentId())
