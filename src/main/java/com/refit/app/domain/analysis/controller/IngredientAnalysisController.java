@@ -2,18 +2,23 @@ package com.refit.app.domain.analysis.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refit.app.domain.analysis.dto.response.IngredientAnalysisResponse;
+import com.refit.app.domain.analysis.service.IngredientReportService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.model.Media;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,9 +30,12 @@ public class IngredientAnalysisController {
 
     private final ChatClient chat;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final IngredientReportService reportService;
 
-    public IngredientAnalysisController(ChatClient.Builder builder) {
+    public IngredientAnalysisController(ChatClient.Builder builder,
+            IngredientReportService reportService) {
         this.chat = builder.build();
+        this.reportService = reportService;
     }
 
     @PostMapping(
@@ -37,93 +45,129 @@ public class IngredientAnalysisController {
     )
     public Map<String, Object> extractIngredients(
             @RequestPart("file") MultipartFile file,
-            @RequestPart(name = "mode", required = false) String mode // beauty | health | null
+            @RequestPart(name = "mode", required = false) String mode // "beauty" | "health" | null
     ) throws Exception {
 
         byte[] imageBytes = file.getBytes();
-        String contentType = StringUtils.hasText(file.getContentType())
-                ? file.getContentType()
-                : "image/jpeg";
+        String contentType =
+                StringUtils.hasText(file.getContentType()) ? file.getContentType() : "image/jpeg";
+        boolean isHealth = "health".equalsIgnoreCase(mode);
 
         String system = """
-                너는 화장품/영양제 라벨 분석가다.
-                반드시 이미지 속 '원재료/전성분' 섹션(예: 원재료명, 전성분, 성분)을 실제 사진에서 찾은 경우에만
-                그 섹션의 원문 그대로 성분명을 추출한다. 추측/보정/번역/임의 생성 금지.
+                You are a label analyst for cosmetics and dietary supplements.
                 
-                출력은 JSON 하나, 설명/코드블록 금지.
-                규칙:
-                - 먼저 이미지에서 섹션 존재 여부를 판단한다.
-                - 섹션이 보이면 그 섹션의 원문 블록(raw_block)을 함께 반환한다.
-                - ingredients[] 각 항목은 raw_block 안에 실제 토큰으로 존재해야 하며(공백/구분기호 제거 제외),
-                  confidence(0~1)와 evidence(해당 항목이 포함된 원문 라인)를 함께 반환한다.
-                - confidence < 0.80 이거나 raw_block/evidence에 존재하지 않으면 제외한다.
-                - 괄호/함량/광고문구/주의문구/브랜드/마크/상표(™ ®)/단위/숫자는 제외.
-                - 구분자(, / ; · . | 등)로 분리하고, 동일 성분은 중복 제거.
-                - 섹션이 보이지 않으면 found=false, ingredients=[] 로 반환한다.
-                - '영양정보/영양성분표'만 있고 원재료/전성분 섹션이 없으면 found=false 로 간주한다.
+                TASK:
+                Extract ONLY the exact ingredients from the image’s actual “Ingredients” section (e.g., 원재료명, 전성분, 성분).
+                If you cannot visually locate such a section in the image, return found=false and an empty list.
+                Do NOT guess, infer, translate, or fabricate.
                 
-                출력 스키마:
+                OUTPUT:
+                You must answer in a single JSON object only.
+                No explanations, no markdown, no text outside JSON.
+                
+                RULES:
+                - First decide if an “Ingredients” section is visually present in the image.
+                - If present, return its raw text as `raw_block`.
+                - Each item in `ingredients[]` MUST appear as a token in the `raw_block` (ignoring separators and spaces).
+                - Along with `name`, include `confidence` (0–1) and `evidence` (a source line from the raw section).
+                - Exclude any item with confidence < 0.80 or that does not appear in `raw_block/evidence`.
+                - Exclude amounts/units/percentages (e.g., mg, g, %, IU).
+                - Exclude marketing phrases, warnings, brand names, trademarks (™ , ®), and standalone numbers that are not part of the ingredient name.
+                - Split on common delimiters (comma, slash, semicolon, dot, vertical bar, etc.), then de-duplicate.
+                - If only a Nutrition Facts table is present (calories/열량, sodium/나트륨, carbohydrates/탄수화물, fat/지방, protein/단백질, etc.) without an ingredients section, return found=false.
+                
+                SCHEMA:
                 {
                   "found": true|false,
                   "section": "원재료명|전성분|성분|none",
-                  "raw_block": "섹션 원문 그대로",
+                  "raw_block": "the exact raw text of the section",
                   "ingredients": [
                     { "name": "정제수", "confidence": 0.95, "evidence": "정제수, 부틸렌글라이콜" }
                   ]
                 }
                 """;
 
+        if (isHealth) {
+            system = system.replace(
+                    "RULES:",
+                    "RULES:\n- IMPORTANT (health): If both a Nutrition Facts table and functional active ingredients "
+                            + "(e.g., Omega-3, EPA, DHA, Vitamin D, Vitamin E) appear, you MUST still extract those functional "
+                            + "active ingredients even if they appear inside the nutrition box."
+            );
+        }
+
         String user = """
-                제품 유형(힌트): %s
-                JSON만 반환.
-                """.formatted(mode == null ? "unknown" : mode);
+                Product type hint: %s
+                Return JSON only.
+                """.formatted(isHealth ? "health" : (mode == null ? "unknown" : mode));
 
         Media media = Media.builder()
                 .mimeType(MimeTypeUtils.parseMimeType(contentType))
                 .data(imageBytes)
                 .build();
 
-        String rsp = chat.prompt()
-                .system(system)
-                .user(u -> u.text(user).media(media))
-                .call()
+        String rsp = chat.prompt().system(system).user(u -> u.text(user).media(media)).call()
                 .content();
 
-        return postProcess(rsp, mode);
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(rsp); // JSON only 보장 못하면 빈 결과
+        } catch (Exception e) {
+            return Map.of("mode", mode == null ? "unknown" : mode, "count", 0, "ingredients",
+                    List.of());
+        }
+
+        return postProcess(root, mode);
     }
 
-    // ---------- 후처리: “없는 성분” 구조적으로 컷 ----------
-
-    // 영양성분표(칼로리/나트륨 등)만 있는 경우 조기 종료 판단용 키워드
-    private static final Set<String> NUTRITION_KEYWORDS = Set.of(
-            "영양정보", "영양성분", "1일 영양성분 기준치", "1일 영양성분 기준치에 대한 비율",
-            "나트륨", "탄수화물", "당류", "지방", "단백질", "콜레스테롤",
-            "포화지방", "트랜스지방", "kcal", "mg", "g", "%"
+    // ---------- 후처리 ----------
+    private static final Set<String> NUTRITION_HEADER = Set.of(
+            "영양정보", "영양성분", "영양성분표", "1일 영양성분 기준치", "1일 영양성분 기준치에 대한 비율", "열량", "kcal",
+            "nutrition facts"
+    );
+    private static final Set<String> MACROS = Set.of(
+            "나트륨", "탄수화물", "당류", "지방", "단백질", "콜레스테롤", "포화지방", "트랜스지방",
+            "sodium", "carbohydrate", "sugars", "fat", "protein", "cholesterol", "saturated fat",
+            "trans fat"
+    );
+    private static final Pattern UNIT_PATTERN = Pattern.compile(
+            "\\b\\d+(?:\\.\\d+)?\\s*(?:mg|㎎|g|µg|mcg|iu|%)\\b", Pattern.CASE_INSENSITIVE
+    );
+    private static final Set<String> STOPWORDS = Set.of(
+            "전성분", "성분", "원재료", "원재료명", "성분표", "주의사항", "사용법", "보관방법", "섭취방법", "주의", "경고", "알레르기",
+            "부작용", "브랜드", "제조사"
     );
 
-    private record Ingr(String name, double confidence, String evidence) {
+    private static final Pattern EPA_PAT = Pattern.compile("\\bEPA\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DHA_PAT = Pattern.compile("\\bDHA\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern O3_PAT = Pattern.compile("오메가[-\\s]?3|omega[-\\s]?3",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern VITD_PAT = Pattern.compile(
+            "비타민\\s*D\\s*\\d*|vitamin\\s*d\\b\\s*\\d*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VITE_PAT = Pattern.compile(
+            "비타민\\s*E\\s*\\d*|vitamin\\s*e\\b\\s*\\d*", Pattern.CASE_INSENSITIVE);
 
-    }
+    private Map<String, Object> postProcess(JsonNode root, String mode) {
+        boolean isHealth = "health".equalsIgnoreCase(mode);
 
-    private Map<String, Object> postProcess(String rsp, String mode) throws Exception {
-        JsonNode root = objectMapper.readTree(rsp);
         boolean found = root.path("found").asBoolean(false);
         String section = root.path("section").asText("none");
         String rawBlock = root.path("raw_block").asText("");
-
-        // 1) 영양성분표로 보이면 바로 빈 배열 반환
         String rawLower = rawBlock.toLowerCase(Locale.ROOT);
-        long nutritionHits = NUTRITION_KEYWORDS.stream()
-                .filter(k -> rawLower.contains(k.toLowerCase(Locale.ROOT))).count();
-        if (!found || "none".equals(section) || nutritionHits >= 3) {
-            return Map.of(
-                    "mode", mode == null ? "unknown" : mode,
-                    "count", 0,
-                    "ingredients", List.of()
-            );
+
+        boolean hasHeader = NUTRITION_HEADER.stream()
+                .anyMatch(k -> rawLower.contains(k.toLowerCase(Locale.ROOT)));
+        long macroHits = MACROS.stream().filter(k -> rawLower.contains(k.toLowerCase(Locale.ROOT)))
+                .count();
+
+        if ((!isHealth) && (!found || "none".equals(section) || (hasHeader && macroHits >= 2))) {
+            return Map.of("mode", mode == null ? "unknown" : mode, "count", 0, "ingredients",
+                    List.of());
         }
 
-        // 2) 후보 성분 파싱
+        record Ingr(String name, double confidence, String evidence) {
+
+        }
         List<Ingr> items = new ArrayList<>();
         if (root.has("ingredients") && root.get("ingredients").isArray()) {
             for (JsonNode n : root.get("ingredients")) {
@@ -135,9 +179,9 @@ public class IngredientAnalysisController {
             }
         }
 
-        // 3) 원문 포함 검증 + 임계치 + 휴리스틱 컷 + 중복 제거
         String normBlock = norm(rawBlock);
         LinkedHashSet<String> approved = new LinkedHashSet<>();
+
         for (Ingr g : items) {
             String nm = g.name() == null ? "" : g.name().trim();
             if (nm.isEmpty()) {
@@ -150,20 +194,42 @@ public class IngredientAnalysisController {
             boolean inBlock = normBlock.contains(norm(nm));
             boolean inEv = norm(g.evidence()).contains(norm(nm));
             if (!inBlock && !inEv) {
-                continue;                 // 원문 미포함 → 컷
+                continue;
             }
 
             if (nm.length() < 2 || nm.length() > 50) {
                 continue;
             }
-            if (nm.matches(".*[™®%0-9㎎mgMG].*")) {
-                continue;   // 상표/함량/숫자 컷
+            if (nm.matches(".*[™®].*")) {
+                continue;
+            }
+            if (UNIT_PATTERN.matcher(nm).find()) {
+                continue;
             }
             if (STOPWORDS.contains(nm)) {
-                continue;            // 전형적 문구 컷
+                continue;
             }
 
-            approved.add(nm); // 중복 제거
+            approved.add(nm);
+        }
+
+        // health fallback: raw_block에서 반드시 보강 추출
+        if (isHealth && !rawBlock.isBlank()) {
+            if (EPA_PAT.matcher(rawBlock).find()) {
+                approved.add("EPA");
+            }
+            if (DHA_PAT.matcher(rawBlock).find()) {
+                approved.add("DHA");
+            }
+            if (O3_PAT.matcher(rawBlock).find()) {
+                approved.add("오메가3");
+            }
+            if (VITD_PAT.matcher(rawBlock).find()) {
+                approved.add("비타민D");
+            }
+            if (VITE_PAT.matcher(rawBlock).find()) {
+                approved.add("비타민E");
+            }
         }
 
         List<String> ingredients = new ArrayList<>(approved);
@@ -174,12 +240,6 @@ public class IngredientAnalysisController {
         );
     }
 
-    // 불용어(전성분 표제/문구 등)
-    private static final Set<String> STOPWORDS = Set.of(
-            "전성분", "성분", "원재료", "원재료명", "성분표", "주의사항", "사용법", "브랜드", "제조사"
-    );
-
-    // 비교용 정규화: 공백/괄호/구분기호 제거 + 소문자
     private static String norm(String s) {
         if (s == null) {
             return "";
@@ -187,5 +247,14 @@ public class IngredientAnalysisController {
         return s.replaceAll("[\\s\"'\\[\\]（）()]+", "")
                 .replaceAll("[·,/|;:.-]+", "")
                 .toLowerCase(Locale.ROOT);
+    }
+
+    @PostMapping("/report")
+    public IngredientAnalysisResponse analyzeReport(
+            Authentication authentication,
+            @RequestBody List<String> ingredients) {
+
+        Long memberId = (Long) authentication.getPrincipal();
+        return reportService.analyze(memberId, ingredients);
     }
 }
