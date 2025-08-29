@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.refit.app.domain.payment.mapper.PaymentMapper">
+
+  <!-- Result Maps -->
+  <resultMap id="PaymentRM" type="com.refit.app.domain.payment.dto.PaymentRowDto">
+    <id     property="paymentId"    column="PAYMENT_ID"/>
+    <result property="orderId"      column="ORDER_ID"/>
+    <result property="paymentKey"   column="PAYMENT_KEY"/>
+    <result property="method"       column="METHOD"/>
+    <result property="currency"     column="CURRENCY"/>
+    <result property="totalAmount"  column="TOTAL_AMOUNT"/>
+    <result property="balanceAmount" column="BALANCE_AMOUNT"/>
+    <result property="status"       column="STATUS"/>
+    <result property="approvedAt"   column="APPROVED_AT"/>
+    <result property="receiptUrl"   column="RECEIPT_URL"/>
+    <result property="rawJson"      column="RAW_JSON"/>
+  </resultMap>
+
+  <resultMap id="PaymentCancelRM" type="com.refit.app.domain.payment.dto.PaymentCancelRowDto">
+    <id     property="paymentCancelId" column="PAYMENT_CANCEL_ID"/>
+    <result property="paymentId"       column="PAYMENT_ID"/>
+    <result property="cancelRequestId" column="CANCEL_REQUEST_ID"/>
+    <result property="cancelAmount"    column="CANCEL_AMOUNT"/>
+    <result property="taxFreeAmount"   column="TAX_FREE_AMOUNT"/>
+    <result property="cancelReason"    column="CANCEL_REASON"/>
+    <result property="canceledAt"      column="CANCELED_AT"/>
+    <result property="rawJson"         column="RAW_JSON"/>
+  </resultMap>
+
+  <resultMap id="OrderRM" type="com.refit.app.domain.payment.dto.OrderRowDto">
+    <id     property="orderId"     column="ORDER_ID"/>
+    <result property="totalPrice"  column="TOTAL_PRICE"/>
+    <result property="orderStatus" column="ORDER_STATUS"/>
+  </resultMap>
+
+  <resultMap id="OrderItemRM" type="com.refit.app.domain.payment.dto.OrderItemRowDto">
+    <id     property="orderItemId"  column="ORDER_ITEM_ID"/>
+    <result property="itemPrice"    column="ITEM_PRICE"/>
+    <result property="itemCount"    column="ITEM_COUNT"/>
+    <result property="canceledCount" column="CANCELED_COUNT"/>
+  </resultMap>
+
+  <!-- PAYMENT -->
+  <insert id="insertPayment"
+    parameterType="com.refit.app.domain.payment.dto.PaymentRowDto"
+    useGeneratedKeys="false">
+    <!-- BEFORE + NEXTVAL -->
+    <selectKey keyProperty="paymentId" resultType="long" order="BEFORE">
+      SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL
+    </selectKey>
+
+    INSERT INTO PAYMENT(
+    PAYMENT_ID, ORDER_ID, ORDER_CODE, PAYMENT_KEY, METHOD, CURRENCY,
+    TOTAL_AMOUNT, BALANCE_AMOUNT, STATUS, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+    #{paymentId}, #{orderId}, #{orderCode}, #{paymentKey}, #{method}, #{currency},
+    #{totalAmount}, #{balanceAmount}, #{status}, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    )
+  </insert>
+
+  <select id="findPaymentById" parameterType="long" resultMap="PaymentRM">
+    SELECT * FROM PAYMENT WHERE PAYMENT_ID = #{paymentId}
+  </select>
+
+  <select id="findPaymentByKey" parameterType="string" resultMap="PaymentRM">
+    SELECT * FROM PAYMENT WHERE PAYMENT_KEY = #{paymentKey}
+  </select>
+
+  <update id="updatePaymentOnApproved">
+    UPDATE PAYMENT
+    SET BALANCE_AMOUNT = #{balanceAmount},
+        STATUS = #{status},
+        APPROVED_AT = SYSTIMESTAMP,
+        RECEIPT_URL = #{receiptUrl},
+        RAW_JSON = #{rawJson},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId}
+  </update>
+
+  <update id="updatePaymentStatusAndBalance">
+    UPDATE PAYMENT
+    SET STATUS = #{status},
+        BALANCE_AMOUNT = #{balanceAmount},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId}
+  </update>
+
+  <!-- PAYMENT_CANCEL -->
+  <insert id="insertPaymentCancel" parameterType="com.refit.app.domain.payment.dto.PaymentCancelRowDto" useGeneratedKeys="false">
+    INSERT INTO PAYMENT_CANCEL(
+    PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID, CANCEL_AMOUNT, TAX_FREE_AMOUNT,
+    CANCEL_REASON, CANCELED_AT, RAW_JSON
+    ) VALUES (
+    SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId}, #{cancelAmount}, NVL(#{taxFreeAmount},0),
+    #{cancelReason}, SYSTIMESTAMP, #{rawJson}
+    )
+    <selectKey keyProperty="paymentCancelId" resultType="long" order="AFTER">
+      SELECT SEQ_PAYMENT_CANCEL.CURRVAL FROM DUAL
+    </selectKey>
+  </insert>
+
+  <select id="listPaymentCancels" parameterType="long" resultMap="PaymentCancelRM">
+    SELECT * FROM PAYMENT_CANCEL WHERE PAYMENT_ID = #{paymentId} ORDER BY PAYMENT_CANCEL_ID
+  </select>
+
+  <!-- ORDER / ORDER_ITEM -->
+  <select id="findOrderForUpdate" parameterType="string" resultMap="OrderRM">
+    SELECT ORDER_ID, TOTAL_PRICE, NVL(ORDER_STATUS,0) AS ORDER_STATUS
+    FROM ORDERS
+    WHERE ORDER_CODE = #{orderCode}
+      FOR UPDATE
+  </select>
+
+  <select id="findOrderItems" parameterType="long" resultMap="OrderItemRM">
+    SELECT ORDER_ITEM_ID, ITEM_PRICE, ITEM_COUNT, NVL(CANCELED_COUNT,0) AS CANCELED_COUNT
+    FROM ORDER_ITEM
+    WHERE ORDER_ID = #{orderId}
+  </select>
+
+  <update id="markOrderPaid">
+    UPDATE ORDERS
+    SET ORDER_STATUS = 1,
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ID = #{orderId}
+  </update>
+
+  <update id="updateOrderStatus">
+    UPDATE ORDERS
+    SET ORDER_STATUS = #{status},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ID = #{orderId}
+  </update>
+
+  <update id="increaseCanceledCount">
+    UPDATE ORDER_ITEM
+    SET CANCELED_COUNT = NVL(CANCELED_COUNT,0) + #{addCount},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ITEM_ID = #{orderItemId}
+  </update>
+
+  <select id="findOrderForUpdateByExtId"
+    parameterType="string"
+    resultType="com.refit.app.domain.payment.dto.OrderRowDto">
+    SELECT
+      o.ORDER_ID         AS orderId,
+      o.ORDER_CODE         AS orderCode,
+      o.TOTAL_AMOUNT     AS totalPrice,
+      o.STATUS           AS orderStatus
+    FROM ORDERS o
+    WHERE o.ORDER_ID = #{orderId}
+      AND o.DELETED_AT IS NULL
+      FOR UPDATE
+  </select>
+
+  <update id="updateStatusToApprovedByOrderId">
+    UPDATE ORDER_ITEM
+    SET ORDER_STATUS = 1,
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId, jdbcType=NUMERIC}
+  </update>
+
+</mapper>
