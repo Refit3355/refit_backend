@@ -13,6 +13,7 @@ import com.refit.app.domain.me.dto.MyCombinationDto;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -117,14 +118,15 @@ public class CombinationServiceImpl implements CombinationService {
         );
 
         // COMBINATION_ITEM INSERT (2~6개 상품 매핑)
-        List<Long> products = List.of(
-                req.getProduct1Id(),
-                req.getProduct2Id(),
-                req.getProduct3Id(),
-                req.getProduct4Id(),
-                req.getProduct5Id(),
-                req.getProduct6Id()
-        );
+        List<Long> products = Stream.of(
+                        req.getProduct1Id(),
+                        req.getProduct2Id(),
+                        req.getProduct3Id(),
+                        req.getProduct4Id(),
+                        req.getProduct5Id(),
+                        req.getProduct6Id()
+                ).filter(Objects::nonNull)
+                .toList();
 
         products.stream()
                 .filter(Objects::nonNull)
