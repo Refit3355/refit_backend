@@ -94,3 +94,5 @@ src/main/resources/application-*.yml
 # =========================
 ehthumbs.db
 desktop.ini
+
+/src/main/resources/firebase/*.json
