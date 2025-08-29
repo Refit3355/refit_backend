@@ -22,6 +22,5 @@ public class DraftOrderRequest {
     @Size(min = 1, message = "lines가 비어있습니다.")
     private List<OrderLineItem> lines; // 개별 상품 주문일 때 사용
 
-    private List<Long> cartItemIds; // CART 주문일 때 장바구니 아이템 id 목록
     private Long combinationId; //  특정 기획세트/조합 주문용
 }

@@ -1,5 +1,7 @@
 package com.refit.app.domain.order.service;
 
+import com.refit.app.domain.combination.dto.CombinationProductDto;
+import com.refit.app.domain.combination.mapper.CombinationMapper;
 import com.refit.app.domain.order.dto.MemberAddressRow;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.domain.memberProduct.model.ProductType;
@@ -12,7 +14,6 @@ import com.refit.app.domain.order.dto.response.OrderItemSummary;
 import com.refit.app.domain.order.dto.response.ShippingInfo;
 import com.refit.app.domain.order.dto.response.UpdateOrderStatusResponse;
 import com.refit.app.domain.order.mapper.OrderMapper;
-import com.refit.app.domain.order.dto.CartLineRow;
 import com.refit.app.domain.order.dto.OrderItemInsertRow;
 import com.refit.app.domain.order.dto.ProductSummaryRow;
 import com.refit.app.domain.order.model.OrderSource;
@@ -37,6 +38,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final ProductMapper productMapper;
     private final MemberMapper memberMapper;
+    private final CombinationMapper combinationMapper;
 
     private static final long FREE_SHIPPING_THRESHOLD = 30_000L;
     private static final long BASE_DELIVERY_FEE = 3_000L;
@@ -59,7 +61,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public DraftOrderResponse createDraft(Long memberId, DraftOrderRequest req) {
         // 1) 라인 구성
-        List<OrderItemSummary> items = buildItems(req, memberId);
+        List<OrderItemSummary> items = buildItems(req);
         if (items.isEmpty()) {
             throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "주문 상품이 비어 있습니다.");
         }
@@ -180,14 +182,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
-    private List<OrderItemSummary> buildItems(DraftOrderRequest req, Long memberId) {
+    private List<OrderItemSummary> buildItems(DraftOrderRequest req) {
         List<OrderItemSummary> list = new ArrayList<>();
 
         OrderSource src = req.getSource(); // enum
-        if (src == OrderSource.DIRECT) {
+        if (src == OrderSource.DIRECT || src == OrderSource.CART) {
             List<OrderLineItem> lines = req.getLines();
             if (lines == null || lines.isEmpty()) {
-                throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "직구매 라인이 비어 있음");
+                throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "상품 라인이 비어 있음");
             }
             for (OrderLineItem l : lines) {
                 ProductSummaryRow p = productMapper.findSummaryById(l.getProductId());
@@ -205,21 +207,22 @@ public class OrderServiceImpl implements OrderService {
                         .thumbnailUrl(p.getThumbnailUrl())
                         .build());
             }
-        } else if (src == OrderSource.CART) {
-            if (req.getCartItemIds() == null || req.getCartItemIds().isEmpty()) {
-                throw new RefitException(ErrorCode.ILLEGAL_ARGUMENT, "장바구니 항목이 비어 있음");
+        } else if (src == OrderSource.COMBINATION) {
+            List<CombinationProductDto> products = combinationMapper.findCombinationProducts(req.getCombinationId());
+            if (products == null || products.isEmpty()) {
+                throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "해당 상품 조합 찾을 수 없음");
             }
-            List<CartLineRow> rows = orderMapper.findCartLines(memberId, req.getCartItemIds());
-            for (CartLineRow r : rows) {
+            for(CombinationProductDto p : products) {
                 list.add(OrderItemSummary.builder()
-                        .productId(r.getProductId())
-                        .originalPrice(r.getOriginalPrice())
-                        .discountRate(r.getDiscountRate() == null ? null : Long.valueOf(r.getDiscountRate()))
-                        .price(r.getDiscountedPrice())
-                        .quantity(r.getQuantity())
-                        .productName(r.getProductName())
-                        .brandName(r.getBrandName())
-                        .thumbnailUrl(r.getThumbnailUrl())
+                        .productId(p.getProductId())
+                        .originalPrice(p.getPrice())
+                        .discountRate(p.getDiscountRate() == null ? null
+                                : Long.valueOf(p.getDiscountRate()))
+                        .price(p.getDiscountedPrice())
+                        .quantity(1)
+                        .productName(p.getProductName())
+                        .brandName(p.getBrandName())
+                        .thumbnailUrl(p.getThumbnailUrl())
                         .build());
             }
         } else {

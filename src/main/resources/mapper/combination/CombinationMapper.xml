@@ -200,7 +200,7 @@
                 WHERE ci.COMBINATION_ID = c.COMBINATION_ID
             ) AS originalTotalPrice,
             (
-                SELECT SUM(FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
+                SELECT SUM(TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2))
                 FROM COMBINATION_ITEM ci
                          JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
                 WHERE ci.COMBINATION_ID = c.COMBINATION_ID
@@ -218,7 +218,7 @@
             p.PRICE         AS price,
             p.DISCOUNT_RATE AS discountRate,
             p.THUMBNAIL_URL AS thumbnailUrl,
-            FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100) AS discountedPrice
+            TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
         FROM COMBINATION_ITEM ci
                  JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
         WHERE ci.COMBINATION_ID = #{combinationId}
