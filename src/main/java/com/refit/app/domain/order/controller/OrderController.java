@@ -2,18 +2,25 @@ package com.refit.app.domain.order.controller;
 
 import com.refit.app.domain.memberProduct.model.ProductType;
 import com.refit.app.domain.order.dto.OrderItemDto;
+import com.refit.app.domain.order.dto.request.DraftOrderRequest;
+import com.refit.app.domain.order.dto.response.DraftOrderResponse;
 import com.refit.app.domain.order.dto.response.OrderItemListResponse;
 import com.refit.app.domain.order.service.OrderService;
 import com.refit.app.global.util.SecurityUtil;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RequiredArgsConstructor
 @RestController
 @Slf4j
@@ -28,5 +35,11 @@ public class OrderController {
         Long memberId = SecurityUtil.getCurrentMemberId();
         List<OrderItemDto> orderItems = orderService.getUnregisteredOrderItems(memberId, type);
         return ResponseEntity.ok(new OrderItemListResponse(orderItems));
+    }
+
+    @PostMapping("/draft")
+    public DraftOrderResponse createDraft(@RequestBody @Valid DraftOrderRequest req) {
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        return orderService.createDraft(memberId, req);
     }
 }
