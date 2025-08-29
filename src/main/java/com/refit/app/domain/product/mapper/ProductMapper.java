@@ -90,4 +90,6 @@ public interface ProductMapper {
     List<ProductDto> getLikedProducts(@Param("ids") List<Long> ids);
 
     List<ProductDto> selectTopProductsByOrderCount(@Param("limit") int limit);
+
+    ProductDto selectProductSnippet(@Param("id") Long id);
 }
