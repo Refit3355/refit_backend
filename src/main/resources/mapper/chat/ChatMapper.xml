@@ -24,16 +24,35 @@
     )
   </insert>
 
-  <select id="findByIdWithNickname"
-    resultType="com.refit.app.domain.chat.dto.response.ChatMessageResponse">
+  <!-- 명시 매핑: setter 기반 -->
+  <resultMap id="ChatMessageResponseMap"
+    type="com.refit.app.domain.chat.dto.response.ChatMessageResponse">
+    <id     property="chatId"     column="chatId"/>
+    <result property="categoryId" column="categoryId"/>
+    <result property="memberId"   column="memberId"/>
+    <result property="nickname"   column="nickname" jdbcType="VARCHAR"/>
+    <result property="productId"  column="productId"/>
+    <result property="message"    column="message"  jdbcType="VARCHAR"/>
+    <result property="profileUrl" column="profileUrl" jdbcType="VARCHAR"/>
+    <result property="createdAt"  column="createdAt"/>
+
+    <!-- productId가 있을 때만 product 스니펫 조인 -->
+    <association property="product"
+      javaType="com.refit.app.domain.product.dto.ProductDto"
+      column="productId"
+      select="com.refit.app.domain.product.mapper.ProductMapper.selectProductSnippet"/>
+  </resultMap>
+
+  <select id="findByIdWithNickname" resultMap="ChatMessageResponseMap">
     SELECT
-      cm.CATEGORY_ID       AS categoryId,
-      cm.MEMBER_ID         AS memberId,
-      m.NICKNAME           AS nickname,
-      cm.PRODUCT_ID        AS productId,
-      cm.MESSAGE_CONTENT   AS message,
-      m.PROFILE_URL        AS profileUrl,
-      cm.CREATED_AT        AS createdAt
+      cm.CHAT_ID         AS chatId,
+      cm.CATEGORY_ID     AS categoryId,
+      cm.MEMBER_ID       AS memberId,
+      m.NICKNAME         AS nickname,
+      cm.PRODUCT_ID      AS productId,
+      cm.MESSAGE_CONTENT AS message,
+      m.PROFILE_URL      AS profileUrl,
+      cm.CREATED_AT      AS createdAt
     FROM CHAT cm
            LEFT JOIN MEMBER m ON m.MEMBER_ID = cm.MEMBER_ID
     WHERE cm.CHAT_ID = #{chatId}

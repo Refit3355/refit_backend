@@ -338,4 +338,13 @@
     FETCH FIRST #{limit} ROWS ONLY
   </select>
 
+  <select id="selectProductSnippet"
+    parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    FROM product p
+    WHERE p.product_id = #{id}
+  </select>
+
 </mapper>
