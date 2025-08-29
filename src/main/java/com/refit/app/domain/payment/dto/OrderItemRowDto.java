@@ -11,4 +11,5 @@ public class OrderItemRowDto {
     private Long itemPrice;
     private Integer itemCount;
     private Integer canceledCount;
+    private Long productId;
 }

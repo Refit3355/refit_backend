@@ -363,4 +363,20 @@
       AND ROWNUM = 1
   </select>
 
+  <!-- 재고 차감 -->
+  <update id="decreaseStock">
+    UPDATE PRODUCT
+    SET STOCK = STOCK - #{qty}
+    WHERE PRODUCT_ID = #{productId}
+      AND STOCK >= #{qty}
+  </update>
+
+  <!-- 재고 잠금/검증: 외부 결제 전 재고 확보하고 싶을 때 -->
+  <select id="selectStockForUpdate" resultType="int">
+    SELECT STOCK
+    FROM PRODUCT
+    WHERE PRODUCT_ID = #{productId}
+      FOR UPDATE
+  </select>
+
 </mapper>

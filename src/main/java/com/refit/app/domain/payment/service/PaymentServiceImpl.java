@@ -11,6 +11,7 @@ import com.refit.app.domain.payment.dto.request.PartialCancelRequest;
 import com.refit.app.domain.payment.dto.response.ConfirmPaymentResponse;
 import com.refit.app.domain.payment.dto.response.PartialCancelResponse;
 import com.refit.app.domain.payment.mapper.PaymentMapper;
+import com.refit.app.domain.product.mapper.ProductMapper;
 import com.refit.app.global.exception.ErrorCode;
 import com.refit.app.global.exception.RefitException;
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final WebClient tossWebClient;    // TossClientConfig 에서 BasicAuth(secretKey:) 세팅
     private final PaymentMapper paymentMapper;
+    private final ProductMapper productMapper;
     private final ObjectMapper om;
 
     @Value("${toss.api-base}") String tossBase;
@@ -40,11 +42,13 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentServiceImpl(
             @Qualifier("tossWebClient") WebClient tossWebClient,
             PaymentMapper paymentMapper,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            ProductMapper productMapper
     ) {
         this.tossWebClient = tossWebClient;
         this.paymentMapper = paymentMapper;
         this.om = objectMapper;
+        this.productMapper = productMapper;
     }
 
     @Override
@@ -103,6 +107,20 @@ public class PaymentServiceImpl implements PaymentService {
         // 승인 원문 보관 + 영수증
         paymentMapper.updatePaymentOnApproved(row.getPaymentId(),
                 balanceAmt.longValue(), 1, receiptUrl, toJson(paymentObj));
+
+        // product 재고 차감
+        List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
+        for (OrderItemRowDto it : orderItems) {
+            Long productId = it.getProductId();
+            int qty = it.getItemCount(); // 구매 수량
+
+            int updated = productMapper.decreaseStock(productId, qty);
+            if (updated <= 0) {
+                // 재고 부족 또는 동시성으로 이미 차감됨
+                throw new RefitException(ErrorCode.OUT_OF_STOCK,
+                        "재고 부족: productId=" + productId + ", qty=" + qty);
+            }
+        }
 
         return ConfirmPaymentResponse.builder()
                 .paymentId(row.getPaymentId())

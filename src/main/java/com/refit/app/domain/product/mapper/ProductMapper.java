@@ -93,4 +93,8 @@ public interface ProductMapper {
     List<ProductDto> selectTopProductsByOrderCount(@Param("limit") int limit);
 
     ProductSummaryRow findSummaryById(@Param("productId") Long productId);
+
+    int decreaseStock(@Param("productId") Long productId, @Param("qty") int qty);
+
+    Integer selectStockForUpdate(@Param("productId") Long productId);   // 재고 행 잠금용
 }

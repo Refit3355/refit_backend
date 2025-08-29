@@ -40,6 +40,7 @@
     <result property="itemPrice"    column="ITEM_PRICE"/>
     <result property="itemCount"    column="ITEM_COUNT"/>
     <result property="canceledCount" column="CANCELED_COUNT"/>
+    <result property="productId" column="PRODUCT_ID"/>
   </resultMap>
 
   <!-- PAYMENT -->
@@ -114,7 +115,7 @@
   </select>
 
   <select id="findOrderItems" parameterType="long" resultMap="OrderItemRM">
-    SELECT ORDER_ITEM_ID, ITEM_PRICE, ITEM_COUNT, NVL(CANCELED_COUNT,0) AS CANCELED_COUNT
+    SELECT ORDER_ITEM_ID, ITEM_PRICE, ITEM_COUNT, NVL(CANCELED_COUNT,0) AS CANCELED_COUNT, PRODUCT_ID
     FROM ORDER_ITEM
     WHERE ORDER_ID = #{orderId}
   </select>
