@@ -2,6 +2,8 @@ package com.refit.app.domain.combination.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.dto.CombinationResponseDto;
+import com.refit.app.domain.combination.dto.request.CombinationCreateRequest;
+import com.refit.app.domain.combination.dto.response.CombinationCreateResponse;
 import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationListResponse;
@@ -9,6 +11,8 @@ import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
 import com.refit.app.domain.me.dto.MyCombinationDto;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
+import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,5 +100,39 @@ public class CombinationServiceImpl implements CombinationService {
         detail.setProducts(combinationMapper.findCombinationProducts(combinationId));
         return detail;
     }
+
+    @Override
+    @Transactional
+    public CombinationCreateResponse createCombination(Long memberId, CombinationCreateRequest req) {
+        // 시퀀스로부터 ID 가져오기
+        Long id = combinationMapper.getNextCombinationId();
+
+        // COMBINATION INSERT
+        combinationMapper.insertCombination(
+                id,
+                memberId,
+                req.getName(),
+                req.getContent(),
+                "beauty".equalsIgnoreCase(req.getType()) ? 0 : 1
+        );
+
+        // COMBINATION_ITEM INSERT (2~6개 상품 매핑)
+        List<Long> products = List.of(
+                req.getProduct1Id(),
+                req.getProduct2Id(),
+                req.getProduct3Id(),
+                req.getProduct4Id(),
+                req.getProduct5Id(),
+                req.getProduct6Id()
+        );
+
+        products.stream()
+                .filter(Objects::nonNull)
+                .forEach(pid -> combinationMapper.insertCombinationItem(id, pid));
+
+        // ID값 반환
+        return new CombinationCreateResponse(id);
+    }
+
 
 }
