@@ -6,7 +6,7 @@
 <mapper namespace="com.refit.app.domain.combination.mapper.CombinationMapper">
 
     <!-- 조합 기본 정보 조회 -->
-    <select id="findCombinationById" parameterType="long" resultType="com.refit.app.domain.combination.dto.response.CombinationResponse">
+    <select id="findCombinationById" parameterType="long" resultType="com.refit.app.domain.combination.dto.response.MyCombinationResponse">
         SELECT
             c.COMBINATION_ID   AS combinationId,
             c.COMBINATION_NAME AS combinationName,
@@ -65,5 +65,163 @@
             UPDATED_AT = SYSTIMESTAMP
         WHERE COMBINATION_ID = #{combinationId}
     </update>
+
+    <!-- 조합 조회 -->
+    <select id="findCombinations"
+            parameterType="map"
+            resultType="com.refit.app.domain.combination.dto.CombinationResponseDto">
+        WITH COMB_PRICE AS (
+        SELECT
+        c.COMBINATION_ID,
+        c.COMBINATION_NAME,
+        c.LIKES,
+        c.CREATED_AT,
+        c.BH_TYPE,
+        c.MEMBER_ID,
+        m.NICKNAME,
+        m.PROFILE_URL,
+        SUM(p.PRICE) AS originalTotalPrice,
+        SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100)) AS discountedTotalPrice
+        FROM COMBINATION c
+        JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
+        JOIN COMBINATION_ITEM ci ON ci.COMBINATION_ID = c.COMBINATION_ID
+        JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        GROUP BY c.COMBINATION_ID, c.COMBINATION_NAME, c.LIKES, c.CREATED_AT, c.BH_TYPE, c.MEMBER_ID,m.NICKNAME, m.PROFILE_URL
+        )
+        SELECT
+        cp.COMBINATION_ID     AS combinationId,
+        cp.MEMBER_ID          AS memberId,
+        cp.NICKNAME           AS nickname,
+        cp.PROFILE_URL        AS profileUrl,
+        cp.COMBINATION_NAME   AS combinationName,
+        cp.LIKES              AS likes,
+        cp.CREATED_AT         AS createdAt,
+        cp.originalTotalPrice,
+        cp.discountedTotalPrice
+        FROM COMB_PRICE cp
+        <where>
+            <if test="bhType != null">
+                AND cp.BH_TYPE = #{bhType}
+            </if>
+
+            <if test="combinationId != null">
+                <choose>
+                    <!-- 인기순 -->
+                    <when test="sort == 'popular'">
+                        AND (
+                        (cp.LIKES &lt; (SELECT c2.LIKES FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.LIKES = (SELECT c2.LIKES FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
+                        )
+                    </when>
+
+                    <!-- 최신순 -->
+                    <when test="sort == 'latest'">
+                        AND (
+                        (cp.CREATED_AT &lt; (SELECT c2.CREATED_AT FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.CREATED_AT = (SELECT c2.CREATED_AT FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
+                        )
+                    </when>
+
+                    <!-- 낮은 가격순 -->
+                    <when test="sort == 'lowPrice'">
+                        AND (
+                        (cp.discountedTotalPrice &gt; (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.discountedTotalPrice = (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
+                        )
+                    </when>
+
+                    <!-- 높은 가격순 -->
+                    <when test="sort == 'highPrice'">
+                        AND (
+                        (cp.discountedTotalPrice &lt; (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId}))
+                        OR (cp.discountedTotalPrice = (SELECT c2.discountedTotalPrice FROM COMB_PRICE c2 WHERE c2.COMBINATION_ID = #{combinationId})
+                        AND cp.COMBINATION_ID &gt; #{combinationId})
+                        )
+                    </when>
+                </choose>
+            </if>
+        </where>
+
+        <choose>
+            <when test="sort == 'popular'">
+                ORDER BY cp.LIKES DESC, cp.COMBINATION_ID ASC
+            </when>
+            <when test="sort == 'latest'">
+                ORDER BY cp.CREATED_AT DESC, cp.COMBINATION_ID ASC
+            </when>
+            <when test="sort == 'lowPrice'">
+                ORDER BY cp.discountedTotalPrice ASC, cp.COMBINATION_ID ASC
+            </when>
+            <when test="sort == 'highPrice'">
+                ORDER BY cp.discountedTotalPrice DESC, cp.COMBINATION_ID ASC
+            </when>
+            <otherwise>
+                ORDER BY cp.CREATED_AT DESC, cp.COMBINATION_ID ASC
+            </otherwise>
+        </choose>
+
+        FETCH NEXT #{limit} ROWS ONLY
+    </select>
+
+    <!-- 조합 내 productImages 조회 -->
+    <select id="findProductImagesByCombinationId" parameterType="long" resultType="string">
+        SELECT p.THUMBNAIL_URL
+        FROM COMBINATION_ITEM ci
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        WHERE ci.COMBINATION_ID = #{combinationId}
+    </select>
+
+    <!-- 조합 개수 -->
+    <select id="countCombinations" parameterType="long" resultType="long">
+        SELECT COUNT(*)
+        FROM COMBINATION
+        <where>
+            <if test="bhType != null">
+                AND BH_TYPE = #{bhType}
+            </if>
+        </where>
+    </select>
+
+    <select id="findCombinationDetail" parameterType="long" resultType="com.refit.app.domain.combination.dto.response.CombinationDetailResponse">
+        SELECT
+            c.COMBINATION_ID   AS combinationId,
+            c.COMBINATION_NAME AS combinationName,
+            c.COMBINATION_DESCRIPTION AS combinationDescription,
+            m.MEMBER_ID        AS memberId,
+            m.NICKNAME         AS nickname,
+            m.PROFILE_URL      AS profileUrl,
+            (
+                SELECT SUM(p.PRICE)
+                FROM COMBINATION_ITEM ci
+                         JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+                WHERE ci.COMBINATION_ID = c.COMBINATION_ID
+            ) AS originalTotalPrice,
+            (
+                SELECT SUM(FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
+                FROM COMBINATION_ITEM ci
+                         JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+                WHERE ci.COMBINATION_ID = c.COMBINATION_ID
+            ) AS discountedTotalPrice
+        FROM COMBINATION c
+                 JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
+        WHERE c.COMBINATION_ID = #{combinationId}
+    </select>
+
+    <select id="findCombinationProducts" parameterType="long" resultType="com.refit.app.domain.combination.dto.CombinationProductDto">
+        SELECT
+            p.PRODUCT_ID    AS productId,
+            p.BRAND_NAME    AS brandName,
+            p.PRODUCT_NAME  AS productName,
+            p.PRICE         AS price,
+            p.DISCOUNT_RATE AS discountRate,
+            p.THUMBNAIL_URL AS thumbnailUrl,
+            FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100) AS discountedPrice
+        FROM COMBINATION_ITEM ci
+                 JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
+        WHERE ci.COMBINATION_ID = #{combinationId}
+    </select>
 
 </mapper>

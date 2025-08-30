@@ -13,24 +13,29 @@
 
     <insert id="insertHealthInfo">
         INSERT INTO HEALTH_INFO (
-            MEMBER_ID, STEPS, TOTAL_CALORIES_BURNED, BLOOD_GLUCOSE,
-            BLOOD_PRESSURE, NUTRITION, SLEEPSESSION,
-            CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+        MEMBER_ID, STEPS, TOTAL_CALORIES_BURNED, BLOOD_GLUCOSE,
+        BLOOD_PRESSURE, NUTRITION, SLEEPSESSION,
+        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
         ) VALUES (
-                     #{memberId}, #{req.steps}, #{req.totalKcal}, #{req.bloodGlucoseMgdl},
-                     NULL, #{req.intakeKcal}, #{req.sleepMinutes},
-                     SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
-                 )
+        #{memberId, jdbcType=NUMERIC},
+        #{req.steps, jdbcType=NUMERIC},
+        #{req.totalKcal, jdbcType=NUMERIC},
+        #{req.bloodGlucoseMgdl, jdbcType=NUMERIC},
+        #{req.systolicMmhg, jdbcType=NUMERIC},
+        #{req.intakeKcal, jdbcType=NUMERIC},
+        #{req.sleepMinutes, jdbcType=NUMERIC},
+        SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+        )
     </insert>
 
     <update id="updateHealthInfo">
         UPDATE HEALTH_INFO
-        SET STEPS = #{req.steps},
-            TOTAL_CALORIES_BURNED = #{req.totalKcal},
-            BLOOD_GLUCOSE = #{req.bloodGlucoseMgdl},
-            BLOOD_PRESSURE = NULL,
-            NUTRITION = #{req.intakeKcal},
-            SLEEPSESSION = #{req.sleepMinutes},
+        SET STEPS = #{req.steps, jdbcType=NUMERIC},
+            TOTAL_CALORIES_BURNED = #{req.totalKcal, jdbcType=NUMERIC},
+            BLOOD_GLUCOSE = #{req.bloodGlucoseMgdl, jdbcType=NUMERIC},
+            BLOOD_PRESSURE = #{req.systolicMmhg, jdbcType=NUMERIC},
+            NUTRITION = #{req.intakeKcal, jdbcType=NUMERIC},
+            SLEEPSESSION = #{req.sleepMinutes, jdbcType=NUMERIC},
             UPDATED_AT = SYSTIMESTAMP,
             UPDATED_BY = #{memberId}
         WHERE MEMBER_ID = #{memberId}

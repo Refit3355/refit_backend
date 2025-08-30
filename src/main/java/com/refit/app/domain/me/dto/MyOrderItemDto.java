@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class MyOrderItemDto {
     private Long orderItemId;
     private Long productId;
-    private String orderNumber;
+    private String orderCode;
     private String productName;
     private String thumbnailUrl;
     private ZonedDateTime createdAt;

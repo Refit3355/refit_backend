@@ -2,6 +2,7 @@ package com.refit.app.domain.cart.controller;
 
 import com.refit.app.domain.auth.dto.response.UtilResponse;
 import com.refit.app.domain.cart.dto.CartDto;
+import com.refit.app.domain.cart.dto.request.CartAddBulkRequest;
 import com.refit.app.domain.cart.dto.request.CartAddRequest;
 import com.refit.app.domain.cart.dto.request.CartBulkDeleteRequest;
 import com.refit.app.domain.cart.dto.request.CartUpdateRequest;
@@ -53,9 +54,9 @@ public class CartController {
     @PostMapping("/items/bulk")
     public UtilResponse addCartBulk(
             @AuthenticationPrincipal Long memberId,
-            @RequestBody List<CartAddRequest> requests
+            @RequestBody CartAddBulkRequest request
     ) {
-        cartService.addCartBulk(memberId, requests);
+        cartService.addCartBulk(memberId, request.getItems());
         return new UtilResponse<>("SUCCESS", "장바구니 여러 건 담기를 성공했습니다.", null);
     }
 
