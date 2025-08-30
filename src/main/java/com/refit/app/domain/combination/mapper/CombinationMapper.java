@@ -33,4 +33,15 @@ public interface CombinationMapper {
     CombinationDetailResponse findCombinationDetail(@Param("combinationId") Long combinationId);
 
     List<CombinationProductDto> findCombinationProducts(@Param("combinationId") Long combinationId);
+
+    Long getNextCombinationId();
+
+    void insertCombination(@Param("id") Long id,
+            @Param("memberId") Long memberId,
+            @Param("name") String name,
+            @Param("content") String content,
+            @Param("bhType") Integer bhType);
+
+    void insertCombinationItem(@Param("combinationId") Long combinationId,
+            @Param("productId") Long productId);
 }
