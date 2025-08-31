@@ -392,6 +392,7 @@
     FROM PRODUCT
     WHERE PRODUCT_ID = #{productId}
       FOR UPDATE
+  </select>
 
   <select id="selectProductSnippet"
     parameterType="long"
