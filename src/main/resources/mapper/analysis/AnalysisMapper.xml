@@ -38,4 +38,25 @@
     WHERE MEMBER_ID = #{memberId}
   </select>
 
+  <resultMap id="IngredientRuleMap" type="com.refit.app.domain.analysis.dto.IngredientRule">
+    <id column="INGREDIENT_RULE_ID" property="ingredientRuleId"/>
+    <result column="INGREDIENT_NAME" property="ingredientName"/>
+    <result column="INGREDIENT_CATEGORY" property="ingredientCategory"/>
+    <result column="DESCRIPTION" property="description"/>
+  </resultMap>
+
+  <select id="selectByNames" parameterType="list" resultMap="IngredientRuleMap">
+    SELECT INGREDIENT_RULE_ID, INGREDIENT_NAME, INGREDIENT_CATEGORY, DESCRIPTION
+    FROM INGREDIENT_RULE
+    WHERE REPLACE(REGEXP_REPLACE(UPPER(INGREDIENT_NAME), '[·,/|;:\\.\\-（）()\"''\\[\\]]', ''), ' ',
+    '') IN
+    <foreach collection="names" item="n" open="(" separator="," close=")">
+      REPLACE(REGEXP_REPLACE(UPPER(#{n}), '[·,/|;:\\.\\-（）()\"''\\[\\]]', ''), ' ', '')
+    </foreach>
+  </select>
+
+  <select id="selectMemberNickname" parameterType="long" resultType="string">
+    SELECT NICKNAME FROM MEMBER WHERE MEMBER_ID = #{memberId}
+  </select>
+
 </mapper>
