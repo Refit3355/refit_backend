@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.refit.app.domain.payment.mapper.PaymentMapper">
+
+  <!-- Result Maps -->
+  <resultMap id="PaymentRM" type="com.refit.app.domain.payment.dto.PaymentRowDto">
+    <id     property="paymentId"    column="PAYMENT_ID"/>
+    <result property="orderId"      column="ORDER_ID"/>
+    <result property="paymentKey"   column="PAYMENT_KEY"/>
+    <result property="method"       column="METHOD"/>
+    <result property="currency"     column="CURRENCY"/>
+    <result property="totalAmount"  column="TOTAL_AMOUNT"/>
+    <result property="balanceAmount" column="BALANCE_AMOUNT"/>
+    <result property="status"       column="STATUS"/>
+    <result property="approvedAt"   column="APPROVED_AT"/>
+    <result property="receiptUrl"   column="RECEIPT_URL"/>
+    <result property="rawJson"      column="RAW_JSON"/>
+  </resultMap>
+
+  <resultMap id="PaymentCancelRM" type="com.refit.app.domain.payment.dto.PaymentCancelRowDto">
+    <id     property="paymentCancelId" column="PAYMENT_CANCEL_ID"/>
+    <result property="paymentId"       column="PAYMENT_ID"/>
+    <result property="cancelRequestId" column="CANCEL_REQUEST_ID"/>
+    <result property="cancelAmount"    column="CANCEL_AMOUNT"/>
+    <result property="taxFreeAmount"   column="TAX_FREE_AMOUNT"/>
+    <result property="cancelReason"    column="CANCEL_REASON"/>
+    <result property="canceledAt"      column="CANCELED_AT"/>
+    <result property="rawJson"         column="RAW_JSON"/>
+  </resultMap>
+
+  <resultMap id="OrderRM" type="com.refit.app.domain.payment.dto.OrderRowDto">
+    <id     property="orderId"     column="ORDER_ID"/>
+    <result property="totalPrice"  column="TOTAL_PRICE"/>
+    <result property="orderStatus" column="ORDER_STATUS"/>
+  </resultMap>
+
+  <resultMap id="OrderItemRM" type="com.refit.app.domain.payment.dto.OrderItemRowDto">
+    <id     property="orderItemId"  column="ORDER_ITEM_ID"/>
+    <result property="itemPrice"    column="ITEM_PRICE"/>
+    <result property="itemCount"    column="ITEM_COUNT"/>
+    <result property="canceledCount" column="CANCELED_COUNT"/>
+    <result property="productId" column="PRODUCT_ID"/>
+  </resultMap>
+
+  <!-- PAYMENT -->
+  <insert id="insertPayment"
+    parameterType="com.refit.app.domain.payment.dto.PaymentRowDto"
+    useGeneratedKeys="false">
+    <!-- BEFORE + NEXTVAL -->
+    <selectKey keyProperty="paymentId" resultType="long" order="BEFORE">
+      SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL
+    </selectKey>
+
+    INSERT INTO PAYMENT(
+    PAYMENT_ID, ORDER_ID, ORDER_CODE, PAYMENT_KEY, METHOD, CURRENCY,
+    TOTAL_AMOUNT, BALANCE_AMOUNT, STATUS, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    ) VALUES (
+    #{paymentId}, #{orderId}, #{orderCode}, #{paymentKey}, #{method}, #{currency},
+    #{totalAmount}, #{balanceAmount}, #{status}, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    )
+  </insert>
+
+  <select id="findPaymentByKey" parameterType="string" resultMap="PaymentRM">
+    SELECT * FROM PAYMENT WHERE PAYMENT_KEY = #{paymentKey}
+  </select>
+
+  <update id="updatePaymentOnApproved">
+    UPDATE PAYMENT
+    SET BALANCE_AMOUNT = #{balanceAmount},
+        STATUS = #{status},
+        APPROVED_AT = SYSTIMESTAMP,
+        RECEIPT_URL = #{receiptUrl},
+        RAW_JSON = #{rawJson},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId}
+  </update>
+
+  <update id="updatePaymentStatusAndBalance">
+    UPDATE PAYMENT
+    SET STATUS = #{status},
+        BALANCE_AMOUNT = #{balanceAmount},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId}
+  </update>
+
+  <select id="listPaymentCancels" parameterType="long" resultMap="PaymentCancelRM">
+    SELECT * FROM PAYMENT_CANCEL WHERE PAYMENT_ID = #{paymentId} ORDER BY PAYMENT_CANCEL_ID
+  </select>
+
+  <!-- ORDER / ORDER_ITEM -->
+  <select id="findOrderForUpdate" parameterType="string" resultMap="OrderRM">
+    SELECT ORDER_ID, TOTAL_PRICE, NVL(ORDER_STATUS,0) AS ORDER_STATUS
+    FROM ORDERS
+    WHERE ORDER_CODE = #{orderCode}
+      FOR UPDATE
+  </select>
+
+  <select id="findOrderItems" parameterType="long" resultMap="OrderItemRM">
+    SELECT ORDER_ITEM_ID, ITEM_PRICE, ITEM_COUNT, NVL(CANCELED_COUNT,0) AS CANCELED_COUNT, PRODUCT_ID
+    FROM ORDER_ITEM
+    WHERE ORDER_ID = #{orderId}
+  </select>
+
+  <update id="markOrderPaid">
+    UPDATE ORDERS
+    SET ORDER_STATUS = 1,
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ID = #{orderId}
+  </update>
+
+  <update id="updateOrderStatus">
+    UPDATE ORDERS
+    SET ORDER_STATUS = #{status},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ID = #{orderId}
+  </update>
+
+  <update id="increaseCanceledCount">
+    UPDATE ORDER_ITEM
+    SET CANCELED_COUNT = NVL(CANCELED_COUNT,0) + #{addCount},
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE ORDER_ITEM_ID = #{orderItemId}
+  </update>
+
+  <update id="updateStatusToApprovedByOrderId">
+    UPDATE ORDER_ITEM
+    SET ORDER_STATUS = 1,
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId, jdbcType=NUMERIC}
+  </update>
+
+  <!-- 주문 금액/배송비 스냅샷 (잠금) -->
+  <select id="findOrderMoneyForUpdate" parameterType="long"
+    resultType="com.refit.app.domain.payment.dto.OrderRowDto">
+    SELECT
+      o.ORDER_ID     AS orderId,
+      o.TOTAL_PRICE  AS totalPrice,
+      o.ORDER_STATUS AS orderStatus,
+      o.GOODS_AMOUNT AS goodsAmount,
+      o.DELIVERY_FEE AS deliveryFee
+    FROM ORDERS o
+    WHERE o.ORDER_ID = #{orderId}
+      FOR UPDATE
+  </select>
+
+  <!-- 멱등 로그 존재 여부 -->
+  <select id="existsPaymentCancelByReqId" parameterType="string" resultType="boolean">
+    SELECT CASE WHEN COUNT(1) > 0 THEN 1 ELSE 0 END
+    FROM PAYMENT_CANCEL
+    WHERE CANCEL_REQUEST_ID = #{cancelRequestId}
+  </select>
+
+  <!-- 배송비 조정 적용 여부 -->
+  <select id="existsShippingAdjApplied" parameterType="long" resultType="boolean">
+    SELECT CASE WHEN SUM(CASE WHEN SHIPPING_ADJ_APPLIED=1 THEN 1 ELSE 0 END) > 0 THEN 1 ELSE 0 END
+    FROM PAYMENT_CANCEL
+    WHERE PAYMENT_ID = #{paymentId}
+  </select>
+
+  <!-- 과취소/동시성 방지: 조건부 UPDATE (기존 유지) -->
+  <update id="conditionalIncreaseCanceledCount">
+  <![CDATA[
+    UPDATE ORDER_ITEM
+    SET CANCELED_COUNT = NVL(CANCELED_COUNT,0) + #{inc},
+        UPDATED_AT = SYSTIMESTAMP,
+        ORDER_STATUS = CASE
+                         WHEN NVL(CANCELED_COUNT,0) + #{inc} >= ITEM_COUNT THEN 3
+                         WHEN NVL(CANCELED_COUNT,0) + #{inc} > 0 THEN 2
+                         ELSE ORDER_STATUS
+          END
+    WHERE ORDER_ITEM_ID = #{orderItemId}
+      AND #{inc} >= 1
+      AND #{inc} <= (ITEM_COUNT - NVL(CANCELED_COUNT,0))
+    ]]>
+</update>
+
+  <!-- 취소 이력 (배송비 조정 플래그 포함) -->
+  <insert id="insertPaymentCancel">
+    INSERT INTO PAYMENT_CANCEL (
+      PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID,
+      CANCEL_AMOUNT, TAX_FREE_AMOUNT, CANCEL_REASON,
+      CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED
+    ) VALUES (
+               SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId},
+               #{cancelAmount}, #{taxFreeAmount}, #{cancelReason},
+               #{canceledAt}, #{rawJson}, #{shippingAdjApplied}
+             )
+  </insert>
+
+  <!-- 아이템 조회 (취소 검증용) -->
+  <select id="findOrderItemForCancel" parameterType="long"
+    resultType="com.refit.app.domain.payment.dto.OrderItemRowDto">
+    SELECT
+      oi.ORDER_ITEM_ID AS orderItemId,
+      oi.ORDER_ID      AS orderId,
+      oi.ITEM_COUNT    AS itemCount,
+      NVL(oi.CANCELED_COUNT, 0) AS canceledCount,
+      oi.ITEM_PRICE    AS itemPrice
+    FROM ORDER_ITEM oi
+    WHERE oi.ORDER_ITEM_ID = #{orderItemId}
+  </select>
+
+  <!-- 잔액 있는 최신 결제 1건 -->
+  <select id="findActivePaymentByOrderId" parameterType="long"
+    resultType="com.refit.app.domain.payment.dto.PaymentRowDto">
+    SELECT
+      p.PAYMENT_ID     AS paymentId,
+      p.ORDER_ID       AS orderId,
+      p.PAYMENT_KEY    AS paymentKey,
+      p.BALANCE_AMOUNT AS balanceAmount,
+      p.STATUS         AS status
+    FROM PAYMENT p
+    WHERE p.ORDER_ID = #{orderId}
+      AND p.BALANCE_AMOUNT > 0
+    ORDER BY p.PAYMENT_ID DESC
+      FETCH FIRST 1 ROWS ONLY
+  </select>
+
+  <!-- 주문 상태 집계 -->
+  <select id="aggregateOrderCancelState" parameterType="long" resultType="hashmap">
+    SELECT
+      NVL(SUM(CASE WHEN NVL(oi.CANCELED_COUNT,0) = oi.ITEM_COUNT THEN 1 ELSE 0 END), 0) AS FULL_CANCELED,
+      COUNT(1) AS TOTAL
+    FROM ORDER_ITEM oi
+    WHERE oi.ORDER_ID = #{orderId}
+  </select>
+
+</mapper>

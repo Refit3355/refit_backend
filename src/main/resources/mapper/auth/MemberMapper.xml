@@ -188,4 +188,27 @@
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL
   </select>
+
+  <resultMap id="MemberAddressRowMap" type="com.refit.app.domain.order.dto.MemberAddressRow">
+    <result property="memberName"   column="MEMBER_NAME"/>
+    <result property="phoneNumber"  column="PHONE_NUMBER"/>
+    <result property="roadAddress"  column="ROAD_ADDRESS"/>
+    <result property="detailAddress" column="DETAIL_ADDRESS"/>
+    <result property="zipcode"      column="ZIPCODE"/>
+    <result property="deliveryNote" column="DELIVERY_NOTE"/>
+  </resultMap>
+
+  <select id="findShippingByMemberId" resultMap="MemberAddressRowMap">
+    SELECT
+      m.MEMBER_NAME,
+      m.PHONE_NUMBER,
+      m.ROAD_ADDRESS,
+      m.DETAIL_ADDRESS,
+      m.ZIPCODE,
+      m.DELIVERY_NOTE
+    FROM MEMBER m
+    WHERE m.MEMBER_ID = #{memberId}
+      AND ROWNUM = 1
+  </select>
+
 </mapper>

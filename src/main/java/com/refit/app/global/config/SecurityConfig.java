@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws-stomp", "/ws-stomp/**", "/ws-stomp-sockjs/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                        .requestMatchers("/payments/webhook").permitAll()
                         .requestMatchers(
                                 "/auth/check/**",
                                 "/auth/join/**",

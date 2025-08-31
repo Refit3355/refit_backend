@@ -9,6 +9,7 @@ import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.global.config.JwtProvider;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -18,13 +19,24 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 
 @Service
-@RequiredArgsConstructor
 public class KakaoOAuthServiceImpl implements KakaoOAuthService {
 
     private final WebClient kakaoWebClient;
     private final MemberMapper memberMapper;
     private final MemberService memberService;
     private final JwtProvider jwtProvider;
+
+    public KakaoOAuthServiceImpl(
+            @Qualifier("kakaoWebClient") WebClient kakaoWebClient,
+            MemberMapper memberMapper,
+            MemberService memberService,
+            JwtProvider jwtProvider
+    ) {
+        this.kakaoWebClient = kakaoWebClient;
+        this.memberMapper = memberMapper;
+        this.memberService = memberService;
+        this.jwtProvider = jwtProvider;
+    }
 
     public record KakaoUser(String id, String email, String nickname, String profileImageUrl) {
 

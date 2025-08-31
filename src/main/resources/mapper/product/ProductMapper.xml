@@ -353,6 +353,47 @@
     FETCH FIRST #{limit} ROWS ONLY
   </select>
 
+  <resultMap id="ProductSummaryRowMap" type="com.refit.app.domain.order.dto.ProductSummaryRow">
+    <result property="id"             column="PRODUCT_ID"/>
+    <result property="name"           column="PRODUCT_NAME"/>
+    <result property="brandName"      column="BRAND_NAME"/>
+    <result property="thumbnailUrl"   column="THUMBNAIL_URL"/>
+    <result property="originalPrice"  column="PRICE"/>
+    <result property="discountRate"   column="DISCOUNT_RATE"/>
+    <result property="discountedPrice" column="DISCOUNTED_PRICE"/>
+  </resultMap>
+
+  <!-- 할인 단가 계산  -->
+  <select id="findSummaryById" parameterType="long" resultMap="ProductSummaryRowMap">
+    SELECT
+      p.PRODUCT_ID,
+      p.PRODUCT_NAME,
+      p.BRAND_NAME,
+      p.THUMBNAIL_URL,
+      p.PRICE,
+      p.DISCOUNT_RATE,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS DISCOUNTED_PRICE
+    FROM PRODUCT p
+    WHERE p.PRODUCT_ID = #{productId}
+      AND ROWNUM = 1
+  </select>
+
+  <!-- 재고 차감 -->
+  <update id="decreaseStock">
+    UPDATE PRODUCT
+    SET STOCK = STOCK - #{qty}
+    WHERE PRODUCT_ID = #{productId}
+      AND STOCK >= #{qty}
+  </update>
+
+  <!-- 재고 잠금/검증: 외부 결제 전 재고 확보하고 싶을 때 -->
+  <select id="selectStockForUpdate" resultType="int">
+    SELECT STOCK
+    FROM PRODUCT
+    WHERE PRODUCT_ID = #{productId}
+      FOR UPDATE
+  </select>
+
   <select id="selectProductSnippet"
     parameterType="long"
     resultType="com.refit.app.domain.product.dto.ProductDto">
