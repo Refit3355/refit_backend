@@ -1,12 +1,18 @@
 package com.refit.app.domain.analysis.service;
 
+import com.refit.app.domain.analysis.dto.IngredientRule;
 import com.refit.app.domain.analysis.dto.response.IngredientAnalysisResponse;
 import com.refit.app.domain.analysis.dto.response.MemberStatusResponse;
+import com.refit.app.domain.analysis.mapper.AnalysisMapper;
+import com.refit.app.domain.analysis.policy.IngredientNormalizer;
 import com.refit.app.domain.analysis.policy.RiskPolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
@@ -17,70 +23,108 @@ public class IngredientReportServiceImpl implements IngredientReportService {
     // 기존: member 상태 조회 서비스
     private final AnalysisService analysisService;
     private final RiskPolicy riskPolicy;
+    private final AnalysisMapper analysisMapper;
 
     public IngredientReportServiceImpl(ChatClient.Builder builder, AnalysisService analysisService,
-            RiskPolicy riskPolicy) {
+            RiskPolicy riskPolicy, AnalysisMapper analysisMapper) {
         this.chat = builder.build();
         this.analysisService = analysisService;
         this.riskPolicy = riskPolicy;
+        this.analysisMapper = analysisMapper;
     }
 
     @Override
     public IngredientAnalysisResponse analyze(Long memberId, List<String> ingredients) {
         MemberStatusResponse st = analysisService.getMemberStatus(memberId);
 
+        // 1) 정규화
+        List<String> normalized = ingredients.stream()
+                .map(IngredientNormalizer::normalize)
+                .filter(s -> s != null && !s.isBlank())
+                .toList();
+
+        // 2) DB 룰 조회 (chunking)
+        List<IngredientRule> allRules = new ArrayList<>();
+        for (List<String> chunk : chunksOf(normalized, 900)) { // 안전하게 900
+            if (!chunk.isEmpty()) {
+                allRules.addAll(analysisMapper.selectByNames(chunk));
+            }
+        }
+
+        // 3) 룰 매핑 (정규화 키로 매핑)
+        Map<String, IngredientRule> ruleByNorm = new HashMap<>();
+        for (IngredientRule r : allRules) {
+            String key = IngredientNormalizer.normalize(r.getIngredientName())
+                    .toUpperCase(Locale.ROOT)
+                    .replaceAll("\\s+", "");
+            ruleByNorm.put(key, r);
+        }
+
         List<String> safe = new ArrayList<>();
         List<String> caution = new ArrayList<>();
         List<String> risky = new ArrayList<>();
         int matched = 0;
 
-        Map<String, Object> metrics = new HashMap<>();
-        if (st.getMetrics() != null) {
-            metrics.put("bloodPressure", st.getMetrics().getBloodPressure());
-            metrics.put("bloodGlucose", st.getMetrics().getBloodGlucose());
-            metrics.put("totalCaloriesBurned", st.getMetrics().getTotalCaloriesBurned());
-            metrics.put("sleepSession", st.getMetrics().getSleepSession());
+        // 4) DB 룰 우선 적용
+        Set<String> handled = new HashSet<>();
+        for (String raw : ingredients) {
+            String norm = IngredientNormalizer.normalize(raw);
+            String key = norm.toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+            IngredientRule r = ruleByNorm.get(key);
+            if (r != null) {
+                switch (r.getIngredientCategory()) {
+                    case 0 -> safe.add(raw);
+                    case 1 -> {
+                        caution.add(raw);
+                        matched++;
+                    }
+                    case 2 -> {
+                        risky.add(raw);
+                        matched++;
+                    }
+                }
+                handled.add(raw);
+            }
         }
 
+        // 5) DB 미매칭은 RiskPolicy로 보완
+        Map<String, Object> metrics = toMetrics(st);
         boolean sensitiveProfile = hasSensitiveProfile(st);
 
-        for (String ingr : ingredients) {
+        for (String raw : ingredients) {
+            if (handled.contains(raw)) {
+                continue;
+            }
+
             RiskPolicy.RiskResult r = riskPolicy.evaluate(
-                    ingr, st.getSkinConcerns(), st.getHealthConcerns(), st.getHairConcerns(),
+                    raw, st.getSkinConcerns(), st.getHealthConcerns(), st.getHairConcerns(),
                     metrics);
 
             switch (r.getRisk()) {
                 case "high" -> {
-                    risky.add(ingr);
+                    risky.add(raw);
                     matched++;
                 }
                 case "medium" -> {
-                    caution.add(ingr);
+                    caution.add(raw);
                     matched++;
                 }
                 case "low" -> {
                     if (sensitiveProfile) {
-                        caution.add(ingr);
+                        caution.add(raw);
                         matched++;
                     } else {
-                        safe.add(ingr);
+                        safe.add(raw);
                     }
                 }
-                default -> safe.add(ingr);
+                default -> safe.add(raw);
             }
         }
 
         double matchRate =
                 ingredients.isEmpty() ? 0.0 : (double) matched / ingredients.size() * 100.0;
 
-        String summary = generatePersonalSummary(
-                st,
-                ingredients,
-                risky,
-                caution,
-                safe,
-                matchRate
-        );
+        String summary = generatePersonalSummary(st, ingredients, risky, caution, safe, matchRate);
 
         return IngredientAnalysisResponse.builder()
                 .memberId(memberId)
@@ -91,6 +135,25 @@ public class IngredientReportServiceImpl implements IngredientReportService {
                 .riskyIngredients(risky)
                 .summary(summary)
                 .build();
+    }
+
+    private static Map<String, Object> toMetrics(MemberStatusResponse st) {
+        Map<String, Object> m = new HashMap<>();
+        if (st.getMetrics() != null) {
+            m.put("bloodPressure", st.getMetrics().getBloodPressure());
+            m.put("bloodGlucose", st.getMetrics().getBloodGlucose());
+            m.put("totalCaloriesBurned", st.getMetrics().getTotalCaloriesBurned());
+            m.put("sleepSession", st.getMetrics().getSleepSession());
+        }
+        return m;
+    }
+
+    private static <T> List<List<T>> chunksOf(List<T> list, int size) {
+        List<List<T>> res = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            res.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return res;
     }
 
     private boolean hasSensitiveProfile(MemberStatusResponse st) {

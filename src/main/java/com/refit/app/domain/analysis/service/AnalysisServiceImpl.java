@@ -1,20 +1,32 @@
 package com.refit.app.domain.analysis.service;
 
+import com.refit.app.domain.analysis.ai.OpenAiNarrative;
+import com.refit.app.domain.analysis.ai.OpenAiVisionOcr;
 import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
 import com.refit.app.domain.analysis.dto.AnalysisSkinConcernDto;
+import com.refit.app.domain.analysis.dto.IngredientRule;
+import com.refit.app.domain.analysis.dto.response.AnalysisResponseDto;
 import com.refit.app.domain.analysis.dto.response.MemberStatusResponse;
 import com.refit.app.domain.analysis.mapper.AnalysisMapper;
+import com.refit.app.domain.analysis.policy.IngredientNormalizer;
+import com.refit.app.domain.analysis.policy.ScoringPolicy;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class AnalysisServiceImpl implements AnalysisService {
 
+    private final OpenAiVisionOcr ocr;
+    private final OpenAiNarrative narrative;
     private final AnalysisMapper analysisMapper;
     private static final String[] SKIN_TYPE_NAME = {"건성", "중성", "지성", "복합성", "수부지"};
 
@@ -121,8 +133,120 @@ public class AnalysisServiceImpl implements AnalysisService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public AnalysisResponseDto analyzeImage(
+            Long memberId,
+            byte[] imageBytes,
+            String productType,
+            @org.springframework.lang.Nullable String filename,
+            @org.springframework.lang.Nullable String contentType
+    ) {
+        boolean isHealth = false;
+        if (productType != null) {
+            String p = productType.trim().toLowerCase();
+            isHealth = p.contains("영양") || p.equals("health");
+        }
+
+        if (isHealth) {
+            // 영양제: 전체 OCR → 일반 요약만
+            String ocrText = ocr.ocrAllText(imageBytes, filename, contentType);
+            String summary = narrative.buildSupplementSummaryFromText(ocrText);
+
+            return AnalysisResponseDto.builder()
+                    .memberName("")
+                    .matchRate(0)
+                    .risky(List.of())
+                    .caution(List.of())
+                    .safe(List.of())
+                    .riskyText("")
+                    .cautionText("")
+                    .safeText("")
+                    .summary(summary)
+                    .build();
+        }
+
+        // ===== 화장품: 성분 추출 → DB 매칭(±LLM 보정) → 점수/서술 =====
+        var extracted = ocr.extract(imageBytes, productType, filename, contentType);
+
+        List<String> raw = new ArrayList<>();
+        raw.addAll(extracted.ingredientsKr());
+        raw.addAll(extracted.ingredientsEn());
+
+        List<String> names = raw.stream()
+                .map(IngredientNormalizer::normalize)
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .toList();
+
+        List<IngredientRule> rules =
+                names.isEmpty() ? List.of() : analysisMapper.selectByNames(names);
+        Map<String, IngredientRule> ruleByName = rules.stream()
+                .collect(Collectors.toMap(IngredientRule::getIngredientName, r -> r, (a, b) -> a,
+                        LinkedHashMap::new));
+
+        List<String> safe = new ArrayList<>();
+        List<String> caution = new ArrayList<>();
+        List<String> danger = new ArrayList<>();
+        for (String n : names) {
+            IngredientRule r = ruleByName.get(n);
+            if (r == null) {
+                continue;
+            }
+            switch (r.getIngredientCategory()) {
+                case 0 -> safe.add(n);
+                case 1 -> caution.add(n);
+                case 2 -> danger.add(n);
+            }
+        }
+
+        // (선택) DB 미등록 성분은 LLM으로 3분류
+        var unknown = names.stream().filter(n -> !ruleByName.containsKey(n)).toList();
+        if (!unknown.isEmpty()) {
+            var cls = narrative.classifyUnknowns(unknown, productType);
+            safe.addAll(cls.safe());
+            caution.addAll(cls.caution());
+            danger.addAll(cls.risky());
+        }
+
+        // 개인화 매칭률
+        var skin = analysisMapper.selectSkinConcern(memberId);
+        var profile = new ScoringPolicy.Profile(
+                skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1
+                        || skin.getRedness() == 1),
+                skin != null && skin.getAcne() == 1,
+                skin != null && skin.getAtopic() == 1,
+                skin != null && skin.getInnerDryness() == 1,
+                skin != null && skin.getRedness() == 1
+        );
+        int matchRate = ScoringPolicy.computeMatchRate(
+                names.size(), safe.size() + caution.size() + danger.size(),
+                safe.size(), caution.size(), danger.size(),
+                profile
+        );
+
+        String memberName = analysisMapper.selectMemberNickname(memberId);
+        if (org.apache.commons.lang3.StringUtils.isBlank(memberName)) {
+            memberName = "사용자";
+        }
+
+        // 전체 요약 + 카테고리별 쉬운 문단 생성
+        var nar = narrative.buildCosmeticNarrative(danger, caution, safe, memberName, matchRate);
+
+        return AnalysisResponseDto.builder()
+                .memberName(memberName)
+                .matchRate(matchRate)
+                .risky(danger)
+                .caution(caution)
+                .safe(safe)
+                .riskyText(nar.riskyText())
+                .cautionText(nar.cautionText())
+                .safeText(nar.safeText())
+                .summary(nar.summary())
+                .build();
+    }
+
     private boolean on(Integer v) {
         return v != null && v == 1;
     }
-
 }

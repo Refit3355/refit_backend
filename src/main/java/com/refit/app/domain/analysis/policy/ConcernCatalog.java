@@ -1,4 +1,3 @@
-// ✅ ConcernCatalog.java (교체/추가)
 package com.refit.app.domain.analysis.policy;
 
 import java.util.ArrayList;
