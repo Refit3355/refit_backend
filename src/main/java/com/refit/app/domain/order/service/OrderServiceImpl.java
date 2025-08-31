@@ -72,19 +72,12 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItemSummary it : items) {
             long original = it.getOriginalPrice();
-            long rate = (it.getDiscountRate() == null) ? 0L : it.getDiscountRate();
+            long saleUnit = computeDiscountedUnit(original, it.getDiscountRate());
             int qty = it.getQuantity();
 
-            // 상품별 할인금액 (100원 미만 버림)
-            long discountPerUnit = (original * rate / 100L) / 100L * 100L; // 내림 처리
-            long discountForItem = discountPerUnit * qty;
-
-            // 상품별 판매가
-            long salePrice = original - discountPerUnit;
-
             // 합계 계산
-            goodsTotal += salePrice * qty;
-            discountTotal += discountForItem;
+            goodsTotal    += saleUnit * qty;
+            discountTotal += (original - saleUnit) * qty;
         }
 
         long deliveryFee = (goodsTotal >= FREE_SHIPPING_THRESHOLD) ? 0L : BASE_DELIVERY_FEE;
@@ -145,17 +138,18 @@ public class OrderServiceImpl implements OrderService {
 
         // 7) ORDER_ITEM insert (정가/할인율/할인가 모두 기록)
         for (OrderItemSummary it : items) {
+            long saleUnit = computeDiscountedUnit(it.getOriginalPrice(), it.getDiscountRate());
+            int  qty      = it.getQuantity();
+
             OrderItemInsertRow row = new OrderItemInsertRow();
-            long rate = (it.getDiscountRate() == null) ? 0L : it.getDiscountRate();
-            long discountedPrice = (it.getPrice() * (100 - rate) / 100L) / 100L * 100L;
             row.setOrderId(orderId);
             row.setProductId(it.getProductId());
             row.setOrderStatus(0); // REQUESTED
-            row.setItemCount(it.getQuantity());
+            row.setItemCount(qty);
             row.setOrgUnitPrice(it.getOriginalPrice());
             row.setDiscountRate(it.getDiscountRate());
-            row.setItemPrice(discountedPrice); // 할인단가
-            row.setLineAmount(discountedPrice * it.getQuantity());
+            row.setItemPrice(saleUnit);
+            row.setLineAmount(saleUnit * qty);
             row.setProductName(it.getProductName());
             row.setBrandName(it.getBrandName());
             row.setThumbnailUrl(it.getThumbnailUrl());
@@ -178,6 +172,9 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(totalAmount)
                 .items(items)
                 .shipping(shipping)
+                .deliveryFee(deliveryFee)
+                .goodsAmount(goodsTotal)
+                .discount(discountTotal)
                 .build();
     }
 
@@ -249,5 +246,18 @@ public class OrderServiceImpl implements OrderService {
         else if (res == 1 && status == 6) message = "반품 신청이 완료되었습니다.";
 
         return UpdateOrderStatusResponse.builder().message(message).build();
+    }
+
+    private static long truncHundreds(long amount) {
+        // amount가 음수일 여지는 사실상 없지만, 안전하게 처리하려면 별도 분기 가능
+        return (amount / 100L) * 100L;
+    }
+
+    private static long computeDiscountedUnit(long original, Long rateNullable) {
+        long rate = (rateNullable == null) ? 0L : rateNullable;
+        // 1) 정가 * (100 - rate) / 100  : 원단위 내림(정수 나눗셈)
+        long wonDown = (original * (100L - rate)) / 100L;
+        // 2) 100원 단위로 TRUNC(-2)
+        return truncHundreds(wonDown);
     }
 }

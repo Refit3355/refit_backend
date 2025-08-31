@@ -29,6 +29,9 @@ public class DraftOrderResponse {
     // 총 결제금액(배송비 포함 계산된 최종 합)
     @Positive
     private long totalAmount;
+    private long deliveryFee;
+    private long goodsAmount;
+    private long discount;
 
     // 배송지 정보
     @NotNull @Valid
