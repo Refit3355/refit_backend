@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.chat.mapper.ChatMapper">
+  <insert id="insertFromRequest" parameterType="map">
+    <selectKey keyProperty="chatId" resultType="long" order="BEFORE">
+      SELECT SEQ_CHAT.NEXTVAL FROM DUAL
+    </selectKey>
+    INSERT INTO CHAT (
+    CHAT_ID,
+    CATEGORY_ID,
+    MEMBER_ID,
+    PRODUCT_ID,
+    MESSAGE_CONTENT,
+    CREATED_AT
+    ) VALUES (
+    #{chatId,         jdbcType=NUMERIC},
+    #{req.categoryId, jdbcType=NUMERIC},
+    #{memberId,       jdbcType=NUMERIC},
+    #{req.productId,  jdbcType=NUMERIC},
+    #{req.message,    jdbcType=VARCHAR},
+    SYSTIMESTAMP
+    )
+  </insert>
+
+  <!-- 명시 매핑: setter 기반 -->
+  <resultMap id="ChatMessageResponseMap"
+    type="com.refit.app.domain.chat.dto.response.ChatMessageResponse">
+    <id     property="chatId"     column="chatId"/>
+    <result property="categoryId" column="categoryId"/>
+    <result property="memberId"   column="memberId"/>
+    <result property="nickname"   column="nickname" jdbcType="VARCHAR"/>
+    <result property="productId"  column="productId"/>
+    <result property="message"    column="message"  jdbcType="VARCHAR"/>
+    <result property="profileUrl" column="profileUrl" jdbcType="VARCHAR"/>
+    <result property="createdAt"  column="createdAt"/>
+
+    <!-- productId가 있을 때만 product 스니펫 조인 -->
+    <association property="product"
+      javaType="com.refit.app.domain.product.dto.ProductDto"
+      column="productId"
+      select="com.refit.app.domain.product.mapper.ProductMapper.selectProductSnippet"/>
+  </resultMap>
+
+  <select id="findByIdWithNickname" resultMap="ChatMessageResponseMap">
+    SELECT
+      cm.CHAT_ID         AS chatId,
+      cm.CATEGORY_ID     AS categoryId,
+      cm.MEMBER_ID       AS memberId,
+      m.NICKNAME         AS nickname,
+      cm.PRODUCT_ID      AS productId,
+      cm.MESSAGE_CONTENT AS message,
+      m.PROFILE_URL      AS profileUrl,
+      cm.CREATED_AT      AS createdAt
+    FROM CHAT cm
+           LEFT JOIN MEMBER m ON m.MEMBER_ID = cm.MEMBER_ID
+    WHERE cm.CHAT_ID = #{chatId}
+  </select>
+
+  <!-- 카테고리 과거 히스토리: 최신 → 과거 (DESC) 정렬, beforeId 커서로 더 과거 페이지 -->
+  <select id="findHistory" parameterType="map"
+    resultMap="ChatMessageResponseMap">
+    SELECT *
+    FROM (
+    SELECT
+    c.CHAT_ID          AS chatId,
+    c.CATEGORY_ID      AS categoryId,
+    c.MEMBER_ID        AS memberId,
+    m.NICKNAME         AS nickname,
+    c.PRODUCT_ID       AS productId,
+    c.MESSAGE_CONTENT  AS message,
+    m.PROFILE_URL      AS profileUrl,
+    c.CREATED_AT       AS createdAt
+    FROM CHAT c
+    LEFT JOIN MEMBER m ON m.MEMBER_ID = c.MEMBER_ID
+    WHERE c.CATEGORY_ID = #{categoryId, jdbcType=NUMERIC}
+    <if test="beforeId != null">
+      AND c.CHAT_ID <![CDATA[ < ]]> #{beforeId, jdbcType=NUMERIC}
+    </if>
+    ORDER BY c.CHAT_ID DESC
+    )
+    WHERE ROWNUM &lt;= #{size, jdbcType=NUMERIC}
+  </select>
+
+  <select id="existsOlder" resultType="int">
+    SELECT CASE WHEN EXISTS (
+      SELECT 1
+      FROM CHAT c
+      WHERE c.CATEGORY_ID = #{categoryId, jdbcType=NUMERIC}
+        AND c.CHAT_ID <![CDATA[ < ]]> #{beforeId, jdbcType=NUMERIC}
+        AND ROWNUM &lt;= 1
+    ) THEN 1 ELSE 0 END
+    FROM DUAL
+  </select>
+
+  <select id="findRoomsByTab"
+    resultType="com.refit.app.domain.chat.dto.ChatRoomDto">
+    SELECT
+    cat.CATEGORY_ID                           AS categoryId,
+    cat.CATEGORY_NAME                         AS categoryName,
+    MAX(c.CHAT_ID)                            AS lastChatId,
+    MAX(c.MESSAGE_CONTENT)
+    KEEP (DENSE_RANK LAST ORDER BY c.CHAT_ID) AS lastMessage,
+    MAX(c.CREATED_AT)
+    KEEP (DENSE_RANK LAST ORDER BY c.CHAT_ID) AS lastAt
+    FROM CATEGORY cat
+    LEFT JOIN CHAT c
+    ON c.CATEGORY_ID = cat.CATEGORY_ID
+    WHERE 1=1
+    <choose>
+      <when test="tab == 'beauty'">
+        AND cat.CATEGORY_ID BETWEEN 0 AND 7
+      </when>
+      <when test="tab == 'health'">
+        AND cat.CATEGORY_ID BETWEEN 8 AND 11
+      </when>
+      <otherwise>
+        <!-- all: 필터 없음 -->
+      </otherwise>
+    </choose>
+    GROUP BY cat.CATEGORY_ID, cat.CATEGORY_NAME
+    ORDER BY NVL(MAX(c.CHAT_ID), 0) DESC
+  </select>
+</mapper>

@@ -79,7 +79,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
 
         if (memberId == null) {
             return new KakaoVerifyResponse(
-                    true, u.id(), u.email(), u.nickname(), u.profileImageUrl(),
+                    true, u.id(), u.email(), u.nickname(), null,
                     null, null, null, null, null,
                     null, null, null
             );
@@ -95,7 +95,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         res.setKakaoId(u.id());
         res.setEmail(u.email());
         res.setNickname(u.nickname());
-        res.setProfileImageUrl(u.profileImageUrl());
+        res.setProfileImageUrl(m.getProfileImageUrl());
         res.setMemberId(memberId);
         res.setUserEmail(m.getEmail());
         res.setUserNickname(m.getNickname());
@@ -150,6 +150,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         lr.setMemberId(memberId);
         lr.setNickname(m.getNickname());
         lr.setHealth(health);
+        lr.setProfileImageUrl(m.getProfileImageUrl());
         return lr;
     }
 }

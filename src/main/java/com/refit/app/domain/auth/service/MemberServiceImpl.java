@@ -123,6 +123,7 @@ public class MemberServiceImpl implements MemberService {
         res.setHealth(health);
         res.setHair(hair);
         res.setSkin(skin);
+        res.setProfileImageUrl(m.profileImageUrl);
         return res;
     }
 
@@ -219,7 +220,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional
-    public SamsungHealthSaveResponse saveSamsungHealth(Long memberId, SamsungHealthSaveRequest request) {
+    public SamsungHealthSaveResponse saveSamsungHealth(Long memberId,
+            SamsungHealthSaveRequest request) {
         int count = healthInfoMapper.existsByMemberId(memberId);
         if (count == 0) {
             healthInfoMapper.insertHealthInfo(memberId, request);

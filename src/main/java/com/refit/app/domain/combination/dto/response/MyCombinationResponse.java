@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CombinationResponse {
+public class MyCombinationResponse {
     private Long combinationId;
     private String combinationName;
     private String combinationDescription;

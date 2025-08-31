@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.notification.mapper.NotificationMapper">
+
+  <insert id="insertNotification" parameterType="map">
+    <selectKey keyProperty="notificationId" resultType="long" order="BEFORE">
+      SELECT SEQ_NOTIFICATION.NEXTVAL FROM DUAL
+    </selectKey>
+    INSERT INTO NOTIFICATION(
+    NOTIFICATION_ID, MEMBER_ID, TITLE, BODY, IMAGE_URL, DEEPLINK, TYPE, IS_READ, CREATED_AT
+    ) VALUES(
+        #{notificationId}, #{memberId}, #{title}, #{body},
+        #{imageUrl,  jdbcType=VARCHAR},
+        #{deeplink,  jdbcType=VARCHAR},
+        #{type},
+        0, SYSTIMESTAMP
+    )
+  </insert>
+
+  <select id="selectUnreadCount" parameterType="long" resultType="int">
+    SELECT COUNT(*)
+    FROM NOTIFICATION
+    WHERE MEMBER_ID = #{memberId} AND IS_READ = 0
+  </select>
+
+  <update id="markAllRead" parameterType="long">
+    UPDATE NOTIFICATION
+    SET IS_READ = 1, READ_AT = SYSTIMESTAMP
+    WHERE MEMBER_ID = #{memberId} AND IS_READ = 0
+  </update>
+
+  <select id="selectNotifications" parameterType="map"
+    resultType="com.refit.app.domain.notification.dto.NotificationRowDto">
+    SELECT
+      NOTIFICATION_ID  AS notificationId,
+      TITLE            AS title,
+      BODY             AS body,
+      IMAGE_URL        AS imageUrl,
+      DEEPLINK         AS deeplink,
+      TYPE             AS type,
+      IS_READ          AS isRead,
+      CAST(CREATED_AT AS TIMESTAMP) AS createdAt,
+      CAST(READ_AT AS TIMESTAMP)    AS readAt
+    FROM NOTIFICATION
+    WHERE MEMBER_ID = #{memberId}
+    ORDER BY NOTIFICATION_ID DESC
+    OFFSET #{offset} ROWS FETCH NEXT #{size} ROWS ONLY
+  </select>
+
+</mapper>

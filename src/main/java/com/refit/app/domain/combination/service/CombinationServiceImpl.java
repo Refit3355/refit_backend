@@ -1,11 +1,19 @@
 package com.refit.app.domain.combination.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
+import com.refit.app.domain.combination.dto.CombinationResponseDto;
+import com.refit.app.domain.combination.dto.request.CombinationCreateRequest;
+import com.refit.app.domain.combination.dto.response.CombinationCreateResponse;
+import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
-import com.refit.app.domain.combination.dto.response.CombinationResponse;
+import com.refit.app.domain.combination.dto.response.CombinationListResponse;
+import com.refit.app.domain.combination.dto.response.MyCombinationResponse;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
 import com.refit.app.domain.me.dto.MyCombinationDto;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,36 +26,6 @@ import java.util.stream.Collectors;
 public class CombinationServiceImpl implements CombinationService {
 
     private final CombinationMapper combinationMapper;
-
-    @Override
-    public CombinationResponse getCombinationDetail(Long combinationId) {
-        CombinationResponse combination = combinationMapper.findCombinationById(combinationId);
-
-        List<CombinationProductDto> products = combinationMapper.findProductsByCombinationId(combinationId)
-                .stream()
-                .map(p -> CombinationProductDto.builder()
-                        .productId(p.getProductId())
-                        .productName(p.getProductName())
-                        .brandName(p.getBrandName())
-                        .price(p.getPrice())
-                        .discountRate(p.getDiscountRate())
-                        .discountedPrice(p.getPrice() - (p.getPrice() * p.getDiscountRate() / 100))
-                        .thumbnailUrl(p.getThumbnailUrl())
-                        .build())
-                .collect(Collectors.toList());
-
-        Long totalPrice = products.stream()
-                .mapToLong(CombinationProductDto::getDiscountedPrice)
-                .sum();
-
-        return CombinationResponse.builder()
-                .combinationId(combination.getCombinationId())
-                .combinationName(combination.getCombinationName())
-                .combinationDescription(combination.getCombinationDescription())
-                .products(products)
-                .totalPrice(totalPrice)
-                .build();
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -97,4 +75,66 @@ public class CombinationServiceImpl implements CombinationService {
         }
         return new CombinationLikeResponse(combinationId, "좋아요 해제 완료");
     }
+
+    @Override
+    @Transactional
+    public CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit) {
+        Integer bhType = null;
+        if ("beauty".equalsIgnoreCase(type)) bhType = 0;
+        else if ("health".equalsIgnoreCase(type)) bhType = 1;
+
+        List<CombinationResponseDto> combos = combinationMapper.findCombinations(bhType, sort, combinationId, limit);
+        Long totalCount = combinationMapper.countCombinations(bhType);
+
+        combos.forEach(c -> {
+            List<String> images = combinationMapper.findProductImagesByCombinationId(c.getCombinationId());
+            c.setProductImages(images);
+        });
+
+        return new CombinationListResponse(combos, totalCount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CombinationDetailResponse getCombinationDetail(Long combinationId) {
+        CombinationDetailResponse detail = combinationMapper.findCombinationDetail(combinationId);
+        detail.setProducts(combinationMapper.findCombinationProducts(combinationId));
+        return detail;
+    }
+
+    @Override
+    @Transactional
+    public CombinationCreateResponse createCombination(Long memberId, CombinationCreateRequest req) {
+        // 시퀀스로부터 ID 가져오기
+        Long id = combinationMapper.getNextCombinationId();
+
+        // COMBINATION INSERT
+        combinationMapper.insertCombination(
+                id,
+                memberId,
+                req.getName(),
+                req.getContent(),
+                "beauty".equalsIgnoreCase(req.getType()) ? 0 : 1
+        );
+
+        // COMBINATION_ITEM INSERT (2~6개 상품 매핑)
+        List<Long> products = Stream.of(
+                        req.getProduct1Id(),
+                        req.getProduct2Id(),
+                        req.getProduct3Id(),
+                        req.getProduct4Id(),
+                        req.getProduct5Id(),
+                        req.getProduct6Id()
+                ).filter(Objects::nonNull)
+                .toList();
+
+        products.stream()
+                .filter(Objects::nonNull)
+                .forEach(pid -> combinationMapper.insertCombinationItem(id, pid));
+
+        // ID값 반환
+        return new CombinationCreateResponse(id);
+    }
+
+
 }
