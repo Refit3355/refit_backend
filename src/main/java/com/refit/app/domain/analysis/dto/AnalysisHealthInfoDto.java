@@ -6,8 +6,8 @@ import lombok.Data;
 public class AnalysisHealthInfoDto {
 
     private Long memberId;
-    private Integer bloodPressure;          // BLOOD_PRESSURE
-    private Integer bloodGlucose;           // BLOOD_GLUCOSE
-    private Integer totalCaloriesBurned;    // TOTAL_CALORIES_BURNED
+    private Integer bloodPressure;
+    private Integer bloodGlucose;
+    private Integer totalCaloriesBurned;
     private Integer sleepSession;
 }
