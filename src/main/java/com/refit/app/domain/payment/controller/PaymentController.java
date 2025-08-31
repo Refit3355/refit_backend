@@ -29,8 +29,8 @@ public class PaymentController {
     }
 
     // 부분취소
-    @PostMapping("/{paymentId}/cancel")
-    public PartialCancelResponse cancel(@PathVariable("paymentId") long paymentId,
+    @PostMapping("/{orderItemId}/cancel")
+    public PartialCancelResponse cancelByItem(@PathVariable("orderItemId") long paymentId,
             @RequestBody @Valid PartialCancelRequest req) {
         return service.partialCancel(paymentId, req);
     }

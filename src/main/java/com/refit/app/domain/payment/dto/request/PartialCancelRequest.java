@@ -1,10 +1,9 @@
 package com.refit.app.domain.payment.dto.request;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import lombok.*;
 
-import java.util.List;
 
 @Getter @Setter
 @NoArgsConstructor
@@ -13,9 +12,8 @@ import java.util.List;
 public class PartialCancelRequest {
     @NotBlank
     private String cancelReason;
-    @Positive
+    @Min(1)
     private Long cancelAmount;
     private Long taxFreeAmount;
-    private List<PartialCancelItem> items;
     private String idempotencyKey;
 }

@@ -11,4 +11,6 @@ public class OrderRowDto {
     private String orderCode;
     private Long totalPrice;
     private Integer orderStatus;
+    private Long goodsAmount;
+    private Long deliveryFee;
 }
