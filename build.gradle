@@ -85,6 +85,7 @@ dependencies {
 
     // Spring AI
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M6'
+    implementation 'org.apache.commons:commons-lang3:3.13.0'
 
     // Firebase
     implementation("com.google.firebase:firebase-admin:9.3.0")
