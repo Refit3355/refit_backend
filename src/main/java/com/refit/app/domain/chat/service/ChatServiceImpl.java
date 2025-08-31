@@ -6,6 +6,8 @@ import com.refit.app.domain.chat.dto.request.ChatSendRequest;
 import com.refit.app.domain.chat.dto.response.ChatListResponse;
 import com.refit.app.domain.chat.dto.response.ChatMessageResponse;
 import com.refit.app.domain.chat.mapper.ChatMapper;
+import com.refit.app.domain.product.dto.ProductDto;
+import com.refit.app.domain.product.mapper.ProductMapper;
 import com.refit.app.global.util.CursorUtil;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ChatServiceImpl implements ChatService {
 
     private final ChatMapper chatMapper;
+    private final ProductMapper productMapper;
 
     @Transactional
     @Override
@@ -57,6 +60,14 @@ public class ChatServiceImpl implements ChatService {
             throw new IllegalStateException("inserted message not found: id=" + chatId);
         }
 
+        // 5) productId가 있으면 상품 스니펫 채워서 반환
+        if (req.getProductId() != null) {
+            ProductDto snippet = productMapper.selectProductSnippet(req.getProductId());
+            if (snippet != null) {
+                saved.setProduct(snippet);
+            }
+        }
+
         return saved;
     }
 
@@ -76,7 +87,7 @@ public class ChatServiceImpl implements ChatService {
         p.put("beforeId", beforeId);
         p.put("size", size);
 
-        List<ChatMessageDto> items = chatMapper.findHistory(p);
+        List<ChatMessageResponse> items = chatMapper.findHistory(p);
 
         // nextCursor / hasNext 계산
         String nextCursor = null;

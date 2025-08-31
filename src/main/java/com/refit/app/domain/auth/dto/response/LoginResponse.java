@@ -20,5 +20,6 @@ public class LoginResponse {
     private HealthInfoDto health;
     private HairInfoDto hair;
     private SkinInfoDto skin;
+    private String profileImageUrl;
     private String refreshToken;
 }

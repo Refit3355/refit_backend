@@ -191,6 +191,9 @@
     0 AS sales
     FROM product p
     WHERE 1=1
+    <if test="bhType != null">
+      AND p.bh_type = #{bhType}
+    </if>
     <include refid="NameKeywordWhere"/>
     <if test="lastId != null">
       AND p.product_id &lt; #{lastId}
@@ -213,6 +216,9 @@
     GROUP BY oi.product_id
     ) ps ON ps.product_id = p.product_id
     WHERE 1=1
+    <if test="bhType != null">
+      AND p.bh_type = #{bhType}
+    </if>
     <include refid="NameKeywordWhere"/>
     <if test="lastSales != null">
       AND (NVL(ps.sales, 0) &lt; #{lastSales}
@@ -229,6 +235,9 @@
     0 AS sales
     FROM product p
     WHERE 1=1
+    <if test="bhType != null">
+      AND p.bh_type = #{bhType}
+    </if>
     <include refid="NameKeywordWhere"/>
     <if test="lastPrice != null">
       AND (
@@ -251,6 +260,9 @@
     0 AS sales
     FROM product p
     WHERE 1=1
+    <if test="bhType != null">
+      AND p.bh_type = #{bhType}
+    </if>
     <include refid="NameKeywordWhere"/>
     <if test="lastPrice != null">
       AND (
@@ -270,6 +282,9 @@
     SELECT COUNT(*)
     FROM product p
     WHERE 1=1
+    <if test="bhType != null">
+      AND p.bh_type = #{bhType}
+    </if>
     <include refid="NameKeywordWhere"/>
   </select>
 
@@ -377,6 +392,14 @@
     FROM PRODUCT
     WHERE PRODUCT_ID = #{productId}
       FOR UPDATE
+
+  <select id="selectProductSnippet"
+    parameterType="long"
+    resultType="com.refit.app.domain.product.dto.ProductDto">
+    SELECT
+    <include refid="ProductColumns"/>
+    FROM product p
+    WHERE p.product_id = #{id}
   </select>
 
 </mapper>

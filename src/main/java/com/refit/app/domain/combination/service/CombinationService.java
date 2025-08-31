@@ -1,6 +1,8 @@
 package com.refit.app.domain.combination.service;
 
 
+import com.refit.app.domain.combination.dto.request.CombinationCreateRequest;
+import com.refit.app.domain.combination.dto.response.CombinationCreateResponse;
 import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationListResponse;
@@ -18,4 +20,6 @@ public interface CombinationService {
     CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit);
 
     CombinationDetailResponse getCombinationDetail(Long combinationId);
+
+    CombinationCreateResponse createCombination(Long memberId, CombinationCreateRequest req);
 }

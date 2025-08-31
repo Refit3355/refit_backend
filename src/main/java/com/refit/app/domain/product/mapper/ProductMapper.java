@@ -60,28 +60,35 @@ public interface ProductMapper {
     // 상품 검색 목록 조회
     List<ProductDto> searchByNameLatest(
             @Param("keyword") String keyword,
+            @Param("bhType") Integer bhType,
             @Param("lastId") Long lastId,
             @Param("limit") int limit);
 
     List<ProductDto> searchByNamePriceDesc(
             @Param("keyword") String keyword,
+            @Param("bhType") Integer bhType,
             @Param("lastPrice") Integer lastPrice,
             @Param("lastId") Long lastId,
             @Param("limit") int limit);
 
     List<ProductDto> searchByNamePriceAsc(
             @Param("keyword") String keyword,
+            @Param("bhType") Integer bhType,
             @Param("lastPrice") Integer lastPrice,
             @Param("lastId") Long lastId,
             @Param("limit") int limit);
 
     List<ProductDto> searchByNameSalesDesc(
             @Param("keyword") String keyword,
+            @Param("bhType") Integer bhType,
             @Param("lastSales") Integer lastSales,
             @Param("lastId") Long lastId,
             @Param("limit") int limit);
 
-    int countProductsByName(@Param("keyword") String keyword);
+    int countProductsByName(
+            @Param("keyword") String keyword,
+            @Param("bhType") Integer bhType
+    );
 
     List<ProductSimpleDto> findSuggestProducts(
             @Param("keyword") String keyword,
@@ -97,4 +104,7 @@ public interface ProductMapper {
     int decreaseStock(@Param("productId") Long productId, @Param("qty") int qty);
 
     Integer selectStockForUpdate(@Param("productId") Long productId);   // 재고 행 잠금용
+
+    ProductDto selectProductSnippet(@Param("id") Long id);
+
 }

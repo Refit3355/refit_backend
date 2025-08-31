@@ -45,11 +45,12 @@
     <result column="NICKNAME" property="nickname"/>
     <result column="MEMBER_NAME" property="memberName"/>
     <result column="PASSWORD" property="password"/>
+    <result column="PROFILE_URL" property="profileImageUrl"/>
   </resultMap>
 
   <!-- 이메일로 기본 회원 행을 조회하는 쿼리  -->
   <select id="findByEmail" resultMap="MemberRowMap">
-    SELECT MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD
+    SELECT MEMBER_ID, EMAIL, NICKNAME, MEMBER_NAME, PASSWORD, PROFILE_URL
     FROM MEMBER
     WHERE EMAIL = #{email}
     AND DELETED_AT IS NULL
@@ -111,7 +112,8 @@
     EMAIL AS email,
     NICKNAME AS nickname,
     MEMBER_NAME AS memberName,
-    PASSWORD AS password
+    PASSWORD AS password,
+    PROFILE_URL AS profileImageUrl
     FROM MEMBER
     WHERE MEMBER_ID = #{memberId}
     AND DELETED_AT IS NULL

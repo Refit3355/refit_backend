@@ -100,19 +100,26 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor) {
+    public ProductListResponse searchProductsByName(String q, String bhType, SortType sort, int limit, String cursor) {
         var c = CursorUtil.decode(cursor);
         Long lastId       = CursorUtil.asLong(c.get("id"));
         Integer lastPrice = CursorUtil.asInt(c.get("price"));
         Integer lastSales = CursorUtil.asInt(c.get("sales"));
 
-        int totalCount = productMapper.countProductsByName(q);
+        Integer bhTypeNumber = null;
+        if ("beauty".equalsIgnoreCase(bhType)) {
+            bhTypeNumber = 0;
+        } else if ("health".equalsIgnoreCase(bhType)) {
+            bhTypeNumber = 1;
+        }
+
+        int totalCount = productMapper.countProductsByName(q, bhTypeNumber);
 
         List<ProductDto> items = switch (sort) {
-            case LATEST     -> productMapper.searchByNameLatest(q, lastId, limit);
-            case PRICE_DESC -> productMapper.searchByNamePriceDesc(q, lastPrice, lastId, limit);
-            case PRICE_ASC  -> productMapper.searchByNamePriceAsc(q,  lastPrice, lastId, limit);
-            case SALES -> productMapper.searchByNameSalesDesc(q, lastSales, lastId, limit);
+            case LATEST     -> productMapper.searchByNameLatest(q, bhTypeNumber, lastId, limit);
+            case PRICE_DESC -> productMapper.searchByNamePriceDesc(q, bhTypeNumber, lastPrice, lastId, limit);
+            case PRICE_ASC  -> productMapper.searchByNamePriceAsc(q,  bhTypeNumber, lastPrice, lastId, limit);
+            case SALES -> productMapper.searchByNameSalesDesc(q, bhTypeNumber, lastSales, lastId, limit);
         };
 
         String nextCursor = null;

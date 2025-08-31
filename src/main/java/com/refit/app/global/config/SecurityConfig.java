@@ -55,6 +55,7 @@ public class SecurityConfig {
         CorsConfiguration c = new CorsConfiguration();
         c.setAllowedOriginPatterns(List.of(
                 "http://127.0.0.1:5502", "http://localhost:5502", // VSCode Live Server
+                "http://10.0.2.2:8080", "https://api.refit.today/",
                 "*" // 개발 중 임시
         ));
         c.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));

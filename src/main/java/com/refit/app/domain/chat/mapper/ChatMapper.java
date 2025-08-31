@@ -15,7 +15,7 @@ public interface ChatMapper {
 
     ChatMessageResponse findByIdWithNickname(@Param("chatId") Long chatId);
 
-    List<ChatMessageDto> findHistory(Map<String, Object> param);
+    List<ChatMessageResponse> findHistory(Map<String, Object> param);
 
     int existsOlder(@Param("categoryId") Long categoryId,
             @Param("beforeId") Long beforeId);

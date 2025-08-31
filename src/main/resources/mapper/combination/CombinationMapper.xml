@@ -224,4 +224,51 @@
         WHERE ci.COMBINATION_ID = #{combinationId}
     </select>
 
+    <!-- 시퀀스 불러오기 -->
+    <select id="getNextCombinationId" resultType="long">
+        SELECT SEQ_COMBINATION.NEXTVAL FROM DUAL
+    </select>
+
+    <!-- 새 조합 생성 -->
+    <insert id="insertCombination">
+        INSERT INTO COMBINATION (
+            COMBINATION_ID,
+            MEMBER_ID,
+            COMBINATION_NAME,
+            COMBINATION_DESCRIPTION,
+            LIKES,
+            BH_TYPE,
+            CREATED_AT,
+            CREATED_BY,
+            UPDATED_AT,
+            UPDATED_BY
+        )
+        VALUES (
+                   #{id},
+                   #{memberId},
+                   #{name},
+                   #{content},
+                   0,
+                   #{bhType},
+                   SYSTIMESTAMP,
+                   #{memberId},
+                   SYSTIMESTAMP,
+                   #{memberId}
+               )
+    </insert>
+
+    <!-- 조합 내 상품 추가 -->
+    <insert id="insertCombinationItem">
+        INSERT INTO COMBINATION_ITEM (
+            COMBINATION_ITEM_ID,
+            COMBINATION_ID,
+            PRODUCT_ID
+        )
+        VALUES (
+                   SEQ_COMBINATION_ITEM.NEXTVAL,
+                   #{combinationId},
+                   #{productId}
+               )
+    </insert>
+
 </mapper>
