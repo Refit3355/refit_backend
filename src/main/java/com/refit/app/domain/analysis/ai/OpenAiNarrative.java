@@ -7,32 +7,96 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.model.Media;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeTypeUtils;
 
 @Component
 public class OpenAiNarrative {
 
     private final ChatClient chat;
     private final ObjectMapper om = new ObjectMapper();
+
+    // 마지막 JSON 객체만 안전 추출
     private static final Pattern JSON_BLOCK = Pattern.compile("\\{[\\s\\S]*\\}\\s*$");
+
+    // ===== 프롬프트 (static final: 프롬프트 캐시 히트 ↑) =====
+
+    // (A) 영양제: 이미지 → 원샷 요약
+    private static final String SYSTEM_SUPPLEMENT_ONESHOT = """
+            You analyze Korean dietary supplement labels from an image.
+            OUTPUT: JSON ONLY -> {"summary":"string"}
+            Rules:
+            - Korean. Use ONLY text visible in the image. No external info/personalization.
+            - Focus benefits/efficacy only.
+            - 3–4 concise sentences: type of supplement, key actives/nutrients & their benefits,
+              major claims/target benefits, explicit cautions/allergens if present.
+            - EXCLUDE dosage/how-to/schedule/storage/price/contacts/manufacturer/CS.
+            - If insufficient text, say so briefly.
+            - End with: "개인 체질 및 복용 환경에 따라 차이가 있을 수 있습니다."
+            """;
+
+    // (B) 영양제: OCR 텍스트가 이미 있을 때(백업 경로)
+    private static final String SYSTEM_SUPPLEMENT_TEXT = """
+            You explain Korean nutrition labels.
+            OUTPUT: JSON ONLY -> {"summary":"string"}
+            Rules:
+            - Korean. Use ONLY the provided OCR text. No external info/personalization.
+            - Focus benefits/efficacy only.
+            - 3–4 concise sentences: type, key actives & effects, claims/target benefits, explicit cautions/allergens (if any).
+            - EXCLUDE dose/how-to/schedule/storage/price/contacts/maker/CS.
+            - If insufficient, say so briefly.
+            - End with: "개인 체질 및 복용 환경에 따라 차이가 있을 수 있습니다."
+            """;
+
+    // (C) 화장품 내러티브 (요약 + 3개 그룹 오버뷰)
+    private static final String SYSTEM_COSMETIC = """
+            You write Korean consumer-friendly cosmetic analysis.
+            OUTPUT: JSON ONLY with keys:
+            {"summary":"string","risky_overview":"string","caution_overview":"string","safe_overview":"string"}
+            Style/Rules:
+            - Korean, clear and practical.
+            - summary: 3–4 sentences. Overall safety, notable risky/caution (if any) and why,
+              beneficial/safe (if any) and effects, simple tips (patch test/frequency/layering),
+              balanced recommendation for %s.
+            - Each *_overview: 2–4 short sentences about the whole group (NOT per-ingredient bullets).
+            - If a group is empty: "해당되는 성분은 없습니다."
+            - End of summary: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
+            """;
 
     public OpenAiNarrative(ChatClient.Builder builder) {
         this.chat = builder.build();
     }
 
-    /* ========================= 영양제 요약(개인화 X) ========================= */
-    public String buildSupplementSummaryFromText(String ocrText) {
-        String system = """
-                You are a Korean nutrition label explainer.
-                OUTPUT: JSON ONLY -> { "summary": "string" }
-                Write in Korean. Use ONLY the provided OCR text (no external knowledge). No personalization.
-                Focus on efficacy/benefits ONLY.
-                - 4–6 concise sentences covering: what kind of supplement it is, key actives/nutrients seen in the text and what they help with, major claims/target benefits, and explicit cautions/allergens if present.
-                - Do NOT include dosage/serving size/how to take, schedules, storage, price, contact info, manufacturer/distributor details, or customer service instructions.
-                - If the OCR text is insufficient, briefly say that information is insufficient.
-                - End with: "개인 체질 및 복용 환경에 따라 차이가 있을 수 있습니다."
-                """;
+    /* ========================= 영양제: 이미지 → 원샷 요약 ========================= */
+    public String buildSupplementSummaryFromImage(byte[] imageBytes,
+            @Nullable String filename,
+            @Nullable String contentType) {
+        try {
+            Media media = Media.builder()
+                    .mimeType(MimeTypeUtils.parseMimeType(
+                            (contentType == null || contentType.isBlank()) ? "image/jpeg"
+                                    : contentType))
+                    .data(imageBytes)
+                    .build();
 
+            String raw = chat.prompt()
+                    .system(SYSTEM_SUPPLEMENT_ONESHOT)
+                    .user(u -> u.text("Return JSON only.").media(media))
+                    .call()     // 동기 호출 (안정)
+                    .content();
+
+            String json = stripToJson(raw);
+            JsonNode root = om.readTree(json);
+            return root.path("summary").asText("요약 생성에 실패했어요.");
+        } catch (Exception e) {
+            return "요약 생성에 실패했어요.";
+        }
+    }
+
+    /* ========================= 영양제: OCR 텍스트 → 요약 ========================= */
+    public String buildSupplementSummaryFromText(String ocrText) {
         String user = """
                 OCR_TEXT:
                 ---
@@ -42,7 +106,12 @@ public class OpenAiNarrative {
                 """.formatted(ocrText == null ? "" : ocrText);
 
         try {
-            String raw = chat.prompt().system(system).user(u -> u.text(user)).call().content();
+            String raw = chat.prompt()
+                    .system(SYSTEM_SUPPLEMENT_TEXT)
+                    .user(u -> u.text(user))
+                    .call()     // 동기 호출로 단순화
+                    .content();
+
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
             return root.path("summary").asText("요약 생성에 실패했어요.");
@@ -51,31 +120,12 @@ public class OpenAiNarrative {
         }
     }
 
-
-    /* ========================= 화장품: 전체 요약 + 카테고리별 쉬운 글 ========================= */
+    /* ========================= 화장품: 전체 요약 + 3개 오버뷰 ========================= */
     public CosmeticNarrative buildCosmeticNarrative(
             List<String> danger, List<String> caution, List<String> safe,
             String memberName, int matchRate
     ) {
-        String system = """
-                You are a domain expert writing Korean consumer-friendly cosmetic analysis.
-                STRICT OUTPUT: JSON ONLY with exactly:
-                {
-                  "summary": "string",
-                  "risky_overview": "string",
-                  "caution_overview": "string",
-                  "safe_overview": "string"
-                }
-                Style:
-                - Korean, clear and practical.
-                - "summary": 5–9 sentences. Cover overall safety impression, notable risky/caution items (if any) and why,
-                  beneficial/safe items (if any) and effects, simple usage tips (patch test, frequency, layering),
-                  and a balanced recommendation for %s.
-                - Each of risky/caution/safe overviews: 2–4 short sentences in simple words
-                  summarizing the whole group (NOT per-ingredient bullets).
-                - If a group is empty, say briefly: "해당되는 성분은 없습니다."
-                - Final sentence of summary: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
-                """.formatted(memberName);
+        String system = SYSTEM_COSMETIC.formatted(memberName);
 
         int N = 8;
         String user = """
@@ -94,7 +144,12 @@ public class OpenAiNarrative {
         );
 
         try {
-            String raw = chat.prompt().system(system).user(u -> u.text(user)).call().content();
+            String raw = chat.prompt()
+                    .system(system)
+                    .user(u -> u.text(user))
+                    .call()     // 동기 호출로 단순/안정
+                    .content();
+
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
 
@@ -114,7 +169,7 @@ public class OpenAiNarrative {
         }
     }
 
-    /* ============ (선택) DB 미등록 성분을 LLM으로 3분류 ============ */
+    /* ============ DB 미등록 성분을 3분류 ============ */
     public ClassificationResult classifyUnknowns(List<String> candidates, String productTypeKr) {
         if (candidates == null || candidates.isEmpty()) {
             return new ClassificationResult(List.of(), List.of(), List.of());
@@ -122,14 +177,13 @@ public class OpenAiNarrative {
 
         String system = """
                 You are a Korean cosmetic ingredients classifier.
-                STRICT OUTPUT: JSON ONLY with exactly:
-                { "safe": ["..."], "caution": ["..."], "risky": ["..."] }
+                OUTPUT: JSON ONLY -> {"safe":["..."],"caution":["..."],"risky":["..."]}
                 Rules:
-                - Consider typical facial skincare usage for general consumers.
-                - Input list CANDIDATES contains the only allowed ingredient names.
-                - Classify each candidate into exactly one bucket (safe/caution/risky).
-                - Output MUST be a subset of CANDIDATES; do not add or modify names.
-                - If uncertain about an item, prefer "caution".
+                - Typical facial skincare context.
+                - Input list CANDIDATES is the only allowed names.
+                - Each candidate -> exactly one bucket (safe/caution/risky).
+                - Output MUST be a subset of CANDIDATES; do not add/modify names.
+                - If uncertain, prefer "caution".
                 - No explanations. JSON only.
                 """;
 
@@ -143,7 +197,12 @@ public class OpenAiNarrative {
         );
 
         try {
-            String raw = chat.prompt().system(system).user(u -> u.text(user)).call().content();
+            String raw = chat.prompt()
+                    .system(system)
+                    .user(u -> u.text(user))
+                    .call()
+                    .content();
+
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
 
@@ -151,7 +210,7 @@ public class OpenAiNarrative {
             List<String> caution = readArrayAsList(root, "caution");
             List<String> risky = readArrayAsList(root, "risky");
 
-            // 안전장치: 원본 후보에 없는 건 제거
+            // 원본 후보에 없는 건 제거(안전장치)
             safe.retainAll(candidates);
             caution.retainAll(candidates);
             risky.retainAll(candidates);

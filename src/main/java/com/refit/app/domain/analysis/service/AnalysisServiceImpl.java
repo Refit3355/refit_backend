@@ -167,7 +167,7 @@ public class AnalysisServiceImpl implements AnalysisService {
         }
 
         // ===== 화장품: 성분 추출 → DB 매칭(±LLM 보정) → 점수/서술 =====
-        var extracted = ocr.extract(imageBytes, productType, filename, contentType);
+        var extracted = ocr.extract(imageBytes, filename, contentType);
 
         List<String> raw = new ArrayList<>();
         raw.addAll(extracted.ingredientsKr());
@@ -182,8 +182,9 @@ public class AnalysisServiceImpl implements AnalysisService {
         List<IngredientRule> rules =
                 names.isEmpty() ? List.of() : analysisMapper.selectByNames(names);
         Map<String, IngredientRule> ruleByName = rules.stream()
-                .collect(Collectors.toMap(IngredientRule::getIngredientName, r -> r, (a, b) -> a,
-                        LinkedHashMap::new));
+                .collect(Collectors.toMap(
+                        IngredientRule::getIngredientName, r -> r, (a, b) -> a, LinkedHashMap::new
+                ));
 
         List<String> safe = new ArrayList<>();
         List<String> caution = new ArrayList<>();
