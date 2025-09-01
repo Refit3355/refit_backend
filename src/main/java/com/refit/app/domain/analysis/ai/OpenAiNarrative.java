@@ -32,9 +32,9 @@ public class OpenAiNarrative {
             OUTPUT: JSON ONLY -> {"summary":"string"}
             Rules:
             - Korean only, based ONLY on visible image text.
-            - 3–4 concise sentences: type, key actives & benefits, claims, cautions.
+            - 3–4 sentences: type, key actives & benefits, claims, cautions.
             - Exclude dosage, price, maker.
-            - If text insufficient, say so.
+            - If insufficient, say so.
             - End with: "개인 체질 및 복용 환경에 따라 차이가 있을 수 있습니다."
             """;
 
@@ -43,7 +43,7 @@ public class OpenAiNarrative {
             OUTPUT: JSON ONLY -> {"summary":"string"}
             Rules:
             - Korean only, based ONLY on provided OCR text.
-            - 3–4 concise sentences: type, actives & effects, claims, cautions.
+            - 3–4 sentences: type, actives & effects, claims, cautions.
             - Exclude dose, price, maker.
             - If insufficient, say so.
             - End with: "개인 체질 및 복용 환경에 따라 차이가 있을 수 있습니다."
@@ -53,13 +53,12 @@ public class OpenAiNarrative {
     private static final String SYSTEM_COSMETIC = """
             OUTPUT: JSON ONLY with keys:
             {"summary":"string","risky_overview":"string","caution_overview":"string","safe_overview":"string"}
-            Style/Rules:
+            Rules:
             - Korean, clear and practical.
-            - summary: 3–4 sentences. Overall safety, notable risky/caution (if any) and why,
-              beneficial/safe (if any) and effects, simple tips, balanced recommendation for %s.
-            - Each *_overview: 2–4 short sentences about the whole group (NOT per-ingredient bullets).
-            - If a group is empty: "해당되는 성분은 없습니다."
-            - End of summary: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
+            - summary: 3–4 sentences. Overall safety, notable risky/caution, helpful safe benefits, simple tips, balanced recommendation for %s.
+            - Each *_overview: 2–4 sentences about the whole group.
+            - If empty: "해당되는 성분은 없습니다."
+            - End: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
             """;
 
     // (D) 영양제: 두 문단(효능 + 질병 관련 주의)
@@ -67,34 +66,25 @@ public class OpenAiNarrative {
             OUTPUT: JSON ONLY -> {"benefits":"string","condition_cautions":"string"}
             Rules:
             - Korean only, based ONLY on OCR_TEXT.
-            - benefits: 3–4 concise sentences (purpose, actives, claims).
-            - condition_cautions: 2–4 sentences ONLY if OCR mentions conditions/diseases/medications; else default.
-            - No dosage/price/maker.
+            - benefits: 3–4 sentences (purpose, actives, claims).
+            - condition_cautions: 2–4 sentences if OCR mentions conditions/diseases/medications; else default.
+            - Exclude dosage, price, maker.
             """;
 
-    // (E) 화장품: unknown 분류 + 내러티브 동시 수행
+    // (E) 화장품: unknown 분류 + 내러티브 (EWG 기준)
     private static final String SYSTEM_COSMETIC_CLASSIFY_AND_NARRATE = """
             OUTPUT: JSON ONLY with keys:
-            {
-              "final_safe": ["..."],
-              "final_caution": ["..."],
-              "final_risky": ["..."],
-              "summary": "string",
-              "risky_overview": "string",
-              "caution_overview": "string",
-              "safe_overview": "string"
-            }
+            {"final_safe":["..."],"final_caution":["..."],"final_risky":["..."],
+             "summary":"string","risky_overview":"string","caution_overview":"string","safe_overview":"string"}
             Rules:
             - Korean only. No extra text outside JSON.
-            - Given SAFE/CAUTION/RISKY lists and UNKNOWN candidates:
-              * Place each UNKNOWN into exactly one of {safe,caution,risky}. If uncertain, prefer "caution".
-              * Do NOT add names not present in provided lists.
-            - Narratives:
-              * summary: 3–4 sentences (overall safety, notable risky/caution why, helpful safe benefits, tip).
-              * each *_overview: 2–3 sentences about the whole group (not per-ingredient bullets).
-            - If a group empty: "해당되는 성분은 없습니다."
-            - End of summary: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
+            - UNKNOWN candidates: classify each based on **EWG hazard rating** into exactly one of {safe,caution,risky}; if unsure, prefer "caution".
+            - Do NOT add names not in provided lists.
+            - Narratives: summary 3–4 sentences; *_overview 2–3 sentences about whole group.
+            - If empty: "해당되는 성분은 없습니다."
+            - End: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
             """;
+
 
     /* ========================= 영양제: 이미지 → 원샷 요약 ========================= */
     public String buildSupplementSummaryFromImage(byte[] imageBytes,
@@ -239,7 +229,7 @@ public class OpenAiNarrative {
 
         String system = SYSTEM_COSMETIC_CLASSIFY_AND_NARRATE;
 
-        int N = 5; // 샘플 축소(토큰/속도 절감)
+        int N = 8; // 샘플 축소(토큰/속도 절감)
         int capUnknown = Math.min(8, unknown.size());
         String user = """
                 Context:

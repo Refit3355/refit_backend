@@ -55,20 +55,16 @@ public class OpenAiVisionOcr {
 
         String system = """
                 TASK:
-                - Extract ONLY exact ingredients from the image’s actual “Ingredients” section (e.g., 전성분/성분).
-                - If you cannot visually locate such a section, return found=false and an empty list.
-                - Do NOT guess/infer/translate/fabricate.
+                - Extract ingredients from image’s “Ingredients” section (전성분/성분).
+                - If not found, return found=false and empty list.
+                - Do NOT guess or invent content.
                 
                 OUTPUT: JSON ONLY.
                 RULES:
-                - First decide if an “Ingredients” section is visually present.
-                - If present, return its raw text as `raw_block`.
-                - Each item in `ingredients[]` MUST appear as a token in `raw_block` (ignoring separators/spaces).
-                - For each item include `name`, `confidence` (0–1), `evidence` (a source line).
-                - Exclude any item with confidence < 0.80 or that does not appear in raw_block/evidence.
-                - Exclude amounts/units/percentages (mg, g, %, IU).
-                - Exclude marketing phrases, warnings, brand names, trademarks (™, ®), standalone numbers.
-                - Split on common delimiters (, / ; . | etc.), then de-duplicate.
+                - Each ingredient must appear in `raw_block`.
+                - Include `name`, `confidence` (0–1), `evidence`.
+                - Exclude confidence < 0.80, units (mg, g, %, IU), marketing, brands, numbers.
+                - Split on common delimiters and deduplicate.
                 
                 SCHEMA:
                 {
@@ -109,7 +105,7 @@ public class OpenAiVisionOcr {
             @Nullable String filename,
             @Nullable String contentType) {
         String system = """
-                You are a strict OCR engine.
+                You are a strict OCR engine
                 Return JSON ONLY -> {"text":"<full readable text>"}
                 Rules:
                 - Extract all visible text (Korean/English), including tables/headers/footnotes.

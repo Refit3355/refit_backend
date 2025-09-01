@@ -188,6 +188,20 @@ public class AnalysisServiceImpl implements AnalysisService {
         // OCR 결과 join
         var extracted = futureExtract.join();
 
+        if ((extracted.ingredientsKr().isEmpty()) && (extracted.ingredientsEn().isEmpty())) {
+            return AnalysisResponseDto.builder()
+                    .memberName(null)
+                    .matchRate(0)
+                    .risky(null)
+                    .caution(null)
+                    .safe(null)
+                    .riskyText(null)
+                    .cautionText(null)
+                    .safeText(null)
+                    .summary(null)
+                    .build();
+        }
+
         List<String> raw = new ArrayList<>();
         raw.addAll(extracted.ingredientsKr());
         raw.addAll(extracted.ingredientsEn());
