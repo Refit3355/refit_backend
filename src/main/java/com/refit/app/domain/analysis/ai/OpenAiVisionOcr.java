@@ -54,7 +54,6 @@ public class OpenAiVisionOcr {
             @Nullable String contentType) {
 
         String system = """
-                You are a label analyst for cosmetics.
                 TASK:
                 - Extract ONLY exact ingredients from the image’s actual “Ingredients” section (e.g., 전성분/성분).
                 - If you cannot visually locate such a section, return found=false and an empty list.
@@ -88,11 +87,8 @@ public class OpenAiVisionOcr {
         String rsp = chat.prompt()
                 .system(system)
                 .user(u -> u.text(userText).media(media))
-                .stream()                 // Flux<String>
-                .content()
-                .collectList()            // Mono<List<String>>
-                .map(list -> String.join("", list))
-                .block();
+                .call()
+                .content();
 
         String json = stripToJson(rsp);
 
@@ -138,6 +134,7 @@ public class OpenAiVisionOcr {
             return "";
         }
     }
+
 
     // --- 후처리(화장품 전용) ---
     private ExtractedIngredients postProcess(JsonNode root) {
