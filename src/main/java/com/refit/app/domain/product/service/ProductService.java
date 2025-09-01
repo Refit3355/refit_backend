@@ -14,7 +14,7 @@ public interface ProductService {
 
     ProductDetailResponse getProductDetail(Long id);
 
-    ProductListResponse searchProductsByName(String q, SortType sort, int limit, String cursor);
+    ProductListResponse searchProductsByName(String q, String bhType, SortType sort, int limit, String cursor);
 
     ProductSuggestResponse suggestProducts(String keyword, int limit, String cursor);
 

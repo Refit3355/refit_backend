@@ -20,7 +20,10 @@ public enum ErrorCode {
     FILE_UPLOAD_FAIL("5002", "파일 업로드 실패", HttpStatus.INTERNAL_SERVER_ERROR),
     NO_ORDER_HISTORY("5003", "주문 내역 없음", HttpStatus.NOT_FOUND),
     LIKED_NOT_FOUND("5004", "찜 조회 실패", HttpStatus.NOT_FOUND),
-    FCM_SEND_FAIL("5005", "알림 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR);
+    FCM_SEND_FAIL("5005", "알림 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    ORDER_AMOUNT_MISMATCH("5006", "금액 불일치", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CANCEL_AMOUNT("5007", "금액 불일치", HttpStatus.BAD_REQUEST),
+    OUT_OF_STOCK("5008", "품절된 상품", HttpStatus.OK);
 
     private final String code;
     private final String message;

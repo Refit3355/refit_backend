@@ -200,7 +200,7 @@
                 WHERE ci.COMBINATION_ID = c.COMBINATION_ID
             ) AS originalTotalPrice,
             (
-                SELECT SUM(FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100))
+                SELECT SUM(TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2))
                 FROM COMBINATION_ITEM ci
                          JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
                 WHERE ci.COMBINATION_ID = c.COMBINATION_ID
@@ -218,10 +218,57 @@
             p.PRICE         AS price,
             p.DISCOUNT_RATE AS discountRate,
             p.THUMBNAIL_URL AS thumbnailUrl,
-            FLOOR(p.PRICE * (100 - p.DISCOUNT_RATE) / 100) AS discountedPrice
+            TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
         FROM COMBINATION_ITEM ci
                  JOIN PRODUCT p ON ci.PRODUCT_ID = p.PRODUCT_ID
         WHERE ci.COMBINATION_ID = #{combinationId}
     </select>
+
+    <!-- 시퀀스 불러오기 -->
+    <select id="getNextCombinationId" resultType="long">
+        SELECT SEQ_COMBINATION.NEXTVAL FROM DUAL
+    </select>
+
+    <!-- 새 조합 생성 -->
+    <insert id="insertCombination">
+        INSERT INTO COMBINATION (
+            COMBINATION_ID,
+            MEMBER_ID,
+            COMBINATION_NAME,
+            COMBINATION_DESCRIPTION,
+            LIKES,
+            BH_TYPE,
+            CREATED_AT,
+            CREATED_BY,
+            UPDATED_AT,
+            UPDATED_BY
+        )
+        VALUES (
+                   #{id},
+                   #{memberId},
+                   #{name},
+                   #{content},
+                   0,
+                   #{bhType},
+                   SYSTIMESTAMP,
+                   #{memberId},
+                   SYSTIMESTAMP,
+                   #{memberId}
+               )
+    </insert>
+
+    <!-- 조합 내 상품 추가 -->
+    <insert id="insertCombinationItem">
+        INSERT INTO COMBINATION_ITEM (
+            COMBINATION_ITEM_ID,
+            COMBINATION_ID,
+            PRODUCT_ID
+        )
+        VALUES (
+                   SEQ_COMBINATION_ITEM.NEXTVAL,
+                   #{combinationId},
+                   #{productId}
+               )
+    </insert>
 
 </mapper>

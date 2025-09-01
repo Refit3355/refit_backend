@@ -16,4 +16,5 @@ public class MemberRowDto {
     public String nickname;
     public String memberName;
     public String password;
+    public String profileImageUrl;
 }

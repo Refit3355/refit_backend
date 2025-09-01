@@ -53,12 +53,13 @@ public class ProductController {
     @GetMapping("/search")
     public ResponseEntity<ProductListResponse> searchProducts(
             @RequestParam(name = "q") String q,
+            @RequestParam(name = "bhType", required = false) String bhType,
             @RequestParam(name = "sort", defaultValue = "latest") String sort,
             @RequestParam(name = "limit", defaultValue = "20") int limit,
             @RequestParam(name = "cursor", required = false) String cursor
     ) {
         final SortType sortType = SortType.fromCode(sort);
-        return ResponseEntity.ok(productService.searchProductsByName(q, sortType, limit, cursor));
+        return ResponseEntity.ok(productService.searchProductsByName(q, bhType, sortType, limit, cursor));
     }
 
     @GetMapping("/suggest")

@@ -9,6 +9,7 @@ import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.global.config.JwtProvider;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -18,13 +19,24 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 
 @Service
-@RequiredArgsConstructor
 public class KakaoOAuthServiceImpl implements KakaoOAuthService {
 
     private final WebClient kakaoWebClient;
     private final MemberMapper memberMapper;
     private final MemberService memberService;
     private final JwtProvider jwtProvider;
+
+    public KakaoOAuthServiceImpl(
+            @Qualifier("kakaoWebClient") WebClient kakaoWebClient,
+            MemberMapper memberMapper,
+            MemberService memberService,
+            JwtProvider jwtProvider
+    ) {
+        this.kakaoWebClient = kakaoWebClient;
+        this.memberMapper = memberMapper;
+        this.memberService = memberService;
+        this.jwtProvider = jwtProvider;
+    }
 
     public record KakaoUser(String id, String email, String nickname, String profileImageUrl) {
 
@@ -79,7 +91,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
 
         if (memberId == null) {
             return new KakaoVerifyResponse(
-                    true, u.id(), u.email(), u.nickname(), u.profileImageUrl(),
+                    true, u.id(), u.email(), u.nickname(), null,
                     null, null, null, null, null,
                     null, null, null
             );
@@ -95,7 +107,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         res.setKakaoId(u.id());
         res.setEmail(u.email());
         res.setNickname(u.nickname());
-        res.setProfileImageUrl(u.profileImageUrl());
+        res.setProfileImageUrl(m.getProfileImageUrl());
         res.setMemberId(memberId);
         res.setUserEmail(m.getEmail());
         res.setUserNickname(m.getNickname());
@@ -150,6 +162,7 @@ public class KakaoOAuthServiceImpl implements KakaoOAuthService {
         lr.setMemberId(memberId);
         lr.setNickname(m.getNickname());
         lr.setHealth(health);
+        lr.setProfileImageUrl(m.getProfileImageUrl());
         return lr;
     }
 }

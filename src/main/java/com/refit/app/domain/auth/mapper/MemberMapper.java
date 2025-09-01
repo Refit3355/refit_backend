@@ -1,6 +1,7 @@
 package com.refit.app.domain.auth.mapper;
 
 import com.refit.app.domain.auth.dto.ConcernSummaryDto;
+import com.refit.app.domain.order.dto.MemberAddressRow;
 import com.refit.app.domain.auth.dto.MemberRowDto;
 import com.refit.app.domain.auth.dto.response.BasicInfoResponse;
 import java.time.LocalDate;
@@ -50,4 +51,5 @@ public interface MemberMapper {
 
     BasicInfoResponse findBasicInfoById(@Param("memberId") Long memberId);
 
+    MemberAddressRow findShippingByMemberId(@Param("memberId") long memberId);
 }

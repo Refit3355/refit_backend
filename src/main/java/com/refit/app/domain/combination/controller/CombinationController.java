@@ -1,6 +1,8 @@
 package com.refit.app.domain.combination.controller;
 
+import com.refit.app.domain.combination.dto.request.CombinationCreateRequest;
 import com.refit.app.domain.combination.dto.request.LikedCombinationRequest;
+import com.refit.app.domain.combination.dto.response.CombinationCreateResponse;
 import com.refit.app.domain.combination.dto.response.CombinationDetailResponse;
 import com.refit.app.domain.combination.dto.response.CombinationLikeResponse;
 import com.refit.app.domain.combination.dto.response.CombinationListResponse;
@@ -8,6 +10,7 @@ import com.refit.app.domain.combination.service.CombinationService;
 import com.refit.app.domain.me.dto.response.CombinationsResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -54,6 +57,16 @@ public class CombinationController {
             @RequestParam(defaultValue = "10") Integer limit   // 한 번에 가져올 개수
     ) {
         return combinationService.getCombinations(type, sort, combinationId, limit);
+    }
+
+    // 조합 등록
+    @PostMapping("/create")
+    public ResponseEntity<CombinationCreateResponse> create(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody CombinationCreateRequest req
+    ) {
+        CombinationCreateResponse res = combinationService.createCombination(memberId, req);
+        return ResponseEntity.ok(res);
     }
 
 }

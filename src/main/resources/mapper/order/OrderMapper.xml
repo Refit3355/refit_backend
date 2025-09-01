@@ -9,14 +9,15 @@
     resultType="com.refit.app.domain.order.dto.OrderItemDto">
     SELECT oi.ORDER_ITEM_ID       AS orderItemId,
            oi.PRODUCT_ID          AS productId,
-           p.PRODUCT_NAME         AS productName,
-           p.BRAND_NAME           AS brandName,
            p.THUMBNAIL_URL        AS thumbnailUrl,
            oi.ITEM_COUNT          AS itemCount,
            oi.ITEM_PRICE          AS price,
            NVL(p.DISCOUNT_RATE, 0)                 AS discountRate,
-           ROUND(oi.ITEM_PRICE * (100 - NVL(p.DISCOUNT_RATE, 0)) / 100)  AS discountedPrice,
+           TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
            TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD')     AS purchaseDate
+           p.PRODUCT_NAME AS productName,
+           p.BRAND_NAME AS brandName,
+           p.THUMBNAIL_URL AS thumbnailUrl
     FROM ORDER_ITEM oi
            JOIN ORDERS o ON oi.ORDER_ID = o.ORDER_ID
            JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
@@ -31,6 +32,127 @@
     ORDER BY oi.ORDER_ITEM_ID DESC
   </select>
 
+  <!-- ORDERS INSERT -->
+  <insert id="insertOrder" parameterType="com.refit.app.domain.order.dto.OrderInsertRow">
+    <selectKey keyProperty="orderId" resultType="long" order="BEFORE">
+      SELECT SEQ_ORDERS.NEXTVAL FROM DUAL
+    </selectKey>
+    INSERT INTO ORDERS (
+        ORDER_ID,
+        MEMBER_ID,
+        ORDER_CODE,
+        TOTAL_PRICE,
+        GOODS_AMOUNT,
+        DELIVERY_ADDRESS,
+        ZIPCODE,
+        DETAIL_ADDRESS,
+        ROAD_ADDRESS,
+        ORDER_STATUS,
+        -- EXPIRES_AT  -- DB default 사용
+        DELIVERY_FEE,
+        DISCOUNT,
+        ORDER_SUMMARY,
+        CREATED_AT,
+        CREATED_BY,
+        UPDATED_AT,
+        UPDATED_BY
+    ) VALUES (
+        #{orderId},
+        #{memberId},
+        #{orderCode},
+        #{totalPrice},
+        #{goodsAmount},
+        #{deliveryAddress},
+        #{zipcode},
+        #{detailAddress},
+        #{roadAddress},
+        #{orderStatus},
+        #{deliveryFee},
+        #{discount},
+        #{orderSummary},
+        SYSTIMESTAMP,
+        #{createdBy},
+        SYSTIMESTAMP,
+        #{updatedBy}
+    )
+  </insert>
+
+  <!-- ORDER_ITEM INSERT -->
+  <insert id="insertOrderItem" parameterType="com.refit.app.domain.order.dto.OrderItemInsertRow">
+    <selectKey keyProperty="orderItemId" resultType="long" order="BEFORE">
+      SELECT SEQ_ORDER_ITEM.NEXTVAL FROM DUAL
+    </selectKey>
+    INSERT INTO ORDER_ITEM (
+        ORDER_ITEM_ID,
+        PRODUCT_ID,
+        ORDER_ID,
+        ORDER_STATUS,
+        ITEM_COUNT,
+        ORG_UNIT_PRICE,
+        DISCOUNT_RATE,
+        ITEM_PRICE,
+        CANCELED_COUNT,
+        LINE_AMOUNT,
+        PRODUCT_NAME,
+        BRAND_NAME,
+        THUMBNAIL_URL,
+        CREATED_AT,
+        CREATED_BY,
+        UPDATED_AT,
+        UPDATED_BY
+    ) VALUES (
+        #{orderItemId},
+        #{productId},
+        #{orderId},
+        #{orderStatus},
+        #{itemCount},
+        #{orgUnitPrice},
+        #{discountRate},
+        #{itemPrice},
+        0,
+        #{lineAmount},
+        #{productName},
+        #{brandName},
+        #{thumbnailUrl},
+        SYSTIMESTAMP,
+        #{createdBy},
+        SYSTIMESTAMP,
+        #{updatedBy}
+    )
+  </insert>
+
+  <!-- CART 라인 스냅샷  -->
+  <resultMap id="CartLineRowMap" type="com.refit.app.domain.order.dto.CartLineRow">
+    <result property="productId"       column="PRODUCT_ID"/>
+    <result property="productName"     column="PRODUCT_NAME"/>
+    <result property="brandName"       column="BRAND_NAME"/>
+    <result property="thumbnailUrl"    column="THUMBNAIL_URL"/>
+    <result property="originalPrice"   column="PRICE"/>
+    <result property="discountRate"    column="DISCOUNT_RATE"/>
+    <result property="discountedPrice" column="DISCOUNTED_PRICE"/>
+    <result property="quantity"        column="CART_COUNT"/>
+  </resultMap>
+
+  <select id="findCartLines"
+    resultMap="CartLineRowMap">
+    SELECT
+        p.PRODUCT_ID,
+        p.PRODUCT_NAME,
+        p.BRAND_NAME,
+        p.THUMBNAIL_URL,
+        p.PRICE,
+        p.DISCOUNT_RATE,
+        TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS DISCOUNTED_PRICE,
+        c.CART_COUNT
+    FROM CART c
+    JOIN PRODUCT p ON p.PRODUCT_ID = c.PRODUCT_ID
+    WHERE c.MEMBER_ID = #{memberId}
+        AND c.CART_ID IN
+        <foreach collection="cartItemIds" item="id" open="(" separator="," close=")">
+          #{id}
+        </foreach>
+  </select>
+
     <update id="updateOrderItemStatus">
         UPDATE ORDER_ITEM
         SET ORDER_STATUS = #{status},
@@ -38,4 +160,5 @@
             UPDATED_BY = #{memberId}
         WHERE ORDER_ITEM_ID = #{orderItemId}
     </update>
+
 </mapper>
