@@ -100,7 +100,6 @@ public class OpenAiNarrative {
                     .data(imageBytes)
                     .build();
 
-            //속도 확인
             long t0 = System.nanoTime();
 
             String raw = chat.prompt()
@@ -109,7 +108,6 @@ public class OpenAiNarrative {
                     .call()
                     .content();
 
-            //속도 확인
             long t1 = System.nanoTime();
             log.info("[Narrative.suppTwoBlocks] latency={} ms", (t1 - t0) / 1_000_000);
 
@@ -131,7 +129,6 @@ public class OpenAiNarrative {
                 Return JSON only.
                 """.formatted(ocrText == null ? "" : ocrText);
 
-        //속도 확인
         long t0 = System.nanoTime();
 
         try {
@@ -141,7 +138,6 @@ public class OpenAiNarrative {
                     .call()
                     .content();
 
-            //속도 확인
             long t1 = System.nanoTime();
             log.info("[Narrative.suppTwoBlocks] latency={} ms", (t1 - t0) / 1_000_000);
 
@@ -229,9 +225,6 @@ public class OpenAiNarrative {
         }
     }
 
-    /**
-     * (유지) 외부에서 병렬 버전처럼 부르고 싶을 때의 진입점. 현재는 단일 호출로 처리하므로 기존 로직을 재사용.
-     */
     public CosmeticNarrative buildCosmeticNarrativeParallel(
             List<String> danger, List<String> caution, List<String> safe,
             String memberName, int matchRate) {
@@ -250,7 +243,6 @@ public class OpenAiNarrative {
                 """;
 
         final int PREVIEW_N = 12;
-
         final int K = 6;
         List<String> unknownSlice = (unknown == null) ? List.of()
                 : unknown.subList(0, Math.min(K, unknown.size()));
@@ -323,7 +315,6 @@ public class OpenAiNarrative {
             );
         }
     }
-
 
     // -------------------- helpers --------------------
     private static List<String> readArrayAsList(JsonNode root, String key) {

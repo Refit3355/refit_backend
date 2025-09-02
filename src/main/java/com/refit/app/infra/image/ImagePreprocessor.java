@@ -23,16 +23,13 @@ public final class ImagePreprocessor {
     private ImagePreprocessor() {
     }
 
-    private static final int MAX_DIM = 1024;
-    private static final float JPEG_QUALITY = 0.7f;
-    private static final int BYTES_SKIP_RECOMPRESS_THRESHOLD = 200 * 1024;
+    // ↓↓↓ 조정 포인트
+    private static final int MAX_DIM = 720;
+    private static final float JPEG_QUALITY = 0.6f;
+    private static final boolean ALWAYS_RECOMPRESS = true;
 
     public static byte[] preprocess(byte[] imageBytes) {
         try {
-            if (imageBytes.length <= BYTES_SKIP_RECOMPRESS_THRESHOLD) {
-                return ensureJpeg(imageBytes);
-            }
-
             BufferedImage src = ImageIO.read(new ByteArrayInputStream(imageBytes));
             if (src == null) {
                 return imageBytes;
@@ -43,24 +40,27 @@ public final class ImagePreprocessor {
 
             BufferedImage scaled = scaleDownIfNeeded(oriented, MAX_DIM);
 
+            // 텍스트 대비 강화(얇게만)
             BufferedImage enhanced = enhanceForText(scaled);
 
             return writeJpeg(enhanced, JPEG_QUALITY);
         } catch (Exception e) {
-            return imageBytes;
+            // 실패 시에도 최소한 JPEG 보장
+            try {
+                return ensureJpeg(imageBytes);
+            } catch (Exception ignore) {
+                return imageBytes;
+            }
         }
     }
 
-    private static byte[] ensureJpeg(byte[] imageBytes) {
-        try {
-            BufferedImage src = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            if (src == null) {
-                return imageBytes;
-            }
-            return writeJpeg(convertToRGB(src), JPEG_QUALITY);
-        } catch (Exception e) {
+    private static byte[] ensureJpeg(byte[] imageBytes) throws Exception {
+        BufferedImage src = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        if (src == null) {
             return imageBytes;
         }
+        // 항상 JPEG 재인코딩(용량 안정화)
+        return writeJpeg(convertToRGB(src), JPEG_QUALITY);
     }
 
     private static BufferedImage scaleDownIfNeeded(BufferedImage src, int maxDim) {
@@ -77,8 +77,8 @@ public final class ImagePreprocessor {
         Graphics2D g = out.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                 RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g.drawImage(src, 0, 0, nw, nh, null);
         g.dispose();
         return out;
@@ -148,7 +148,7 @@ public final class ImagePreprocessor {
         }
 
         if (!transformNeeded) {
-            return img;
+            return convertToRGB(img);
         }
 
         int newW = (orientation >= 5 && orientation <= 8) ? h : w;
@@ -163,6 +163,7 @@ public final class ImagePreprocessor {
     }
 
     private static BufferedImage enhanceForText(BufferedImage src) {
+        // 가벼운 그레이 + 히스토그램 스트레치 (CPU 가벼움)
         BufferedImage gray = new BufferedImage(src.getWidth(), src.getHeight(),
                 BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g = gray.createGraphics();
@@ -176,8 +177,13 @@ public final class ImagePreprocessor {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 r.getPixel(x, y, px);
-                min = Math.min(min, px[0]);
-                max = Math.max(max, px[0]);
+                int v = px[0];
+                if (v < min) {
+                    min = v;
+                }
+                if (v > max) {
+                    max = v;
+                }
             }
         }
         if (max > min) {
@@ -187,7 +193,7 @@ public final class ImagePreprocessor {
                 for (int x = 0; x < w; x++) {
                     wr.getPixel(x, y, px);
                     int v = (int) Math.round((px[0] - min) * scale);
-                    px[0] = Math.max(0, Math.min(255, v));
+                    px[0] = (v < 0) ? 0 : (Math.min(255, v));
                     wr.setPixel(x, y, px);
                 }
             }
@@ -196,7 +202,7 @@ public final class ImagePreprocessor {
     }
 
     private static byte[] writeJpeg(BufferedImage img, float quality) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(128 * 1024);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(96 * 1024);
         Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
         if (!writers.hasNext()) {
             ImageIO.write(img, "png", baos);
