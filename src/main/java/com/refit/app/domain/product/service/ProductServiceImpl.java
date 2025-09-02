@@ -202,7 +202,7 @@ public class ProductServiceImpl implements ProductService {
                 .map(r -> {
                     long rate  = (r.getDiscountRate() == null ? 0L : r.getDiscountRate());
                     long price = (r.getPrice() == null ? 0L : r.getPrice().longValue());
-                    long discounted = Math.round(price * (100 - rate) / 100.0);
+                    long discounted = ((price * (100 - rate)) / 100L / 100L) * 100L;
                     return ProductRecommendationItemDto.builder()
                             .productId(r.getProductId() == null ? null : r.getProductId().longValue())
                             .thumbnailUrl(r.getThumbnailUrl())
