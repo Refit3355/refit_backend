@@ -72,7 +72,10 @@ public class MeServiceImpl implements MeService{
                     .sum();
 
             long discountedTotalPrice = items.stream()
-                    .mapToLong(item -> item.getPrice() - (item.getPrice() * item.getDiscountRate() / 100))
+                    .mapToLong(item -> {
+                        long discounted = item.getPrice() - (item.getPrice() * item.getDiscountRate() / 100);
+                        return Math.floorDiv(discounted, 100) * 100;
+                    })
                     .sum();
 
             return MyCombinationDto.builder()
