@@ -79,4 +79,22 @@ public interface MemberProductMapper {
     int insertMemberProductFromOrderItem(
             @Param("memberId") Long memberId,
             @Param("orderItemId") Long orderItemId);
+
+    Long selectOwnerMemberId(@Param("memberProductId") Long memberProductId);
+    Map<String,Object> selectMemberProductBase(@Param("memberProductId") Long memberProductId);
+    Long selectProductCategory(@Param("productId") Long productId);
+
+    Integer selectMemberSkinType(@Param("memberId") Long memberId);
+    Map<String,Object> selectSkinConcerns(@Param("memberId") Long memberId);
+    Map<String,Object> selectHairConcerns(@Param("memberId") Long memberId);
+    Map<String,Object> selectHealthConcerns(@Param("memberId") Long memberId);
+
+    List<Map<String,Object>> selectNeighbors(@Param("baseProductId") Long baseProductId,
+            @Param("limit") Integer limit);
+
+    List<Map<String,Object>> selectProductsByIds(@Param("ids") List<Long> ids);
+    List<Map<String,Object>> selectProductEffects(@Param("ids") List<Long> ids);
+    List<Map<String,Object>> selectSkinCompat(@Param("ids") List<Long> ids,
+            @Param("skinType") Integer skinType);
+
 }

@@ -4,15 +4,16 @@ import com.refit.app.domain.memberProduct.dto.request.MemberProductCreateRequest
 import com.refit.app.domain.memberProduct.dto.request.MemberProductUpdateRequest;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductListResponse;
+import com.refit.app.domain.memberProduct.dto.response.ProductRecommendationDto;
 import com.refit.app.domain.memberProduct.model.ProductType;
 import com.refit.app.domain.memberProduct.model.UsageStatus;
 import com.refit.app.domain.memberProduct.service.MemberProductService;
 import com.refit.app.global.util.SecurityUtil;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -91,5 +92,16 @@ public class MemberProductController {
         Long memberId = SecurityUtil.getCurrentMemberId();
         memberProductService.updateMemberProduct(memberId, memberProductId, request);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("recommendation/{memberProductId}")
+    public ResponseEntity<List<ProductRecommendationDto>> recommend(
+            @PathVariable("memberProductId") Long memberProductId,
+            @RequestParam(defaultValue = "35") int topKPerBase,
+            @RequestParam(defaultValue = "10") int finalLimit,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        List<ProductRecommendationDto> res = memberProductService.recommendForMember(memberId, memberProductId, topKPerBase, finalLimit);
+        return ResponseEntity.ok(res);
     }
 }
