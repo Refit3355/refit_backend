@@ -2,6 +2,7 @@ package com.refit.app.domain.analysis.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refit.app.infra.image.ImagePreprocessor;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.model.Media;
 import org.springframework.core.io.ByteArrayResource;
@@ -16,6 +18,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
+@Slf4j
 @Component
 public class OpenAiVisionOcr {
 
@@ -26,10 +29,9 @@ public class OpenAiVisionOcr {
         this.chat = builder.build();
     }
 
-    // 마지막 JSON 객체만 잘라내는 세이프가드
     private static final Pattern JSON_BLOCK = Pattern.compile("\\{[\\s\\S]*\\}\\s*$");
 
-    // 성분/영양 관련 키워드(화장품 필터링 보조)
+    // 라벨/영양 관련 키워드
     private static final Set<String> NUTRITION_HEADER = Set.of(
             "영양정보", "영양성분", "영양성분표", "1일 영양성분 기준치", "1일 영양성분 기준치에 대한 비율", "열량", "kcal",
             "nutrition facts"
@@ -47,25 +49,56 @@ public class OpenAiVisionOcr {
     );
 
     /**
-     * 화장품 전용: '전성분/성분' 섹션에서만 성분 추출
+     * FAST: 전성분/성분 블록 텍스트만 추출 (초간단 스키마)
      */
-    public ExtractedIngredients extract(byte[] imageBytes,
-            @Nullable String filename,
+    public String extractIngredientBlockFast(byte[] imageBytes, @Nullable String filename,
             @Nullable String contentType) {
+        String system = """
+                TASK:
+                - Find the ingredients section (전성분/성분/Ingredients) in the image.
+                - Return JSON ONLY -> {"block":"string"} where block is the raw text of that section.
+                - If not clearly found, return {"block":""}.
+                Rules:
+                - No guessing, no markdown, keep line breaks.
+                """;
+        String user = "Return JSON only.";
 
+        Media media = toMedia(imageBytes, filename, contentType);
+
+        long t0 = System.nanoTime();
+        String rsp = chat.prompt()
+                .system(system)
+                .user(u -> u.text(user).media(media))
+                .call()
+                .content();
+        long t1 = System.nanoTime();
+        log.info("[OCR.extractFast] latency={} ms", (t1 - t0) / 1_000_000);
+
+        String json = stripToJson(rsp);
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            return root.path("block").asText("");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * 정식 추출(기존)
+     */
+    public ExtractedIngredients extract(byte[] imageBytes, @Nullable String filename,
+            @Nullable String contentType) {
         String system = """
                 TASK:
                 - Extract ingredients from image’s “Ingredients” section (전성분/성분).
                 - If not found, return found=false and empty list.
                 - Do NOT guess or invent content.
-                
                 OUTPUT: JSON ONLY.
                 RULES:
                 - Each ingredient must appear in `raw_block`.
                 - Include `name`, `confidence` (0–1), `evidence`.
                 - Exclude confidence < 0.80, units (mg, g, %, IU), marketing, brands, numbers.
                 - Split on common delimiters and deduplicate.
-                
                 SCHEMA:
                 {
                   "found": true|false,
@@ -80,47 +113,49 @@ public class OpenAiVisionOcr {
         String userText = "Product type: cosmetic. Return JSON only.";
         Media media = toMedia(imageBytes, filename, contentType);
 
+        long t0 = System.nanoTime();
         String rsp = chat.prompt()
                 .system(system)
                 .user(u -> u.text(userText).media(media))
                 .call()
                 .content();
+        long t1 = System.nanoTime();
+        log.info("[OCR.extract] latency={} ms", (t1 - t0) / 1_000_000);
 
         String json = stripToJson(rsp);
-
         JsonNode root;
         try {
             root = objectMapper.readTree(json);
         } catch (Exception e) {
             return new ExtractedIngredients(List.of(), List.of());
         }
-
         return postProcess(root);
     }
 
     /**
-     * (옵션) 화장품: 이미지 전체 텍스트 OCR
+     * (옵션) 전체 OCR
      */
-    public String ocrAllText(byte[] imageBytes,
-            @Nullable String filename,
+    public String ocrAllText(byte[] imageBytes, @Nullable String filename,
             @Nullable String contentType) {
         String system = """
                 You are a strict OCR engine
                 Return JSON ONLY -> {"text":"<full readable text>"}
                 Rules:
-                - Extract all visible text (Korean/English), including tables/headers/footnotes.
-                - Preserve line breaks with \\n.
+                - Extract all visible text, preserve line breaks.
                 - No summarize/guessing. No markdown.
                 """;
         String user = "Perform OCR for the full image and return JSON only.";
 
         Media media = toMedia(imageBytes, filename, contentType);
 
+        long t0 = System.nanoTime();
         String rsp = chat.prompt()
                 .system(system)
                 .user(u -> u.text(user).media(media))
                 .call()
                 .content();
+        long t1 = System.nanoTime();
+        log.info("[OCR.ocrAllText] latency={} ms", (t1 - t0) / 1_000_000);
 
         String json = stripToJson(rsp);
         try {
@@ -131,19 +166,17 @@ public class OpenAiVisionOcr {
         }
     }
 
-
-    // --- 후처리(화장품 전용) ---
+    // --- 후처리 ---
     private ExtractedIngredients postProcess(JsonNode root) {
         boolean found = root.path("found").asBoolean(false);
         String section = root.path("section").asText("none");
         String rawBlock = root.path("raw_block").asText("");
         String rawLower = rawBlock.toLowerCase(Locale.ROOT);
 
-        // 영양정보 테이블로 오판 방어
         boolean hasHeader = NUTRITION_HEADER.stream()
                 .anyMatch(k -> rawLower.contains(k.toLowerCase(Locale.ROOT)));
-        long macroHits = MACROS.stream()
-                .filter(k -> rawLower.contains(k.toLowerCase(Locale.ROOT))).count();
+        long macroHits = MACROS.stream().filter(k -> rawLower.contains(k.toLowerCase(Locale.ROOT)))
+                .count();
 
         if (!found || "none".equals(section) || (hasHeader && macroHits >= 2)) {
             return new ExtractedIngredients(List.of(), List.of());
@@ -161,7 +194,7 @@ public class OpenAiVisionOcr {
                 if (nm.isEmpty()) {
                     continue;
                 }
-                if (conf < 0.80) {
+                if (conf < 0.75) {
                     continue;
                 }
 
@@ -203,16 +236,16 @@ public class OpenAiVisionOcr {
     // --- helpers ---
     private static Media toMedia(byte[] bytes, @Nullable String filename,
             @Nullable String contentType) {
-        var res = new ByteArrayResource(bytes) {
+        byte[] prepped = ImagePreprocessor.preprocess(bytes);
+        var res = new ByteArrayResource(prepped) {
             @Override
             public String getFilename() {
                 return filename != null ? filename : "upload";
             }
         };
         var ct = MimeTypeUtils.parseMimeType(
-                (contentType == null || contentType.isBlank()) ? "image/jpeg" : contentType
-        );
-        return Media.builder().mimeType(ct).data(bytes).build();
+                (contentType == null || contentType.isBlank()) ? "image/jpeg" : contentType);
+        return Media.builder().mimeType(ct).data(prepped).build();
     }
 
     private static String norm(String s) {
