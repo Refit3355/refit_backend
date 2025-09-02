@@ -20,11 +20,13 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnalysisServiceImpl implements AnalysisService {
@@ -147,6 +149,9 @@ public class AnalysisServiceImpl implements AnalysisService {
             @Nullable String filename,
             @Nullable String contentType
     ) {
+        //속도 확인
+        long tStart = System.nanoTime();
+
         boolean isHealth = false;
         if (productType != null) {
             String p = productType.trim().toLowerCase();
@@ -155,13 +160,24 @@ public class AnalysisServiceImpl implements AnalysisService {
 
         // ================== 영양제 ==================
         if (isHealth) {
+            // 속도 확인
+            long t0 = System.nanoTime();
             String ocrText = ocr.ocrAllText(imageBytes, filename, contentType);
+
+            // 속도 확인
+            long t1 = System.nanoTime();
+            log.info("[Pipeline] OCR(health) latency={} ms", (t1 - t0) / 1_000_000);
 
             CompletableFuture<SupplementTwoBlocks> futureSummary =
                     CompletableFuture.supplyAsync(
                             () -> narrative.buildSupplementTwoBlocksFromText(ocrText));
 
             SupplementTwoBlocks result = futureSummary.join();
+
+            // 속도 확인
+            long t2 = System.nanoTime();
+            log.info("[Pipeline] Narrative(health) latency={} ms", (t2 - t1) / 1_000_000);
+            log.info("[Pipeline] Total latency={} ms", (t2 - tStart) / 1_000_000);
 
             return AnalysisResponseDto.builder()
                     .memberName("")
@@ -186,7 +202,12 @@ public class AnalysisServiceImpl implements AnalysisService {
                 CompletableFuture.supplyAsync(() -> analysisMapper.selectSkinConcern(memberId));
 
         // OCR 결과 join
+        // 속도 확인
+        long t0 = System.nanoTime();
         var extracted = futureExtract.join();
+        // 속도 확인
+        long t1 = System.nanoTime();
+        log.info("[Pipeline] OCR(cosmetic) latency={} ms", (t1 - t0) / 1_000_000);
 
         if ((extracted.ingredientsKr().isEmpty()) && (extracted.ingredientsEn().isEmpty())) {
             return AnalysisResponseDto.builder()
@@ -266,10 +287,15 @@ public class AnalysisServiceImpl implements AnalysisService {
             memberName = "사용자";
         }
 
-        // ✅ 단일 호출: unknown 분류 + 내러티브 동시 수행 (지연 단축 핵심)
+        // 단일 호출: unknown 분류 + 내러티브 동시 수행 (지연 단축 핵심)
         var classifyAndNar = narrative.classifyAndNarrate(
                 danger, caution, safe, unknown, memberName, matchRate
         );
+
+        // 속도 확인
+        long t2 = System.nanoTime();
+        log.info("[Pipeline] Narrative(cosmetic) latency={} ms", (t2 - t1) / 1_000_000);
+        log.info("[Pipeline] Total latency={} ms", (t2 - tStart) / 1_000_000);
 
         danger = new ArrayList<>(classifyAndNar.finalRisky());
         caution = new ArrayList<>(classifyAndNar.finalCaution());

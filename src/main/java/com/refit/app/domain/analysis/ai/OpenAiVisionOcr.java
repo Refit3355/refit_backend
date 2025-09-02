@@ -2,6 +2,7 @@ package com.refit.app.domain.analysis.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refit.app.infra.image.ImagePreprocessor;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.model.Media;
 import org.springframework.core.io.ByteArrayResource;
@@ -16,6 +18,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
+@Slf4j
 @Component
 public class OpenAiVisionOcr {
 
@@ -25,6 +28,7 @@ public class OpenAiVisionOcr {
     public OpenAiVisionOcr(ChatClient.Builder builder) {
         this.chat = builder.build();
     }
+
 
     // 마지막 JSON 객체만 잘라내는 세이프가드
     private static final Pattern JSON_BLOCK = Pattern.compile("\\{[\\s\\S]*\\}\\s*$");
@@ -80,11 +84,18 @@ public class OpenAiVisionOcr {
         String userText = "Product type: cosmetic. Return JSON only.";
         Media media = toMedia(imageBytes, filename, contentType);
 
+        // 속도 확인
+        long t0 = System.nanoTime();
+
         String rsp = chat.prompt()
                 .system(system)
                 .user(u -> u.text(userText).media(media))
                 .call()
                 .content();
+
+        // 속도 확인
+        long t1 = System.nanoTime();
+        log.info("[OCR.extract] latency={} ms", (t1 - t0) / 1_000_000);
 
         String json = stripToJson(rsp);
 
@@ -116,11 +127,18 @@ public class OpenAiVisionOcr {
 
         Media media = toMedia(imageBytes, filename, contentType);
 
+        //속도 확인
+        long t0 = System.nanoTime();
+
         String rsp = chat.prompt()
                 .system(system)
                 .user(u -> u.text(user).media(media))
                 .call()
                 .content();
+
+        // 속도 확인
+        long t1 = System.nanoTime();
+        log.info("[OCR.ocrAllText] latency={} ms", (t1 - t0) / 1_000_000);
 
         String json = stripToJson(rsp);
         try {
@@ -161,7 +179,7 @@ public class OpenAiVisionOcr {
                 if (nm.isEmpty()) {
                     continue;
                 }
-                if (conf < 0.80) {
+                if (conf < 0.75) {
                     continue;
                 }
 
@@ -203,7 +221,8 @@ public class OpenAiVisionOcr {
     // --- helpers ---
     private static Media toMedia(byte[] bytes, @Nullable String filename,
             @Nullable String contentType) {
-        var res = new ByteArrayResource(bytes) {
+        byte[] prepped = ImagePreprocessor.preprocess(bytes);
+        var res = new ByteArrayResource(prepped) {
             @Override
             public String getFilename() {
                 return filename != null ? filename : "upload";
@@ -212,7 +231,7 @@ public class OpenAiVisionOcr {
         var ct = MimeTypeUtils.parseMimeType(
                 (contentType == null || contentType.isBlank()) ? "image/jpeg" : contentType
         );
-        return Media.builder().mimeType(ct).data(bytes).build();
+        return Media.builder().mimeType(ct).data(prepped).build();
     }
 
     private static String norm(String s) {
