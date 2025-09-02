@@ -19,11 +19,15 @@ public class AnalysisResponseDto {
     private List<String> caution;
     private List<String> safe;
 
-    // 카테고리별 쉬운 문단
+    // 화장품용 (그대로)
     private String riskyText;
     private String cautionText;
     private String safeText;
 
-    // 최종 종합 요약(영양제/화장품 공통)
+    // 공통 요약(백워드 호환)
     private String summary;
+
+    // ⬇️ 영양제 전용 두 문단
+    private String supplementBenefits;           // 상단: 효능(3–4줄)
+    private String supplementConditionCautions;  // 하단: 질병/약물 관련 주의(2–4줄)
 }
