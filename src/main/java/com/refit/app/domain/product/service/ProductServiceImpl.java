@@ -16,6 +16,7 @@ import com.refit.app.global.util.CursorUtil;
 import com.refit.app.infra.ai.AiRecommendClient;
 import com.refit.app.infra.cache.RecommendationCacheKey;
 import com.refit.app.infra.cache.RecommendationCacheRepository;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
@@ -220,7 +222,9 @@ public class ProductServiceImpl implements ProductService {
                 .build();
 
         // 캐싱 후 반환
+        log.info("캐시 저장 시도 key={}", key);
         cacheRepo.put(key, finalResp, cacheTtlSec);
+
         return finalResp;
     }
 
