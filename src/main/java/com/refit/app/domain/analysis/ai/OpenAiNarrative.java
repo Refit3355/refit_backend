@@ -243,18 +243,14 @@ public class OpenAiNarrative {
             List<String> danger, List<String> caution, List<String> safe,
             List<String> unknown, String memberName, int matchRate) {
 
-        // 기존 시스템 프롬프트 + 발명 금지/입력만 사용 규칙 강화
         String system = SYSTEM_COSMETIC_CLASSIFY_AND_NARRATE + """
                 - Classify ONLY names present in the provided lists; do NOT invent or alter names.
                 - final_* MUST be subsets of the union of SAFE, CAUTION, RISKY, UNKNOWN inputs.
                 - If unsure about a name, prefer "caution".
                 """;
 
-        // 미리보기 샘플 수(토큰 절감용)
         final int PREVIEW_N = 12;
 
-        // 🟢 Speed Mode: unknown 상한 K (토큰/속도 최적화)
-        //    품질 모드로 전량 보내고 싶으면 K = Integer.MAX_VALUE 로 바꾸면 됨.
         final int K = 6;
         List<String> unknownSlice = (unknown == null) ? List.of()
                 : unknown.subList(0, Math.min(K, unknown.size()));
@@ -290,7 +286,6 @@ public class OpenAiNarrative {
             List<String> outCaution = readArrayAsList(root, "final_caution");
             List<String> outRisky = readArrayAsList(root, "final_risky");
 
-            // LLM이 입력에 없던 이름을 섞지 못하게 제한
             var allowed = new java.util.HashSet<String>();
             if (safe != null) {
                 allowed.addAll(safe);
