@@ -1,6 +1,7 @@
 package com.refit.app.domain.analysis.service;
 
 import com.refit.app.domain.analysis.ai.OpenAiNarrative;
+import com.refit.app.domain.analysis.ai.OpenAiNarrative.SupplementTwoBlocks;
 import com.refit.app.domain.analysis.ai.OpenAiVisionOcr;
 import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
@@ -16,8 +17,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final OpenAiVisionOcr ocr;
     private final OpenAiNarrative narrative;
     private final AnalysisMapper analysisMapper;
+
     private static final String[] SKIN_TYPE_NAME = {"건성", "중성", "지성", "복합성", "수부지"};
 
     @Override
@@ -139,8 +144,8 @@ public class AnalysisServiceImpl implements AnalysisService {
             Long memberId,
             byte[] imageBytes,
             String productType,
-            @org.springframework.lang.Nullable String filename,
-            @org.springframework.lang.Nullable String contentType
+            @Nullable String filename,
+            @Nullable String contentType
     ) {
         boolean isHealth = false;
         if (productType != null) {
@@ -148,10 +153,15 @@ public class AnalysisServiceImpl implements AnalysisService {
             isHealth = p.contains("영양") || p.equals("health");
         }
 
+        // ================== 영양제 ==================
         if (isHealth) {
-            // 영양제: 전체 OCR → 일반 요약만
             String ocrText = ocr.ocrAllText(imageBytes, filename, contentType);
-            String summary = narrative.buildSupplementSummaryFromText(ocrText);
+
+            CompletableFuture<SupplementTwoBlocks> futureSummary =
+                    CompletableFuture.supplyAsync(
+                            () -> narrative.buildSupplementTwoBlocksFromText(ocrText));
+
+            SupplementTwoBlocks result = futureSummary.join();
 
             return AnalysisResponseDto.builder()
                     .memberName("")
@@ -159,15 +169,38 @@ public class AnalysisServiceImpl implements AnalysisService {
                     .risky(List.of())
                     .caution(List.of())
                     .safe(List.of())
-                    .riskyText("")
+                    .riskyText(result.conditionCautions())
                     .cautionText("")
                     .safeText("")
-                    .summary(summary)
+                    .summary(result.benefits())
                     .build();
         }
 
-        // ===== 화장품: 성분 추출 → DB 매칭(±LLM 보정) → 점수/서술 =====
-        var extracted = ocr.extract(imageBytes, productType, filename, contentType);
+        // ================== 화장품 ==================
+        // 1) OCR 성분 추출 (비동기)
+        CompletableFuture<OpenAiVisionOcr.ExtractedIngredients> futureExtract =
+                CompletableFuture.supplyAsync(() -> ocr.extract(imageBytes, filename, contentType));
+
+        // 2) DB Skin concern 조회 (병렬)
+        CompletableFuture<AnalysisSkinConcernDto> futureSkin =
+                CompletableFuture.supplyAsync(() -> analysisMapper.selectSkinConcern(memberId));
+
+        // OCR 결과 join
+        var extracted = futureExtract.join();
+
+        if ((extracted.ingredientsKr().isEmpty()) && (extracted.ingredientsEn().isEmpty())) {
+            return AnalysisResponseDto.builder()
+                    .memberName(null)
+                    .matchRate(0)
+                    .risky(null)
+                    .caution(null)
+                    .safe(null)
+                    .riskyText(null)
+                    .cautionText(null)
+                    .safeText(null)
+                    .summary(null)
+                    .build();
+        }
 
         List<String> raw = new ArrayList<>();
         raw.addAll(extracted.ingredientsKr());
@@ -181,9 +214,14 @@ public class AnalysisServiceImpl implements AnalysisService {
 
         List<IngredientRule> rules =
                 names.isEmpty() ? List.of() : analysisMapper.selectByNames(names);
+
         Map<String, IngredientRule> ruleByName = rules.stream()
-                .collect(Collectors.toMap(IngredientRule::getIngredientName, r -> r, (a, b) -> a,
-                        LinkedHashMap::new));
+                .collect(Collectors.toMap(
+                        IngredientRule::getIngredientName,
+                        r -> r,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
 
         List<String> safe = new ArrayList<>();
         List<String> caution = new ArrayList<>();
@@ -197,20 +235,16 @@ public class AnalysisServiceImpl implements AnalysisService {
                 case 0 -> safe.add(n);
                 case 1 -> caution.add(n);
                 case 2 -> danger.add(n);
+                default -> { /* no-op */ }
             }
         }
 
-        // (선택) DB 미등록 성분은 LLM으로 3분류
-        var unknown = names.stream().filter(n -> !ruleByName.containsKey(n)).toList();
-        if (!unknown.isEmpty()) {
-            var cls = narrative.classifyUnknowns(unknown, productType);
-            safe.addAll(cls.safe());
-            caution.addAll(cls.caution());
-            danger.addAll(cls.risky());
-        }
+        // 미등록 성분 수집 (cap 적용으로 지연 방지)
+        var unknownAll = names.stream().filter(n -> !ruleByName.containsKey(n)).toList();
+        List<String> unknown = unknownAll.size() > 8 ? unknownAll.subList(0, 8) : unknownAll;
 
-        // 개인화 매칭률
-        var skin = analysisMapper.selectSkinConcern(memberId);
+        // Skin concern join 및 스코어
+        var skin = futureSkin.join();
         var profile = new ScoringPolicy.Profile(
                 skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1
                         || skin.getRedness() == 1),
@@ -219,19 +253,29 @@ public class AnalysisServiceImpl implements AnalysisService {
                 skin != null && skin.getInnerDryness() == 1,
                 skin != null && skin.getRedness() == 1
         );
+
         int matchRate = ScoringPolicy.computeMatchRate(
-                names.size(), safe.size() + caution.size() + danger.size(),
+                names.size(),
+                safe.size() + caution.size() + danger.size(),
                 safe.size(), caution.size(), danger.size(),
                 profile
         );
 
         String memberName = analysisMapper.selectMemberNickname(memberId);
-        if (org.apache.commons.lang3.StringUtils.isBlank(memberName)) {
+        if (StringUtils.isBlank(memberName)) {
             memberName = "사용자";
         }
 
-        // 전체 요약 + 카테고리별 쉬운 문단 생성
-        var nar = narrative.buildCosmeticNarrative(danger, caution, safe, memberName, matchRate);
+        // ✅ 단일 호출: unknown 분류 + 내러티브 동시 수행 (지연 단축 핵심)
+        var classifyAndNar = narrative.classifyAndNarrate(
+                danger, caution, safe, unknown, memberName, matchRate
+        );
+
+        danger = new ArrayList<>(classifyAndNar.finalRisky());
+        caution = new ArrayList<>(classifyAndNar.finalCaution());
+        safe = new ArrayList<>(classifyAndNar.finalSafe());
+
+        var nar = classifyAndNar.narrative();
 
         return AnalysisResponseDto.builder()
                 .memberName(memberName)
@@ -246,7 +290,7 @@ public class AnalysisServiceImpl implements AnalysisService {
                 .build();
     }
 
-    private boolean on(Integer v) {
+    private boolean on(@Nullable Integer v) {
         return v != null && v == 1;
     }
 }

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.refit.app.domain.chatbot.mapper.ChatbotMapper">
+
+    <!-- 커서값 찾기 -->
+    <select id="findCursorInfo" parameterType="long"
+            resultType="com.refit.app.domain.chatbot.dto.ProductCursorDto">
+        SELECT
+            p.PRODUCT_ID       AS productId,
+            NVL(SUM(oi.ITEM_COUNT - oi.CANCELED_COUNT), 0) AS sales,
+            p.CREATED_AT       AS createdAt,
+            (FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) AS discountedPrice
+        FROM PRODUCT p
+                 LEFT JOIN ORDER_ITEM oi ON p.PRODUCT_ID = oi.PRODUCT_ID
+        WHERE p.PRODUCT_ID = #{productId}
+        GROUP BY p.PRODUCT_ID, p.PRICE, p.DISCOUNT_RATE, p.CREATED_AT
+    </select>
+
+
+    <!-- 상품 검색 -->
+    <select id="searchProducts" parameterType="com.refit.app.domain.chatbot.dto.ProductSearchRequestDto"
+            resultType="com.refit.app.domain.chatbot.dto.ProductSearchResponseDto">
+
+        SELECT
+        p.PRODUCT_ID       AS productId,
+        p.THUMBNAIL_URL    AS thumbnailUrl,
+        p.BRAND_NAME       AS brandName,
+        p.PRODUCT_NAME     AS productName,
+        p.DISCOUNT_RATE    AS discountRate,
+        p.PRICE            AS originalPrice,
+        NVL(SUM(oi.ITEM_COUNT - oi.CANCELED_COUNT), 0) AS sales,
+        p.CREATED_AT       AS createdAt
+        FROM PRODUCT p
+        LEFT JOIN PRODUCT_EFFECT pe ON p.PRODUCT_ID = pe.PRODUCT_ID
+        LEFT JOIN ORDER_ITEM oi ON p.PRODUCT_ID = oi.PRODUCT_ID
+        WHERE p.BH_TYPE = #{bhType}
+        AND p.DELETED_AT IS NULL
+        <if test="effectIds != null and !effectIds.isEmpty()">
+        AND pe.EFFECT_ID IN
+            <foreach item="id" collection="effectIds" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+
+        GROUP BY p.PRODUCT_ID,
+        p.THUMBNAIL_URL,
+        p.BRAND_NAME,
+        p.PRODUCT_NAME,
+        p.DISCOUNT_RATE,
+        p.PRICE,
+        p.CREATED_AT
+
+        <if test="effectCount != null and effectCount > 0">
+            HAVING COUNT(DISTINCT pe.EFFECT_ID) = #{effectCount}
+        </if>
+
+        <choose>
+            <!-- 최신순 -->
+            <when test="sort == 'latest'">
+                <if test="lastId != null and cursorCreatedAt != null">
+                    AND (p.CREATED_AT &lt; #{cursorCreatedAt}
+                    OR (p.CREATED_AT = #{cursorCreatedAt} AND p.PRODUCT_ID &lt; #{lastId}))
+                </if>
+                ORDER BY p.CREATED_AT DESC, p.PRODUCT_ID DESC
+            </when>
+
+            <!-- 인기순 -->
+            <when test="sort == 'popular'">
+                <if test="lastId != null and cursorSales != null">
+                    AND (NVL(SUM(oi.ITEM_COUNT - oi.CANCELED_COUNT),0) &lt; #{cursorSales}
+                    OR (NVL(SUM(oi.ITEM_COUNT - oi.CANCELED_COUNT),0) = #{cursorSales} AND p.PRODUCT_ID &lt; #{lastId}))
+                </if>
+                ORDER BY sales DESC, p.PRODUCT_ID DESC
+            </when>
+
+            <!-- 가격 오름차순 -->
+            <when test="sort == 'lowPrice'">
+                <if test="lastId != null and cursorDiscountedPrice != null">
+                    AND ((FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) &gt; #{cursorDiscountedPrice}
+                    OR ((FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) = #{cursorDiscountedPrice} AND p.PRODUCT_ID &gt; #{lastId}))
+                </if>
+                ORDER BY (FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) ASC, p.PRODUCT_ID ASC
+            </when>
+
+            <!-- 가격 내림차순 -->
+            <when test="sort == 'highPrice'">
+                <if test="lastId != null and cursorDiscountedPrice != null">
+                    AND ((FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) &lt; #{cursorDiscountedPrice}
+                    OR ((FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) = #{cursorDiscountedPrice} AND p.PRODUCT_ID &lt; #{lastId}))
+                </if>
+                ORDER BY (FLOOR((p.PRICE * (100 - p.DISCOUNT_RATE)) / 100) * 100) DESC, p.PRODUCT_ID DESC
+            </when>
+
+            <!-- 기본: 최신순 -->
+            <otherwise>
+                ORDER BY p.CREATED_AT DESC, p.PRODUCT_ID DESC
+            </otherwise>
+        </choose>
+
+        FETCH FIRST #{limit} ROWS ONLY
+    </select>
+
+    <!-- 총 개수 조회 -->
+    <select id="countProducts" parameterType="com.refit.app.domain.chatbot.dto.ProductSearchRequestDto"
+            resultType="long">
+        SELECT COUNT(*)
+        FROM (
+        SELECT p.PRODUCT_ID
+        FROM PRODUCT p
+        LEFT JOIN PRODUCT_EFFECT pe ON p.PRODUCT_ID = pe.PRODUCT_ID
+        WHERE p.BH_TYPE = #{bhType}
+        AND p.DELETED_AT IS NULL
+        <if test="effectIds != null and !effectIds.isEmpty()">
+        AND pe.EFFECT_ID IN
+            <foreach item="id" collection="effectIds" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+        GROUP BY p.PRODUCT_ID
+        <if test="effectCount != null and effectCount > 0">
+            HAVING COUNT(DISTINCT pe.EFFECT_ID) = #{effectCount}
+        </if>
+        ) sub
+    </select>
+
+</mapper>
