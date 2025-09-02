@@ -39,6 +39,4 @@ public class RedisRecommendationCacheRepository implements RecommendationCacheRe
             log.error("Redis put 실패: key=" + key, e);
         }
     }
-
-}
 }
