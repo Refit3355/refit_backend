@@ -144,7 +144,8 @@ pipeline {
                     -v /opt/config/firebase-adminsdk.json:/app/config/firebase-adminsdk.json \\
                     -v /home/ec2-user/oci-wallet:/app/oci-wallet \\
                     -e TNS_ADMIN=/app/oci-wallet \\
-                    ${IMAGE_URI} --spring.config.location=file:/opt/config/application.yml\\"
+                    -e SPRING_CONFIG_LOCATION=file:/opt/config/application.yml \\
+                    ${IMAGE_URI}\\"
             ]" \
             --output text >/dev/null
         '''
