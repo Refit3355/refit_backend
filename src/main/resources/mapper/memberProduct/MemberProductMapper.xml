@@ -273,6 +273,13 @@
       <if test="startDate != null and startDate != ''">
         START_DATE = TO_DATE(#{startDate}, 'YYYY-MM-DD'),
       </if>
+      EXPIRY7_ALERT_SENT =
+          CASE
+          WHEN TRUNC(START_DATE + RECOMMENDED_EXPIRATION_DATE)
+          != TRUNC(TO_DATE(#{startDate}, 'YYYY-MM-DD') + #{recommendedPeriod})
+          THEN 0
+          ELSE EXPIRY7_ALERT_SENT
+          END,
       UPDATED_AT = SYSTIMESTAMP,
       UPDATED_BY = #{memberId}
     </set>
@@ -301,6 +308,18 @@
       <if test="startDate != null and startDate != ''">
         START_DATE = TO_DATE(#{startDate}, 'YYYY-MM-DD'),
       </if>
+
+      <!-- 만료일이 바뀌는 경우에만 플래그 리셋 -->
+      EXPIRY7_ALERT_SENT =
+          CASE
+          WHEN TRUNC(START_DATE + RECOMMENDED_EXPIRATION_DATE)
+                != TRUNC(
+                NVL(TO_DATE(#{startDate}, 'YYYY-MM-DD'), START_DATE)
+                + NVL(#{recommendedPeriod}, RECOMMENDED_EXPIRATION_DATE)
+                )
+          THEN 0
+          ELSE EXPIRY7_ALERT_SENT
+          END,
       UPDATED_AT = SYSTIMESTAMP,
       UPDATED_BY = #{memberId}
     </set>
@@ -481,6 +500,29 @@
   <select id="selectAllProductEffects" resultType="map">
     SELECT PRODUCT_ID, EFFECT_ID
     FROM PRODUCT_EFFECT
+  </select>
+
+  <update id="markExpiry7Sent">
+    UPDATE MEMBER_PRODUCT
+    SET EXPIRY7_ALERT_SENT = 1,
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+  </update>
+
+  <select id="selectExpiryIn7Days" resultType="com.refit.app.domain.memberProduct.dto.ExpiryCandidate">
+      SELECT
+          mp.MEMBER_PRODUCT_ID     AS memberProductId,
+          mp.MEMBER_ID             AS memberId,
+          mp.PRODUCT_ID            AS productId,
+          mp.PRODUCT_NAME          AS productName,
+          mp.BRAND_NAME            AS brandName,
+          (mp.START_DATE + mp.RECOMMENDED_EXPIRATION_DATE) AS expiryDate
+      FROM MEMBER_PRODUCT mp
+      WHERE mp.USAGE_STATUS = 1
+        AND mp.DELETED_AT IS NULL
+        AND TRUNC(mp.START_DATE + mp.RECOMMENDED_EXPIRATION_DATE)
+            BETWEEN TRUNC(SYSDATE) AND TRUNC(SYSDATE) + 7
+        AND NVL(mp.EXPIRY7_ALERT_SENT, 0) = 0
   </select>
 
 </mapper>

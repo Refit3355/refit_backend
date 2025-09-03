@@ -1,5 +1,6 @@
 package com.refit.app.domain.memberProduct.mapper;
 
+import com.refit.app.domain.memberProduct.dto.ExpiryCandidate;
 import com.refit.app.domain.memberProduct.dto.MetaRow;
 import com.refit.app.domain.memberProduct.dto.ProductSimpleRow;
 import com.refit.app.domain.memberProduct.dto.response.MemberProductDetailResponse;
@@ -105,4 +106,9 @@ public interface MemberProductMapper {
     List<Map<String,Object>> selectSkinCompat(@Param("ids") List<Long> ids,
             @Param("skinType") Integer skinType);
 
+    // 7일 전 대상자 조회
+    List<ExpiryCandidate> selectExpiryIn7Days();
+
+    // 알림 발송 후 플래그 업데이트
+    int markExpiry7Sent(@Param("memberProductId") Long memberProductId);
 }

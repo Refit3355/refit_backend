@@ -35,7 +35,7 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
 
     @Override
     @Transactional
-    public void notifyExpiryImminent(Long memberId, Long productId, String body) {
+    public void notifyExpiryImminent(Long memberId, Long memberProductId, String body) {
         // 마이핏 목록으로 이동
         String deeplink = "app://myfit";
         saveAndPush(memberId, "소비기한 임박", body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
