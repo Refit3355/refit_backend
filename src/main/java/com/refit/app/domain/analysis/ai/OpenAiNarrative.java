@@ -6,12 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.model.Media;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
+@Slf4j
 @Component
 public class OpenAiNarrative {
 
@@ -98,11 +100,16 @@ public class OpenAiNarrative {
                     .data(imageBytes)
                     .build();
 
+            long t0 = System.nanoTime();
+
             String raw = chat.prompt()
                     .system(SYSTEM_SUPPLEMENT_ONESHOT)
                     .user(u -> u.text("Return JSON only.").media(media))
                     .call()
                     .content();
+
+            long t1 = System.nanoTime();
+            log.info("[Narrative.suppTwoBlocks] latency={} ms", (t1 - t0) / 1_000_000);
 
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
@@ -122,12 +129,17 @@ public class OpenAiNarrative {
                 Return JSON only.
                 """.formatted(ocrText == null ? "" : ocrText);
 
+        long t0 = System.nanoTime();
+
         try {
             String raw = chat.prompt()
                     .system(SYSTEM_SUPPLEMENT_TEXT)
                     .user(u -> u.text(user))
                     .call()
                     .content();
+
+            long t1 = System.nanoTime();
+            log.info("[Narrative.suppTwoBlocks] latency={} ms", (t1 - t0) / 1_000_000);
 
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
@@ -171,7 +183,7 @@ public class OpenAiNarrative {
 
         String system = SYSTEM_COSMETIC.formatted(memberName);
 
-        int N = 7;
+        int N = 10;
         String user = """
                 Context:
                 - User nickname: %s
@@ -213,9 +225,6 @@ public class OpenAiNarrative {
         }
     }
 
-    /**
-     * (유지) 외부에서 병렬 버전처럼 부르고 싶을 때의 진입점. 현재는 단일 호출로 처리하므로 기존 로직을 재사용.
-     */
     public CosmeticNarrative buildCosmeticNarrativeParallel(
             List<String> danger, List<String> caution, List<String> safe,
             String memberName, int matchRate) {
@@ -227,25 +236,32 @@ public class OpenAiNarrative {
             List<String> danger, List<String> caution, List<String> safe,
             List<String> unknown, String memberName, int matchRate) {
 
-        String system = SYSTEM_COSMETIC_CLASSIFY_AND_NARRATE;
+        String system = SYSTEM_COSMETIC_CLASSIFY_AND_NARRATE + """
+                - Classify ONLY names present in the provided lists; do NOT invent or alter names.
+                - final_* MUST be subsets of the union of SAFE, CAUTION, RISKY, UNKNOWN inputs.
+                - If unsure about a name, prefer "caution".
+                """;
 
-        int N = 8; // 샘플 축소(토큰/속도 절감)
-        int capUnknown = Math.min(8, unknown.size());
+        final int PREVIEW_N = 12;
+        final int K = 6;
+        List<String> unknownSlice = (unknown == null) ? List.of()
+                : unknown.subList(0, Math.min(K, unknown.size()));
+
         String user = """
                 Context:
                 - User nickname: %s
                 - Match rate (0-100): %d
-                - SAFE (sample up to %d, total=%d): %s
-                - CAUTION (sample up to %d, total=%d): %s
-                - RISKY (sample up to %d, total=%d): %s
-                - UNKNOWN (cap %d, total=%d): %s
+                - SAFE   (sample up to %d, total=%d): %s
+                - CAUTION(sample up to %d, total=%d): %s
+                - RISKY  (sample up to %d, total=%d): %s
+                - UNKNOWN(cap %d, total=%d): %s
                 Return JSON only with keys: final_safe, final_caution, final_risky, summary, risky_overview, caution_overview, safe_overview.
                 """.formatted(
                 memberName, matchRate,
-                N, safe.size(), previewList(safe, N),
-                N, caution.size(), previewList(caution, N),
-                N, danger.size(), previewList(danger, N),
-                capUnknown, unknown.size(), previewList(unknown, capUnknown)
+                PREVIEW_N, safe.size(), previewList(safe, PREVIEW_N),
+                PREVIEW_N, caution.size(), previewList(caution, PREVIEW_N),
+                PREVIEW_N, danger.size(), previewList(danger, PREVIEW_N),
+                unknownSlice.size(), unknown.size(), previewList(unknownSlice, unknownSlice.size())
         );
 
         try {
@@ -262,12 +278,18 @@ public class OpenAiNarrative {
             List<String> outCaution = readArrayAsList(root, "final_caution");
             List<String> outRisky = readArrayAsList(root, "final_risky");
 
-            // 방어적으로 입력 후보들의 합집합으로 제한
             var allowed = new java.util.HashSet<String>();
-            allowed.addAll(safe);
-            allowed.addAll(caution);
-            allowed.addAll(danger);
-            allowed.addAll(unknown);
+            if (safe != null) {
+                allowed.addAll(safe);
+            }
+            if (caution != null) {
+                allowed.addAll(caution);
+            }
+            if (danger != null) {
+                allowed.addAll(danger);
+            }
+            allowed.addAll(unknownSlice);
+
             outSafe.retainAll(allowed);
             outCaution.retainAll(allowed);
             outRisky.retainAll(allowed);
@@ -282,7 +304,6 @@ public class OpenAiNarrative {
                     new CosmeticNarrative(summary, riskyTxt, cautionTxt, safeTxt)
             );
         } catch (Exception e) {
-            // 실패 시 원래 버킷 유지 + 안전한 내러티브 디폴트
             return new CosmeticClassifyAndNarrative(
                     safe, caution, danger,
                     new CosmeticNarrative(
