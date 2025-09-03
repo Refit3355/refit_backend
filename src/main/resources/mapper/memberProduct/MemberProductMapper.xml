@@ -373,4 +373,114 @@
         )
   </insert>
 
+  <select id="selectOwnerMemberId" parameterType="long" resultType="long">
+    SELECT MEMBER_ID
+    FROM MEMBER_PRODUCT
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+  </select>
+
+  <select id="selectMemberProductBase" parameterType="long" resultType="hashmap">
+    SELECT PRODUCT_ID, CATEGORY_ID
+    FROM MEMBER_PRODUCT
+    WHERE MEMBER_PRODUCT_ID = #{memberProductId}
+  </select>
+
+  <select id="selectProductCategory" parameterType="long" resultType="int">
+    SELECT CATEGORY_ID
+    FROM PRODUCT
+    WHERE PRODUCT_ID = #{productId}
+  </select>
+
+  <select id="selectMemberSkinType" parameterType="long" resultType="int">
+    SELECT SKIN_TYPE FROM SKIN_CONCERN WHERE MEMBER_ID = #{memberId}
+  </select>
+
+  <select id="selectSkinConcerns" parameterType="long" resultType="hashmap">
+    SELECT ATOPIC, ACNE, WHITENING, SEBUM, INNER_DRYNESS,
+           WRINKLES, ENLARGED_PORES, REDNESS, KERATIN
+    FROM SKIN_CONCERN
+    WHERE MEMBER_ID = #{memberId}
+  </select>
+
+  <select id="selectHairConcerns" parameterType="long" resultType="hashmap">
+    SELECT HAIR_LOSS, DAMAGED_HAIR, SCALP_TROUBLE, DANDRUFF
+    FROM HAIR_CONCERN
+    WHERE MEMBER_ID = #{memberId}
+  </select>
+
+  <select id="selectHealthConcerns" parameterType="long" resultType="hashmap">
+    SELECT EYE_HEALTH, FATIGUE, SLEEP_STRESS, IMMUNE_CARE,
+           MUSCLE_HEALTH, GUT_HEALTH, BLOOD_CIRCULATION
+    FROM HEALTH_CONCERN
+    WHERE MEMBER_ID = #{memberId}
+  </select>
+
+  <select id="selectNeighbors" resultType="hashmap">
+    SELECT BASE_PRODUCT_ID, NEIGHBOR_PRODUCT_ID, SIM_OVERALL, RANK_ORDER
+    FROM RECOMMEND_RESULT
+    WHERE BASE_PRODUCT_ID = #{baseProductId}
+      AND SNAPSHOT_AT = (
+      SELECT MAX(SNAPSHOT_AT) FROM RECOMMEND_RESULT
+      WHERE BASE_PRODUCT_ID = #{baseProductId}
+    )
+    ORDER BY RANK_ORDER
+      FETCH FIRST #{limit} ROWS ONLY
+  </select>
+
+  <select id="selectProductsByIds" resultType="hashmap">
+    SELECT PRODUCT_ID,
+    CATEGORY_ID,
+    PRODUCT_NAME,
+    BRAND_NAME,
+    PRICE,
+    STOCK,
+    THUMBNAIL_URL,
+    DISCOUNT_RATE,
+    -- 할인 적용 가격 (100원 단위 내림)
+    TRUNC(PRICE * (100 - DISCOUNT_RATE) / 100, -2) AS DISCOUNTED_PRICE
+    FROM PRODUCT
+    WHERE PRODUCT_ID IN
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">
+      #{id}
+    </foreach>
+  </select>
+
+  <select id="selectProductEffects" resultType="hashmap">
+    SELECT PRODUCT_ID, EFFECT_ID
+    FROM PRODUCT_EFFECT
+    WHERE PRODUCT_ID IN
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">
+      #{id}
+    </foreach>
+  </select>
+
+  <select id="selectSkinCompat" resultType="hashmap">
+    SELECT PRODUCT_ID, COMPAT
+    FROM PRODUCT_SKIN_COMPAT
+    WHERE SKIN_TYPE = #{skinType}
+    AND PRODUCT_ID IN
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">
+      #{id}
+    </foreach>
+  </select>
+
+  <select id="selectAllProducts" resultType="map">
+    SELECT P.PRODUCT_ID,
+           P.CATEGORY_ID,
+           P.PRODUCT_NAME,
+           P.BRAND_NAME,
+           P.PRICE,
+           P.STOCK,
+           P.DISCOUNT_RATE,
+           P.THUMBNAIL_URL,
+           TRUNC(P.PRICE * (1 - NVL(P.DISCOUNT_RATE,0)/100), -2) AS DISCOUNTED_PRICE
+    FROM PRODUCT P
+    WHERE P.DELETED_AT IS NULL
+  </select>
+
+  <select id="selectAllProductEffects" resultType="map">
+    SELECT PRODUCT_ID, EFFECT_ID
+    FROM PRODUCT_EFFECT
+  </select>
+
 </mapper>
