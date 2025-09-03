@@ -1,6 +1,7 @@
 package com.refit.app.domain.payment.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refit.app.domain.notification.service.NotificationTriggerService;
 import com.refit.app.domain.payment.dto.OrderItemRowDto;
 import com.refit.app.domain.payment.dto.OrderRowDto;
 import com.refit.app.domain.payment.dto.PaymentCancelRowDto;
@@ -43,6 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final ObjectMapper om;
 
     private final PaymentCancelLogService cancelLogService;
+    private final NotificationTriggerService notificationTriggerService;
 
     @Value("${toss.api-base}") String tossBase;
     private static final long FREE_SHIPPING_THRESHOLD = 30_000L;
@@ -53,17 +55,19 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentMapper paymentMapper,
             ObjectMapper objectMapper,
             ProductMapper productMapper,
-            PaymentCancelLogService cancelLogService
+            PaymentCancelLogService cancelLogService,
+            NotificationTriggerService notificationTriggerService
     ) {
         this.tossWebClient = tossWebClient;
         this.paymentMapper = paymentMapper;
         this.om = objectMapper;
         this.productMapper = productMapper;
         this.cancelLogService = cancelLogService;
+        this.notificationTriggerService = notificationTriggerService;
     }
 
     @Override
-    public ConfirmPaymentResponse confirm(ConfirmPaymentRequest req) {
+    public ConfirmPaymentResponse confirm(ConfirmPaymentRequest req, Long memberId) {
         // 1) 서버 금액 검증
         String orderCode = req.getOrderId();
         OrderRowDto order = paymentMapper.findOrderForUpdate(orderCode);
@@ -151,6 +155,9 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        notificationTriggerService.notifyPaymentCompleted(memberId, orderId,
+                order.getOrderSummary() + "의 결제가 완료되었습니다.");
+
 
         return ConfirmPaymentResponse.builder()
                 .paymentId(row.getPaymentId())
@@ -164,7 +171,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PartialCancelResponse partialCancel(Long orderItemId, PartialCancelRequest req) {
+    public PartialCancelResponse partialCancel(Long orderItemId, PartialCancelRequest req, Long memberId) {
         // 0) 입력 검증
         Long reqAmt = req.getCancelAmount();
         if (reqAmt == null || reqAmt < 1) {
@@ -280,6 +287,9 @@ public class PaymentServiceImpl implements PaymentService {
             if (fullCanceled == total) paymentMapper.updateOrderStatus(item.getOrderId(), 3);
             else if (fullCanceled > 0) paymentMapper.updateOrderStatus(item.getOrderId(), 2);
         }
+
+        notificationTriggerService.notifyPaymentCanceled(memberId, moneyLocked.getOrderId(),
+                moneyLocked.getOrderSummary() + "의 결제가 취소되었습니다.");
 
         // 응답은 실제 PG 환불금액으로 반환
         return PartialCancelResponse.builder()

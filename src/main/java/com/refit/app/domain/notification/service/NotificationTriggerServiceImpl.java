@@ -22,14 +22,14 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
     @Override
     @Transactional
     public void notifyPaymentCompleted(Long memberId, Long orderId, String body) {
-        String deeplink = "app://orders/" + orderId;
+        String deeplink = "app://orders";
         saveAndPush(memberId, "결제 완료", body, null, deeplink, NotificationType.PAYMENT_COMPLETED.name());
     }
 
     @Override
     @Transactional
     public void notifyPaymentCanceled(Long memberId, Long orderId, String body) {
-        String deeplink = "app://orders/" + orderId;
+        String deeplink = "app://orders";
         saveAndPush(memberId, "결제 취소", body, null, deeplink, NotificationType.PAYMENT_CANCELED.name());
     }
 
