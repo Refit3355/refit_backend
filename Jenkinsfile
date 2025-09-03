@@ -134,10 +134,11 @@ pipeline {
               \\"mkdir -p /opt/config\\", \\
               \\"aws secretsmanager get-secret-value --region ${AWS_REGION} --secret-id /refit/spring/application_yml --query SecretString --output text > /opt/config/application.yml\\", \\
               \\"aws secretsmanager get-secret-value --region ${AWS_REGION} --secret-id /refit/firebase/adminsdk --query SecretString --output text > /opt/config/firebase-adminsdk.json\\", \\
-
               \\"docker network create refit-net || true\\", \\
               \\"docker rm -f redis || true\\", \\
               \\"docker run -d --name redis --network refit-net --restart=always -p 6379:6379 redis:7\\", \\
+              \\"echo '[INFO] Waiting for Redis to be ready...'\\", \\
+              \\"for i in {1..10}; do docker run --rm --network refit-net redis:7 redis-cli -h redis ping && break || sleep 2; done\\", \\
               \\"docker rm -f refit || true\\", \\
               \\"docker run -d --name refit --network refit-net --restart=always -p 8080:8080 \\
                     -v /opt/config:/opt/config \\
@@ -145,7 +146,7 @@ pipeline {
                     -v /home/ec2-user/oci-wallet:/app/oci-wallet \\
                     -e TNS_ADMIN=/app/oci-wallet \\
                     -e SPRING_CONFIG_LOCATION=file:/opt/config/application.yml \\
-                    ${IMAGE_URI}\\"
+                    ${IMAGE_URI}\\" \\
             ]" \
             --output text >/dev/null
         '''
