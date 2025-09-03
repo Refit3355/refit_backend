@@ -464,4 +464,23 @@
     </foreach>
   </select>
 
+  <select id="selectAllProducts" resultType="map">
+    SELECT P.PRODUCT_ID,
+           P.CATEGORY_ID,
+           P.PRODUCT_NAME,
+           P.BRAND_NAME,
+           P.PRICE,
+           P.STOCK,
+           P.DISCOUNT_RATE,
+           P.THUMBNAIL_URL,
+           TRUNC(P.PRICE * (1 - NVL(P.DISCOUNT_RATE,0)/100), -2) AS DISCOUNTED_PRICE
+    FROM PRODUCT P
+    WHERE P.DELETED_AT IS NULL
+  </select>
+
+  <select id="selectAllProductEffects" resultType="map">
+    SELECT PRODUCT_ID, EFFECT_ID
+    FROM PRODUCT_EFFECT
+  </select>
+
 </mapper>
