@@ -140,11 +140,11 @@ pipeline {
               \\"docker run -d --name redis --network refit-net --restart=always -p 6379:6379 redis:7\\", \\
               \\"docker rm -f refit || true\\", \\
               \\"docker run -d --name refit --network refit-net --restart=always -p 8080:8080 \\
-                    -v /opt/config/application.yml:/opt/config/application.yml \\
+                    -v /opt/config:/opt/config \\
                     -v /opt/config/firebase-adminsdk.json:/app/config/firebase-adminsdk.json \\
                     -v /home/ec2-user/oci-wallet:/app/oci-wallet \\
                     -e TNS_ADMIN=/app/oci-wallet \\
-                    -e SPRING_CONFIG_LOCATION=file:/opt/config/application.yml \\
+                    -e SPRING_CONFIG_LOCATION=file:/opt/config/ \\
                     ${IMAGE_URI}\\"
             ]" \
             --output text >/dev/null
