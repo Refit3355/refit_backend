@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.4'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.jetbrains.kotlin.jvm'
 }
 
 group = 'com.refit'
@@ -81,12 +82,18 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter:1.20.1'
     testImplementation 'org.testcontainers:testcontainers:1.20.1'
 
+    // Spring AI
+    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M6'
+    implementation 'org.apache.commons:commons-lang3:3.13.0'
+
     // Firebase
     implementation("com.google.firebase:firebase-admin:9.3.0")
 
     // 웹소켓
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework:spring-messaging'
+
+    implementation 'com.drewnoakes:metadata-extractor:2.18.0'
 }
 
 tasks.named('test') {

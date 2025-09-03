@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refit.app.domain.product.dto.response.ProductRecommendationResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 @Repository
 @RequiredArgsConstructor
+@Slf4j
 public class RedisRecommendationCacheRepository implements RecommendationCacheRepository {
 
     private final StringRedisTemplate redis;
@@ -33,6 +35,8 @@ public class RedisRecommendationCacheRepository implements RecommendationCacheRe
         try {
             String json = om.writeValueAsString(value);
             redis.opsForValue().set(key, json, ttlSeconds, TimeUnit.SECONDS);
-        } catch (DataAccessException | com.fasterxml.jackson.core.JsonProcessingException ignored) {}
+        } catch (Exception e) {
+            log.error("Redis put 실패: key=" + key, e);
+        }
     }
 }
