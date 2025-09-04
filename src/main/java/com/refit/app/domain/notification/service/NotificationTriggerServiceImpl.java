@@ -4,6 +4,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.refit.app.domain.notification.mapper.NotificationMapper;
 import com.refit.app.domain.notification.model.NotificationType;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,7 @@ import java.util.List;
 public class NotificationTriggerServiceImpl implements NotificationTriggerService {
 
     private final NotificationMapper notificationMapper;
-    private final DeviceService deviceService;
+    private final PushService pushService;
 
     @Override
     @Transactional
@@ -41,7 +42,7 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
         saveAndPush(memberId, "소비기한 임박", body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
     }
 
-    private void saveAndPush(
+    public void saveAndPush(
             Long memberId,
             String title,
             String body,
@@ -50,43 +51,18 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
             String type
     ) {
         // 1) DB 저장
-        //  - mapper XML은 selectKey(BEFORE)로 SEQ_NOTIFICATION.NEXTVAL을 채움
-        //  - 다중 파라미터(@Param)여도 keyProperty="notificationId"에 값이 주입됨
         Long notificationId = null;
         notificationMapper.insertNotification(
-                notificationId,
-                memberId,
-                title,
-                body,
-                imageUrl,
-                deeplink,
-                type
+                notificationId, memberId, title, body, imageUrl, deeplink, type
         );
 
-        // 2) 푸시 발송 (FCM)
-        List<String> tokens = deviceService.findFcmTokensByMemberId(memberId);
-        if (tokens == null || tokens.isEmpty()) return;
-
-        for (String token : tokens) {
-            try {
-                Message.Builder builder = Message.builder()
-                        .setToken(token)
-                        // data에는 null 금지 → 빈 문자열로 치환
-                        .putData("deeplink", deeplink == null ? "" : deeplink)
-                        .putData("type", type);
-
-                builder.setNotification(
-                        com.google.firebase.messaging.Notification.builder()
-                                .setTitle(title)
-                                .setBody(body)
-                                .setImage(imageUrl) // null 허용
-                                .build()
-                );
-
-                FirebaseMessaging.getInstance().send(builder.build());
-            } catch (Exception e) {
-                log.warn("FCM send failed for token={}, memberId={}, type={}", token, memberId, type, e);
-            }
-        }
+        // 2) 전송은 PushService에 위임
+        pushService.sendToMember(memberId, Map.of(
+                "type", type,
+                "title", title,
+                "body", body,
+                "deeplink", deeplink == null ? "" : deeplink,
+                "imageUrl", imageUrl == null ? "" : imageUrl
+        ));
     }
 }

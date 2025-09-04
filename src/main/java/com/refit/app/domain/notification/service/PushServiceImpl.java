@@ -48,7 +48,7 @@ public class PushServiceImpl implements PushService {
             return;
         }
 
-        List<String> tokens = deviceMapper.selectTokensByMemberId(memberId);
+        List<String> tokens = deviceMapper.selectActiveTokensByMemberId(memberId);
         if (tokens == null || tokens.isEmpty()) {
             log.warn("No tokens for member {}", memberId);
             return;
@@ -73,6 +73,7 @@ public class PushServiceImpl implements PushService {
 
                 String id = FirebaseMessaging.getInstance().send(msg);
                 success++;
+                deviceMapper.markSuccessByToken(token);
                 log.debug("FCM sent ok token={}, id={}", token, id);
 
             } catch (FirebaseMessagingException e) {
@@ -84,8 +85,8 @@ public class PushServiceImpl implements PushService {
                 if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED
                         || e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT) {
                     try {
-//                        deviceMapper.deleteByToken(token);
-//                        log.info("Deleted invalid FCM token from DB: {}", token);
+                        deviceMapper.deactivateByToken(token);
+                        log.info("Deactivated invalid FCM token from DB: {}", token);
                     } catch (Exception ignore) { }
                 }
             } catch (Exception e) {
