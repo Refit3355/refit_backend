@@ -212,15 +212,34 @@ public class MemberProductServiceImpl implements MemberProductService {
     @Override
     @Transactional
     public void createFromOrderItem(Long memberId, Long orderItemId) {
-        try {
-            int cnt = memberProductMapper.insertMemberProductFromOrderItem(memberId, orderItemId);
-            if (cnt == 0) {
-                // 이미 등록되었거나 권한/조건 불일치
-                throw new RefitException(ErrorCode.STATUS_CONFLICT, "이미 사용등록된 주문건이거나 등록할 수 없습니다.");
-            }
-        } catch (org.springframework.dao.DuplicateKeyException e) {
-            // 유니크 인덱스(활성중복 가드) 사용 시 동시요청 방어
-            throw new RefitException(ErrorCode.STATUS_CONFLICT, "이미 사용등록된 주문건입니다.");
+        final int inc = 1;
+
+        // 대상 행 잠금
+        Map<String, Object> row = memberProductMapper.lockOrderItemForUpdate(memberId, orderItemId);
+        if (row == null || row.isEmpty()) {
+            throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "대상 주문항목을 찾을 수 없거나 구매확정 상태가 아닙니다.");
+        }
+
+        Number remaining = (Number) row.get("REMAININGCOUNT");
+        if (remaining == null) {
+            remaining = (Number) row.get("remainingCount"); // 드라이버/맵핑에 따라 소문자로 올 수 있어 보조
+        }
+        long remainingCount = remaining != null ? remaining.longValue() : 0L;
+
+        if (remainingCount < inc) {
+            throw new RefitException(ErrorCode.STATUS_CONFLICT, "등록 가능한 수량이 없습니다.");
+        }
+
+        // MEMBER_PRODUCT 생성
+        int inserted = memberProductMapper.insertMemberProductFromOrderItem(memberId, orderItemId);
+        if (inserted == 0) {
+            throw new RefitException(ErrorCode.INTERNAL_SERVER_ERROR, "사용등록 생성 중 오류가 발생했습니다.");
+        }
+
+        // USED_COUNT 증가
+        int updated = memberProductMapper.increaseUsedCount(memberId, orderItemId, inc);
+        if (updated == 0) {
+            throw new RefitException(ErrorCode.STATUS_CONFLICT, "수량 업데이트에 실패했습니다.");
         }
     }
 

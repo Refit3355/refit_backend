@@ -14,7 +14,7 @@ public class OrderItemDto {
     private String thumbnailUrl;
     private String brandName;
     private String productName;
-    private int itemCount;
+    private int remainingCount;
     private int price;
     private Integer discountRate;
     private int discountedPrice;

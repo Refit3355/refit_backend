@@ -7,27 +7,26 @@
   <select id="selectUnregisteredOrderItems"
     parameterType="long"
     resultType="com.refit.app.domain.order.dto.OrderItemDto">
-    SELECT oi.ORDER_ITEM_ID       AS orderItemId,
-           oi.PRODUCT_ID          AS productId,
-           p.THUMBNAIL_URL        AS thumbnailUrl,
-           oi.ITEM_COUNT          AS itemCount,
-           oi.ITEM_PRICE          AS price,
-           NVL(p.DISCOUNT_RATE, 0)                 AS discountRate,
-           TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice,
-           TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD')     AS purchaseDate,
-           p.PRODUCT_NAME AS productName,
-           p.BRAND_NAME AS brandName
+    SELECT
+      oi.ORDER_ITEM_ID        AS orderItemId,
+      oi.PRODUCT_ID           AS productId,
+      p.THUMBNAIL_URL         AS thumbnailUrl,
+      oi.CANCELED_COUNT       AS canceledCount,
+      oi.USED_COUNT           AS usedCount,
+      (oi.ITEM_COUNT - oi.CANCELED_COUNT - oi.USED_COUNT) AS remainingCount,
+      oi.ITEM_PRICE           AS price,
+      NVL(p.DISCOUNT_RATE, 0) AS discountRate,
+      TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice,
+      TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD') AS purchaseDate,
+      p.PRODUCT_NAME          AS productName,
+      p.BRAND_NAME            AS brandName
     FROM ORDER_ITEM oi
-           JOIN ORDERS o ON oi.ORDER_ID = o.ORDER_ID
-           JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
+           JOIN ORDERS o   ON oi.ORDER_ID   = o.ORDER_ID
+           JOIN PRODUCT p  ON oi.PRODUCT_ID = p.PRODUCT_ID
     WHERE o.MEMBER_ID = #{memberId, javaType=long, jdbcType=NUMERIC}
-      AND p.BH_TYPE = #{bhType,   javaType=int,  jdbcType=NUMERIC}
-      AND NOT EXISTS (
-      SELECT 1
-      FROM MEMBER_PRODUCT mp
-      WHERE mp.MEMBER_ID = o.MEMBER_ID
-        AND mp.ORDER_ITEM_ID = oi.ORDER_ITEM_ID
-    )
+      AND p.BH_TYPE   = #{bhType,   javaType=int,  jdbcType=NUMERIC}
+      AND o.ORDER_STATUS = 11                           -- 구매확정만
+      AND (oi.ITEM_COUNT - oi.CANCELED_COUNT - oi.USED_COUNT) > 0  -- 남은 등록 가능 수량
     ORDER BY oi.ORDER_ITEM_ID DESC
   </select>
 

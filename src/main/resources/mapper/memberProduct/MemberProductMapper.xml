@@ -345,53 +345,6 @@
     )
   </insert>
 
-  <insert id="insertMemberProductFromOrderItem">
-    <selectKey keyProperty="_lastInsertedId" resultType="long" order="BEFORE">
-      SELECT SEQ_MEMBER_PRODUCT.NEXTVAL FROM DUAL
-    </selectKey>
-
-    INSERT INTO MEMBER_PRODUCT (
-        MEMBER_PRODUCT_ID,
-        MEMBER_ID,
-        PRODUCT_ID,
-        ORDER_ITEM_ID,
-        START_DATE,
-        RECOMMENDED_EXPIRATION_DATE,
-        USAGE_STATUS,
-        PRODUCT_NAME,
-        BRAND_NAME,
-        COMPLETED_DATE,
-        BH_TYPE,
-        CATEGORY_ID,
-        CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
-    )
-    SELECT
-        #{_lastInsertedId},
-        #{memberId},
-        p.PRODUCT_ID,
-        oi.ORDER_ITEM_ID,
-        SYSDATE,                                 -- DATE
-        p.RECOMMENDED_PERIOD,
-        1,                                       -- USING
-        p.PRODUCT_NAME,
-        p.BRAND_NAME,
-        NULL,
-        p.BH_TYPE,
-        p.CATEGORY_ID,
-        SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
-    FROM ORDER_ITEM oi
-    JOIN ORDERS  o ON o.ORDER_ID   = oi.ORDER_ID
-    JOIN PRODUCT p ON p.PRODUCT_ID = oi.PRODUCT_ID
-    WHERE oi.ORDER_ITEM_ID = #{orderItemId}
-        AND o.MEMBER_ID      = #{memberId}
-        AND NOT EXISTS (
-        SELECT 1
-        FROM MEMBER_PRODUCT mp
-        WHERE mp.ORDER_ITEM_ID = oi.ORDER_ITEM_ID
-        AND mp.DELETED_AT IS NULL
-        )
-  </insert>
-
   <select id="selectOwnerMemberId" parameterType="long" resultType="long">
     SELECT MEMBER_ID
     FROM MEMBER_PRODUCT
@@ -524,5 +477,70 @@
             BETWEEN TRUNC(SYSDATE) AND TRUNC(SYSDATE) + 7
         AND NVL(mp.EXPIRY7_ALERT_SENT, 0) = 0
   </select>
+
+
+  <!--  행 잠금 -->
+  <select id="lockOrderItemForUpdate"
+    parameterType="map"
+    resultType="map">
+    SELECT
+      oi.ORDER_ITEM_ID AS orderItemId,
+      (oi.ITEM_COUNT - oi.CANCELED_COUNT - oi.USED_COUNT) AS remainingCount,
+      o.ORDER_STATUS AS orderStatus
+    FROM ORDER_ITEM oi
+           JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
+    WHERE oi.ORDER_ITEM_ID = #{orderItemId}
+      AND o.MEMBER_ID = #{memberId}
+      AND o.ORDER_STATUS = 11
+      FOR UPDATE
+  </select>
+
+  <insert id="insertMemberProductFromOrderItem">
+    <selectKey keyProperty="_lastInsertedId" resultType="long" order="BEFORE">
+      SELECT SEQ_MEMBER_PRODUCT.NEXTVAL FROM DUAL
+    </selectKey>
+
+    INSERT INTO MEMBER_PRODUCT (
+    MEMBER_PRODUCT_ID, MEMBER_ID, PRODUCT_ID, ORDER_ITEM_ID,
+    START_DATE, RECOMMENDED_EXPIRATION_DATE, USAGE_STATUS,
+    PRODUCT_NAME, BRAND_NAME, COMPLETED_DATE, BH_TYPE, CATEGORY_ID,
+    CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
+    )
+    SELECT
+    #{_lastInsertedId},
+    #{memberId},
+    p.PRODUCT_ID,
+    oi.ORDER_ITEM_ID,
+    SYSDATE,
+    p.RECOMMENDED_PERIOD,
+    1, -- USING
+    p.PRODUCT_NAME,
+    p.BRAND_NAME,
+    NULL,
+    p.BH_TYPE,
+    p.CATEGORY_ID,
+    SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
+    FROM ORDER_ITEM oi
+    JOIN ORDERS  o ON o.ORDER_ID   = oi.ORDER_ID
+    JOIN PRODUCT p ON p.PRODUCT_ID = oi.PRODUCT_ID
+    WHERE oi.ORDER_ITEM_ID = #{orderItemId}
+    AND o.MEMBER_ID      = #{memberId}
+  </insert>
+
+  <update id="increaseUsedCount">
+    UPDATE ORDER_ITEM
+    SET USED_COUNT = USED_COUNT + #{inc},
+    UPDATED_AT = SYSTIMESTAMP,
+    UPDATED_BY = #{memberId}
+    WHERE ORDER_ITEM_ID = #{orderItemId}
+        AND EXISTS (
+            SELECT 1
+            FROM ORDERS o
+            WHERE o.ORDER_ID = ORDER_ITEM.ORDER_ID
+            AND o.MEMBER_ID = #{memberId}
+            AND o.ORDER_STATUS = 11
+        )
+    AND NOT ( (USED_COUNT + #{inc}) &gt; (ITEM_COUNT - CANCELED_COUNT) )
+  </update>
 
 </mapper>

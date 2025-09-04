@@ -111,4 +111,12 @@ public interface MemberProductMapper {
 
     // 알림 발송 후 플래그 업데이트
     int markExpiry7Sent(@Param("memberProductId") Long memberProductId);
+
+    Map<String, Object> lockOrderItemForUpdate(@Param("memberId") Long memberId,
+            @Param("orderItemId") Long orderItemId);
+
+    int increaseUsedCount(@Param("memberId") Long memberId,
+            @Param("orderItemId") Long orderItemId,
+            @Param("inc") int inc);
+
 }
