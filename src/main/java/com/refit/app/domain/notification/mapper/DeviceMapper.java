@@ -15,6 +15,12 @@ public interface DeviceMapper {
     int deleteDeviceByDeviceId(@Param("memberId") Long memberId,
             @Param("deviceId") String deviceId);
 
-    List<String> selectTokensByMemberId(@Param("memberId") Long memberId);
+    List<String> selectActiveTokensByMemberId(@Param("memberId") Long memberId);
 
+    void deactivateByToken(@Param("token") String token);
+
+    void markSuccessByToken(@Param("token") String token);
+
+    // 오래된 비활성 토큰 정리
+    int deleteStale();
 }

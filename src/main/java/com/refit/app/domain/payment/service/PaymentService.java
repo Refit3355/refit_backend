@@ -6,6 +6,6 @@ import com.refit.app.domain.payment.dto.response.ConfirmPaymentResponse;
 import com.refit.app.domain.payment.dto.response.PartialCancelResponse;
 
 public interface PaymentService {
-    ConfirmPaymentResponse confirm(ConfirmPaymentRequest req);
-    PartialCancelResponse partialCancel(Long paymentId, PartialCancelRequest req);
+    ConfirmPaymentResponse confirm(ConfirmPaymentRequest req, Long memberId);
+    PartialCancelResponse partialCancel(Long paymentId, PartialCancelRequest req, Long memberId);
 }

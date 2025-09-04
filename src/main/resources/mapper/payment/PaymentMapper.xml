@@ -33,6 +33,7 @@
     <id     property="orderId"     column="ORDER_ID"/>
     <result property="totalPrice"  column="TOTAL_PRICE"/>
     <result property="orderStatus" column="ORDER_STATUS"/>
+    <result property="orderSummary" column="ORDER_SUMMARY"/>
   </resultMap>
 
   <resultMap id="OrderItemRM" type="com.refit.app.domain.payment.dto.OrderItemRowDto">
@@ -90,7 +91,7 @@
 
   <!-- ORDER / ORDER_ITEM -->
   <select id="findOrderForUpdate" parameterType="string" resultMap="OrderRM">
-    SELECT ORDER_ID, TOTAL_PRICE, NVL(ORDER_STATUS,0) AS ORDER_STATUS
+    SELECT ORDER_ID, TOTAL_PRICE, NVL(ORDER_STATUS,0) AS ORDER_STATUS, ORDER_SUMMARY
     FROM ORDERS
     WHERE ORDER_CODE = #{orderCode}
       FOR UPDATE
@@ -138,7 +139,8 @@
       o.TOTAL_PRICE  AS totalPrice,
       o.ORDER_STATUS AS orderStatus,
       o.GOODS_AMOUNT AS goodsAmount,
-      o.DELIVERY_FEE AS deliveryFee
+      o.DELIVERY_FEE AS deliveryFee,
+      o.ORDER_SUMMARY AS orderSummary
     FROM ORDERS o
     WHERE o.ORDER_ID = #{orderId}
       FOR UPDATE

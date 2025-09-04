@@ -26,6 +26,6 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     public List<String> findFcmTokensByMemberId(Long memberId) {
-        return deviceMapper.selectTokensByMemberId(memberId);
+        return deviceMapper.selectActiveTokensByMemberId(memberId);
     }
 }

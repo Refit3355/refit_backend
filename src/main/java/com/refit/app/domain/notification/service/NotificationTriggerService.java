@@ -7,4 +7,6 @@ public interface NotificationTriggerService {
     void notifyPaymentCanceled(Long memberId, Long orderId, String body);
 
     void notifyExpiryImminent(Long memberId, Long productId, String body);
+
+    void saveAndPush(Long memberId, String title, String body, String imageUrl, String deeplink, String type);
 }
