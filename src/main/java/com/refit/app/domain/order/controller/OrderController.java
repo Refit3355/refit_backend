@@ -52,7 +52,7 @@ public class OrderController {
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long orderItemId
     ) {
-        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 4);
+        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 7);
         return ResponseEntity.ok(res);
     }
 
@@ -62,7 +62,7 @@ public class OrderController {
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long orderItemId
     ) {
-        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 6);
+        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 9);
         return ResponseEntity.ok(res);
     }
 }
