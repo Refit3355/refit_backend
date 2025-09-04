@@ -13,11 +13,10 @@
            oi.ITEM_COUNT          AS itemCount,
            oi.ITEM_PRICE          AS price,
            NVL(p.DISCOUNT_RATE, 0)                 AS discountRate,
-           TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice
-           TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD')     AS purchaseDate
+           TRUNC(p.price * (1 - NVL(p.discount_rate, 0)/100), -2) AS discountedPrice,
+           TO_CHAR(o.CREATED_AT, 'YYYY-MM-DD')     AS purchaseDate,
            p.PRODUCT_NAME AS productName,
-           p.BRAND_NAME AS brandName,
-           p.THUMBNAIL_URL AS thumbnailUrl
+           p.BRAND_NAME AS brandName
     FROM ORDER_ITEM oi
            JOIN ORDERS o ON oi.ORDER_ID = o.ORDER_ID
            JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID

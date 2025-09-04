@@ -4,29 +4,26 @@
 
 <mapper namespace="com.refit.app.domain.notification.mapper.DeviceMapper">
 
-  <insert id="upsertDevice" parameterType="map">
-    MERGE INTO MEMBER_DEVICE d
-      USING (
-        SELECT #{memberId} AS MEMBER_ID,
-               #{deviceId}  AS DEVICE_ID FROM DUAL
-      ) s
-      ON (d.MEMBER_ID = s.MEMBER_ID AND d.DEVICE_ID = s.DEVICE_ID)
-      WHEN MATCHED THEN UPDATE
-        SET d.LAST_REFRESHED_AT = SYSTIMESTAMP,
-          d.FCM_TOKEN         = #{fcmToken},
-          d.IS_ACTIVE         = 1,
-          d.UPDATED_AT = SYSTIMESTAMP,
-          d.UPDATED_BY = #{memberId}
-      WHEN NOT MATCHED THEN
-        INSERT(
-               MEMBER_DEVICE_ID, MEMBER_ID, PLATFORM, FCM_TOKEN, DEVICE_ID,
-               LAST_REFRESHED_AT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY,
-               IS_ACTIVE
-          ) VALUES(
-                    SEQ_MEMBER_DEVICE.NEXTVAL, #{memberId}, #{platform}, #{fcmToken}, #{deviceId},
-                    SYSTIMESTAMP, SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId},
-                    1
-                  )
+  <update id="updateDeviceByKey" parameterType="map">
+    UPDATE MEMBER_DEVICE
+    SET FCM_TOKEN = #{fcmToken},
+        PLATFORM = #{platform},
+        LAST_REFRESHED_AT = SYSTIMESTAMP,
+        IS_ACTIVE = 1,
+        UPDATED_AT = SYSTIMESTAMP,
+        UPDATED_BY = #{memberId}
+    WHERE MEMBER_ID = #{memberId}
+      AND DEVICE_ID = #{deviceId}
+  </update>
+
+  <insert id="insertDevice" parameterType="map">
+    INSERT INTO MEMBER_DEVICE (
+      MEMBER_DEVICE_ID, MEMBER_ID, PLATFORM, FCM_TOKEN, DEVICE_ID,
+      LAST_REFRESHED_AT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY, IS_ACTIVE
+    ) VALUES (
+               SEQ_MEMBER_DEVICE.NEXTVAL, #{memberId}, #{platform}, #{fcmToken}, #{deviceId},
+               SYSTIMESTAMP, SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}, 1
+             )
   </insert>
 
   <delete id="deleteDeviceByDeviceId" parameterType="map">
