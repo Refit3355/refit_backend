@@ -7,10 +7,15 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface DeviceMapper {
 
-    int upsertDevice(@Param("memberId") Long memberId,
+    int updateDeviceByKey(@Param("memberId") Long memberId,
+            @Param("deviceId") String deviceId,
             @Param("platform") String platform,
-            @Param("fcmToken") String fcmToken,
-            @Param("deviceId") String deviceId);
+            @Param("fcmToken") String fcmToken);
+
+    int insertDevice(@Param("memberId") Long memberId,
+            @Param("deviceId") String deviceId,
+            @Param("platform") String platform,
+            @Param("fcmToken") String fcmToken);
 
     int deleteDeviceByDeviceId(@Param("memberId") Long memberId,
             @Param("deviceId") String deviceId);
