@@ -2,6 +2,7 @@ package com.refit.app.domain.order.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
+import com.refit.app.domain.order.dto.AutoConfirmTarget;
 import com.refit.app.domain.order.dto.MemberAddressRow;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.domain.memberProduct.model.ProductType;
@@ -278,5 +279,18 @@ public class OrderServiceImpl implements OrderService {
         int count = orderMapper.autoConfirmDeliveredOver5Days();
         log.info("autoConfirmDeliveredOver5Days updated rows={}", count);
         return count;
+    }
+
+    @Override
+    @Transactional
+    public List<AutoConfirmTarget> collectTargetsForAutoConfirm() {
+        // 대상 행들을 FOR UPDATE로 잠그며 조회
+        List<AutoConfirmTarget> targets = orderMapper.selectAutoConfirmTargetsForUpdate();
+        if (!targets.isEmpty()) {
+            // 같은 기준으로 상태 6 → 11 전환
+            int updated = orderMapper.autoConfirmDeliveredOver5Days();
+            log.info("autoConfirmDeliveredOver5Days updated rows={}", updated);
+        }
+        return targets;
     }
 }

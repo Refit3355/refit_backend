@@ -20,28 +20,6 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
     private final NotificationMapper notificationMapper;
     private final PushService pushService;
 
-    @Override
-    @Transactional
-    public void notifyPaymentCompleted(Long memberId, Long orderId, String body) {
-        String deeplink = "app://orders";
-        saveAndPush(memberId, "결제 완료", body, null, deeplink, NotificationType.PAYMENT_COMPLETED.name());
-    }
-
-    @Override
-    @Transactional
-    public void notifyPaymentCanceled(Long memberId, Long orderId, String body) {
-        String deeplink = "app://orders";
-        saveAndPush(memberId, "결제 취소", body, null, deeplink, NotificationType.PAYMENT_CANCELED.name());
-    }
-
-    @Override
-    @Transactional
-    public void notifyExpiryImminent(Long memberId, Long memberProductId, String body) {
-        // 마이핏 목록으로 이동
-        String deeplink = "app://myfit";
-        saveAndPush(memberId, "소비기한 임박", body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
-    }
-
     public void saveAndPush(
             Long memberId,
             String title,
@@ -64,5 +42,34 @@ public class NotificationTriggerServiceImpl implements NotificationTriggerServic
                 "deeplink", deeplink == null ? "" : deeplink,
                 "imageUrl", imageUrl == null ? "" : imageUrl
         ));
+    }
+
+    @Override
+    @Transactional
+    public void notifyPaymentCompleted(Long memberId, Long orderId, String body) {
+        String deeplink = "app://orders";
+        saveAndPush(memberId, "결제 완료", body, null, deeplink, NotificationType.PAYMENT_COMPLETED.name());
+    }
+
+    @Override
+    @Transactional
+    public void notifyPaymentCanceled(Long memberId, Long orderId, String body) {
+        String deeplink = "app://orders";
+        saveAndPush(memberId, "결제 취소", body, null, deeplink, NotificationType.PAYMENT_CANCELED.name());
+    }
+
+    @Override
+    @Transactional
+    public void notifyExpiryImminent(Long memberId, Long memberProductId, String body) {
+        // 마이핏 목록으로 이동
+        String deeplink = "app://myfit";
+        saveAndPush(memberId, "소비기한 임박", body, null, deeplink, NotificationType.EXPIRY_IMMINENT.name());
+    }
+
+    @Override
+    @Transactional
+    public void notifyOrderAutoConfirmed(Long memberId, Long orderItemId, String body) {
+        String deeplink = "app://orders";
+        saveAndPush(memberId, "구매 확정", body, null, deeplink, NotificationType.ORDER_CONFIRMED.name());
     }
 }
