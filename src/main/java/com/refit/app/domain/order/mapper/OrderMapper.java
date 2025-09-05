@@ -1,5 +1,6 @@
 package com.refit.app.domain.order.mapper;
 
+import com.refit.app.domain.order.dto.AutoConfirmTarget;
 import com.refit.app.domain.order.dto.CartLineRow;
 import com.refit.app.domain.order.dto.OrderInsertRow;
 import com.refit.app.domain.order.dto.OrderItemDto;
@@ -25,4 +26,10 @@ public interface OrderMapper {
             @Param("memberId") Long memberId,
             @Param("orderItemId") Long orderItemId,
             @Param("status") int status);
+
+    int confirmOrderItem(@Param("memberId") Long memberId, @Param("orderItemId") Long orderItemId);
+
+    int autoConfirmDeliveredOver5Days();
+
+    List<AutoConfirmTarget> selectAutoConfirmTargetsForUpdate();
 }
