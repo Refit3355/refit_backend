@@ -65,4 +65,14 @@ public class OrderController {
         UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 9);
         return ResponseEntity.ok(res);
     }
+
+    // 구매 확정
+    @PostMapping("/{orderItemId}/confirm")
+    public ResponseEntity<UpdateOrderStatusResponse> confirmReceipt(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long orderItemId
+    ) {
+        UpdateOrderStatusResponse res = orderService.confirmReceipt(memberId, orderItemId);
+        return ResponseEntity.ok(res);
+    }
 }

@@ -14,4 +14,8 @@ public interface OrderService {
     DraftOrderResponse createDraft(Long memberId, DraftOrderRequest req);
 
     UpdateOrderStatusResponse updateOrderItemStatus(Long memberId, Long orderItemId, int status);
+
+    UpdateOrderStatusResponse confirmReceipt(Long memberId, Long orderItemId);
+
+    int autoConfirmDeliveredOver5Days();
 }

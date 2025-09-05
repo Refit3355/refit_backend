@@ -260,4 +260,23 @@ public class OrderServiceImpl implements OrderService {
         // 2) 100원 단위로 TRUNC(-2)
         return truncHundreds(wonDown);
     }
+
+    @Override
+    @Transactional
+    public UpdateOrderStatusResponse confirmReceipt(Long memberId, Long orderItemId) {
+        // 6(배송완료) -> 11(구매확정)
+        int updated = orderMapper.confirmOrderItem(memberId, orderItemId);
+        if (updated == 0) {
+            throw new RefitException(ErrorCode.STATUS_CONFLICT,"구매확정은 배송완료 상태에서만 가능합니다.");
+        }
+        return UpdateOrderStatusResponse.builder().message("구매 확정 완료되었습니다.").build();
+    }
+
+    @Override
+    @Transactional
+    public int autoConfirmDeliveredOver5Days() {
+        int count = orderMapper.autoConfirmDeliveredOver5Days();
+        log.info("autoConfirmDeliveredOver5Days updated rows={}", count);
+        return count;
+    }
 }
