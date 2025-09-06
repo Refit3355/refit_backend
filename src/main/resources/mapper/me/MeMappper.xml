@@ -7,23 +7,42 @@
     <!-- 주문 내역 조회 -->
     <select id="findOrdersByMemberId" resultType="com.refit.app.domain.me.dto.MyOrderItemDto">
         SELECT
-        o.ORDER_ID         AS orderId,
-        oi.ORDER_ITEM_ID   AS orderItemId,
-        oi.PRODUCT_ID      AS productId,
-        o.ORDER_CODE     AS orderCode,
-        p.PRODUCT_NAME     AS productName,
-        p.THUMBNAIL_URL    AS thumbnailUrl,
-        oi.CREATED_AT      AS createdAt,
-        oi.ITEM_PRICE      AS price,
-        p.PRICE            AS originalPrice,
-        oi.ORDER_STATUS    AS status,
-        oi.ITEM_COUNT      AS quantity,
-        p.BRAND_NAME       AS brand
+            -- 주문/아이템 기본
+            o.ORDER_ID           AS orderId,
+            oi.ORDER_ITEM_ID     AS orderItemId,
+            oi.PRODUCT_ID        AS productId,
+            o.ORDER_CODE         AS orderCode,
+            p.PRODUCT_NAME       AS productName,
+            p.THUMBNAIL_URL      AS thumbnailUrl,
+            oi.CREATED_AT        AS createdAt,
+            oi.ORDER_STATUS      AS status,
+            oi.ITEM_COUNT        AS quantity,
+            oi.CANCELED_COUNT    AS canceledCount,
+            (oi.ITEM_COUNT - oi.CANCELED_COUNT) AS quantityRemaining,
+            p.BRAND_NAME         AS brand,
+
+            -- 단가/원가/할인/라인 금액
+            oi.ITEM_PRICE        AS unitPrice,
+            oi.ORG_UNIT_PRICE    AS originalUnitPrice,
+            oi.DISCOUNT_RATE     AS discountRate,
+            oi.LINE_AMOUNT       AS lineAmount,
+
+            -- 주문 레벨(무료배송/배송비/합계)
+            o.GOODS_AMOUNT       AS originalMerchandiseTotal,
+            o.DELIVERY_FEE       AS deliveryFee,
+            -- DELIVERY_FEE = 0 이면 무료배송(1), 아니면 0
+            CASE WHEN o.DELIVERY_FEE = 0 THEN 1 ELSE 0 END AS freeShippingApplied,
+
+            -- 현재 시점 남아있는 상품 총액(이미 부분취소 반영)
+            SUM(oi.ITEM_PRICE * (oi.ITEM_COUNT - oi.CANCELED_COUNT))
+                OVER (PARTITION BY o.ORDER_ID) AS currentMerchandiseSubtotal
+
         FROM ORDERS o
-        JOIN ORDER_ITEM oi ON o.ORDER_ID = oi.ORDER_ID
-        JOIN PRODUCT p ON oi.PRODUCT_ID = p.PRODUCT_ID
+                 JOIN ORDER_ITEM oi ON o.ORDER_ID = oi.ORDER_ID
+                 JOIN PRODUCT p     ON oi.PRODUCT_ID = p.PRODUCT_ID
         WHERE o.MEMBER_ID = #{memberId}
           AND oi.ORDER_STATUS NOT IN (0, 4)
+          AND oi.DELETED_AT IS NULL
         ORDER BY oi.CREATED_AT DESC
     </select>
 
