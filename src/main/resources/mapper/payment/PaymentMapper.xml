@@ -37,11 +37,19 @@
   </resultMap>
 
   <resultMap id="OrderItemRM" type="com.refit.app.domain.payment.dto.OrderItemRowDto">
-    <id     property="orderItemId"  column="ORDER_ITEM_ID"/>
-    <result property="itemPrice"    column="ITEM_PRICE"/>
-    <result property="itemCount"    column="ITEM_COUNT"/>
+    <id     property="orderItemId"   column="ORDER_ITEM_ID"/>
+    <result property="orderId"       column="ORDER_ID"/>
+    <result property="productId"     column="PRODUCT_ID"/>
+
+    <result property="itemPrice"     column="ITEM_PRICE"/>
+    <result property="orgUnitPrice"  column="ORG_UNIT_PRICE"/>
+    <result property="discountRate"  column="DISCOUNT_RATE"/>
+    <result property="itemCount"     column="ITEM_COUNT"/>
     <result property="canceledCount" column="CANCELED_COUNT"/>
-    <result property="productId" column="PRODUCT_ID"/>
+
+    <result property="productName"   column="PRODUCT_NAME"/>
+    <result property="brandName"     column="BRAND_NAME"/>
+    <result property="thumbnailUrl"  column="THUMBNAIL_URL"/>
   </resultMap>
 
   <!-- PAYMENT -->
@@ -98,9 +106,21 @@
   </select>
 
   <select id="findOrderItems" parameterType="long" resultMap="OrderItemRM">
-    SELECT ORDER_ITEM_ID, ITEM_PRICE, ITEM_COUNT, NVL(CANCELED_COUNT,0) AS CANCELED_COUNT, PRODUCT_ID
+    SELECT
+      ORDER_ITEM_ID,
+      ORDER_ID,
+      PRODUCT_ID,
+      ITEM_PRICE,
+      ORG_UNIT_PRICE,
+      DISCOUNT_RATE,
+      ITEM_COUNT,
+      NVL(CANCELED_COUNT, 0) AS CANCELED_COUNT,
+      PRODUCT_NAME,
+      BRAND_NAME,
+      THUMBNAIL_URL
     FROM ORDER_ITEM
     WHERE ORDER_ID = #{orderId}
+    ORDER BY ORDER_ITEM_ID
   </select>
 
   <update id="markOrderPaid">
