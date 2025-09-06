@@ -1,5 +1,6 @@
 package com.refit.app.domain.payment.dto.response;
 
+import java.util.List;
 import lombok.*;
 
 @Getter @Setter
@@ -13,4 +14,11 @@ public class ConfirmPaymentResponse {
     private String status;
     private String receiptUrl;
     private Long orderPk;
+
+    private String orderCode;
+    private String orderName;
+    private String method;
+    private String firstItemThumb;
+    private Integer itemCount;
+    private List<ConfirmPaymentItemDto> items;
 }
