@@ -1,10 +1,11 @@
 package com.refit.app.domain.payment.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.refit.app.domain.notification.service.NotificationTriggerService;
 import com.refit.app.domain.payment.dto.OrderItemRowDto;
 import com.refit.app.domain.payment.dto.OrderRowDto;
 import com.refit.app.domain.payment.dto.PaymentCancelRowDto;
-import com.refit.app.domain.payment.dto.request.PartialCancelItem;
+import com.refit.app.domain.payment.dto.response.ConfirmPaymentItemDto;
 import com.refit.app.domain.payment.dto.PaymentRowDto;
 import com.refit.app.domain.payment.dto.request.ConfirmPaymentRequest;
 import com.refit.app.domain.payment.dto.request.PartialCancelRequest;
@@ -43,6 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final ObjectMapper om;
 
     private final PaymentCancelLogService cancelLogService;
+    private final NotificationTriggerService notificationTriggerService;
 
     @Value("${toss.api-base}") String tossBase;
     private static final long FREE_SHIPPING_THRESHOLD = 30_000L;
@@ -53,26 +55,28 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentMapper paymentMapper,
             ObjectMapper objectMapper,
             ProductMapper productMapper,
-            PaymentCancelLogService cancelLogService
+            PaymentCancelLogService cancelLogService,
+            NotificationTriggerService notificationTriggerService
     ) {
         this.tossWebClient = tossWebClient;
         this.paymentMapper = paymentMapper;
         this.om = objectMapper;
         this.productMapper = productMapper;
         this.cancelLogService = cancelLogService;
+        this.notificationTriggerService = notificationTriggerService;
     }
 
     @Override
-    public ConfirmPaymentResponse confirm(ConfirmPaymentRequest req) {
+    public ConfirmPaymentResponse confirm(ConfirmPaymentRequest req, Long memberId) {
         // 1) 서버 금액 검증
         String orderCode = req.getOrderId();
         OrderRowDto order = paymentMapper.findOrderForUpdate(orderCode);
-        Long orderId = order.getOrderId();
         if (order == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "해당 주문 없음");
+        Long orderId = order.getOrderId();
         if (!Objects.equals(order.getTotalPrice(), req.getAmount()))
             throw new RefitException(ErrorCode.ORDER_AMOUNT_MISMATCH, "금액 불일치"); // successUrl 금액과 서버 금액 비교
 
-        // 2) 승인 API 호출
+        // 2) PG 승인 API 호출
         Map<String,Object> body = Map.of(
                 "paymentKey", req.getPaymentKey(),
                 "orderId", orderCode,
@@ -85,7 +89,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(Map.class)
-                .block(); // 간단화를 위해 block
+                .block();
 
         // 3) 응답 파싱
         String paymentKey = (String) paymentObj.get("paymentKey");
@@ -127,9 +131,7 @@ public class PaymentServiceImpl implements PaymentService {
         for (OrderItemRowDto it : orderItems) {
             Long productId = it.getProductId();
             int qty = it.getItemCount();
-            if (qty <= 0) {
-                throw new RefitException(ErrorCode.OUT_OF_STOCK, "잘못된 수량: " + qty);
-            }
+            if (qty <= 0) { throw new RefitException(ErrorCode.OUT_OF_STOCK, "잘못된 수량: " + qty); }
 
             // 재고 행 잠금 + 현재 재고 확인
             Integer stock = productMapper.selectStockForUpdate(productId);
@@ -151,6 +153,25 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        notificationTriggerService.notifyPaymentCompleted(memberId, orderId,
+                order.getOrderSummary() + "의 결제가 완료되었습니다.");
+
+        // 응답용 아이템 DTO로 변환
+        List<ConfirmPaymentItemDto> itemsForResponse = orderItems.stream()
+                .map(it -> ConfirmPaymentItemDto.builder()
+                        .productId(it.getProductId())
+                        .brandName(safe(it.getBrandName()))
+                        .productName(safe(it.getProductName()))
+                        .price(nz(it.getItemPrice()))
+                        .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
+                        .quantity(it.getItemCount())
+                        .thumbnailUrl(safe(it.getThumbnailUrl()))
+                        .build()
+                )
+                .toList();
+
+        String firstThumb = itemsForResponse.isEmpty() ? null : itemsForResponse.get(0).getThumbnailUrl();
+        int totalQty = itemsForResponse.stream().mapToInt(ConfirmPaymentItemDto::getQuantity).sum();
 
         return ConfirmPaymentResponse.builder()
                 .paymentId(row.getPaymentId())
@@ -159,12 +180,18 @@ public class PaymentServiceImpl implements PaymentService {
                 .status("APPROVED")
                 .receiptUrl(receiptUrl)
                 .orderPk(orderId)
+                .orderCode(orderCode)
+                .orderName(order.getOrderSummary())
+                .method(method)
+                .firstItemThumb(firstThumb)
+                .itemCount(totalQty)
+                .items(itemsForResponse)
                 .build();
     }
 
     @Override
     @Transactional
-    public PartialCancelResponse partialCancel(Long orderItemId, PartialCancelRequest req) {
+    public PartialCancelResponse partialCancel(Long orderItemId, PartialCancelRequest req, Long memberId) {
         // 0) 입력 검증
         Long reqAmt = req.getCancelAmount();
         if (reqAmt == null || reqAmt < 1) {
@@ -281,6 +308,9 @@ public class PaymentServiceImpl implements PaymentService {
             else if (fullCanceled > 0) paymentMapper.updateOrderStatus(item.getOrderId(), 2);
         }
 
+        notificationTriggerService.notifyPaymentCanceled(memberId, moneyLocked.getOrderId(),
+                moneyLocked.getOrderSummary() + "의 결제가 취소되었습니다.");
+
         // 응답은 실제 PG 환불금액으로 반환
         return PartialCancelResponse.builder()
                 .paymentId(pay.getPaymentId())
@@ -348,5 +378,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         return r;
     }
+
+    private static String safe(String s) { return s == null ? "" : s; }
+    private static Long nz(Number n) { return n == null ? 0L : n.longValue(); }
+    private static Long nzOr(Number n, Long fallback) { return n == null ? fallback : n.longValue(); }
 
 }

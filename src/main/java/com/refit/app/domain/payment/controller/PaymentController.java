@@ -7,6 +7,7 @@ import com.refit.app.domain.payment.dto.response.PartialCancelResponse;
 import com.refit.app.domain.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,14 +25,16 @@ public class PaymentController {
 
     // 결제 승인(앱 success 딥링크 이후)
     @PostMapping("/confirm")
-    public ConfirmPaymentResponse confirm(@RequestBody @Valid ConfirmPaymentRequest req) {
-        return service.confirm(req);
+    public ConfirmPaymentResponse confirm(@RequestBody @Valid ConfirmPaymentRequest req,
+            @AuthenticationPrincipal Long memberId) {
+        return service.confirm(req, memberId);
     }
 
     // 부분취소
     @PostMapping("/{orderItemId}/cancel")
     public PartialCancelResponse cancelByItem(@PathVariable("orderItemId") long paymentId,
-            @RequestBody @Valid PartialCancelRequest req) {
-        return service.partialCancel(paymentId, req);
+            @RequestBody @Valid PartialCancelRequest req,
+            @AuthenticationPrincipal Long memberId) {
+        return service.partialCancel(paymentId, req, memberId);
     }
 }

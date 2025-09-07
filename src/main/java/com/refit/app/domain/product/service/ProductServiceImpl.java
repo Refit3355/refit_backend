@@ -16,6 +16,7 @@ import com.refit.app.global.util.CursorUtil;
 import com.refit.app.infra.ai.AiRecommendClient;
 import com.refit.app.infra.cache.RecommendationCacheKey;
 import com.refit.app.infra.cache.RecommendationCacheRepository;
+import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -177,8 +178,12 @@ public class ProductServiceImpl implements ProductService {
         // 캐시 조회 (Cache Hit → 즉시 반환)
         ProductRecommendationResponse cached = cacheRepo.get(key);
         if (cached != null && !CollectionUtils.isEmpty(cached.getItems())) {
+            if (Math.random() < 0.3) {
+                Collections.shuffle(cached.getItems());
+            }
             return cached;
         }
+
 
         // 캐시 미스 → 외부 AI 호출
         // 외부 추천은 개인화가 필요하므로 유효한 memberId 필수
@@ -222,7 +227,6 @@ public class ProductServiceImpl implements ProductService {
                 .build();
 
         // 캐싱 후 반환
-        log.info("캐시 저장 시도 key={}", key);
         cacheRepo.put(key, finalResp, cacheTtlSec);
 
         return finalResp;

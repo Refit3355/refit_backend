@@ -27,31 +27,28 @@ public class MeServiceImpl implements MeService{
     @Override
     @Transactional(readOnly = true)
     public RecentMyOrderResponse getRecentOrders(Long memberId) {
-        // 주문 + 주문 아이템 조회
+        // 1) 주문 + 주문 아이템 조회
         List<MyOrderItemDto> rows = meMapper.findOrdersByMemberId(memberId);
 
-        // OrderId 기준으로 그룹핑
+        // 2) orderCode 기준 그룹핑
         Map<String, List<MyOrderItemDto>> orderMap = rows.stream()
-                .map(row -> MyOrderItemDto.builder()
-                        .orderItemId(row.getOrderItemId())
-                        .productId(row.getProductId())
-                        .orderCode(row.getOrderCode())
-                        .productName(row.getProductName())
-                        .thumbnailUrl(row.getThumbnailUrl())
-                        .createdAt(row.getCreatedAt())
-                        .price(row.getPrice())
-                        .originalPrice(row.getOriginalPrice())
-                        .status(row.getStatus())
-                        .quantity(row.getQuantity())
-                        .brand(row.getBrand())
-                        .build())
                 .collect(Collectors.groupingBy(MyOrderItemDto::getOrderCode));
 
+        // 3) 주문 DTO 조립
         List<MyOrderDto> orders = orderMap.entrySet().stream()
-                .map(e -> MyOrderDto.builder()
-                        .orderId(e.getKey())
-                        .items(e.getValue())
-                        .build())
+                .map(e -> {
+                    List<MyOrderItemDto> items = e.getValue();
+                    MyOrderItemDto first = items.get(0);
+
+                    return MyOrderDto.builder()
+                            .orderId(e.getKey())
+                            .items(items)
+                            .originalMerchandiseTotal(first.getOriginalMerchandiseTotal())
+                            .currentMerchandiseSubtotal(first.getCurrentMerchandiseSubtotal())
+                            .freeShippingApplied(first.getFreeShippingApplied())
+                            .deliveryFee(first.getDeliveryFee())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         return RecentMyOrderResponse.builder()

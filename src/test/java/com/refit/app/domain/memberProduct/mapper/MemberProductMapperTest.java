@@ -80,8 +80,8 @@ class MemberProductMapperTest {
         assertThat(d.getBrandName()).isEqualTo("브랜드A");
         assertThat(d.getProductName()).isEqualTo("앰플A");
         assertThat(d.getRecommendedPeriod()).isEqualTo(90);
-        assertThat(d.getCategoryName()).isEqualTo("스킨케어");
-        // effectNames는 PRODUCT_EFFECT 집계를 타므로 "보습, 진정" 중 하나의 조합
+        assertThat(d.getCategoryId()).isEqualTo(100L);
+        // effects는 EFFECT_ID 리스트이므로 비어있지 않으면 OK
         assertThat(d.getEffects()).isNotNull();
         assertThat(d.getEffects()).isNotEmpty();
     }
@@ -98,7 +98,7 @@ class MemberProductMapperTest {
                 "브랜드X",
                 1,
                 100L,
-                List.of(1L, 2L)
+                List.of(1L, 2L) // EFFECT_ID: 1=보습, 2=진정
         );
         assertThat(id).isNotNull();
 
@@ -110,7 +110,8 @@ class MemberProductMapperTest {
         assertThat(d.getProductId()).isNull(); // 외부 상품은 product_id 없음
         assertThat(d.getBrandName()).isEqualTo("브랜드X");
         assertThat(d.getProductName()).isEqualTo("커스텀제품");
-        assertThat(d.getEffects()).containsExactlyInAnyOrder("보습", "진정");
+        // 효과는 ID 리스트를 검증
+        assertThat(d.getEffects()).containsExactlyInAnyOrder(1L, 2L);
     }
 
     @Test
@@ -226,6 +227,7 @@ class MemberProductMapperTest {
         assertThat(d.getBrandName()).isEqualTo("브X-수정");
         assertThat(d.getRecommendedPeriod()).isEqualTo(45);
         assertThat(d.getStartDate()).isEqualTo("2025-08-03");
-        assertThat(d.getEffects()).containsExactly("진정");
+        // 이름이 아니라 EFFECT_ID로 검증
+        assertThat(d.getEffects()).containsExactly(2L);
     }
 }

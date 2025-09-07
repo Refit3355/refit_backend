@@ -52,7 +52,7 @@ public class OrderController {
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long orderItemId
     ) {
-        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 4);
+        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 7);
         return ResponseEntity.ok(res);
     }
 
@@ -62,7 +62,17 @@ public class OrderController {
             @AuthenticationPrincipal Long memberId,
             @PathVariable Long orderItemId
     ) {
-        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 6);
+        UpdateOrderStatusResponse res = orderService.updateOrderItemStatus(memberId, orderItemId, 9);
+        return ResponseEntity.ok(res);
+    }
+
+    // 구매 확정
+    @PostMapping("/{orderItemId}/confirm")
+    public ResponseEntity<UpdateOrderStatusResponse> confirmReceipt(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long orderItemId
+    ) {
+        UpdateOrderStatusResponse res = orderService.confirmReceipt(memberId, orderItemId);
         return ResponseEntity.ok(res);
     }
 }

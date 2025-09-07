@@ -81,7 +81,7 @@
         m.NICKNAME,
         m.PROFILE_URL,
         SUM(p.PRICE) AS originalTotalPrice,
-        SUM(ROUND(p.PRICE * (100 - p.DISCOUNT_RATE) / 100)) AS discountedTotalPrice
+        SUM(TRUNC(p.PRICE * (100 - NVL(p.DISCOUNT_RATE, 0)) / 100, -2)) AS discountedTotalPrice
         FROM COMBINATION c
         JOIN MEMBER m ON c.MEMBER_ID = m.MEMBER_ID
         JOIN COMBINATION_ITEM ci ON ci.COMBINATION_ID = c.COMBINATION_ID

@@ -3,6 +3,7 @@ package com.refit.app.domain.notification.service;
 import com.refit.app.domain.notification.dto.NotificationRowDto;
 import com.refit.app.domain.notification.dto.response.NotificationListResponse;
 import com.refit.app.domain.notification.mapper.NotificationMapper;
+import com.refit.app.domain.notification.model.NotificationType;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationMapper notificationMapper;
-    private final PushService pushService;
+    private final NotificationTriggerService notificationTriggerService;
 
     @Override
     @Transactional
@@ -47,14 +48,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void sendAndSave(Long memberId, String title, String body, String type, String imageUrl, String deeplink) {
-
-        notificationMapper.insertNotification(null, memberId, title, body, imageUrl, deeplink, type);
-        pushService.sendToMember(memberId, Map.of(
-                "type", type,
-                "title", title,
-                "body", body,
-                "deeplink", deeplink == null ? "" : deeplink
-        ));
+        notificationTriggerService.saveAndPush(memberId, title, body, imageUrl, deeplink, type);
     }
 }
 

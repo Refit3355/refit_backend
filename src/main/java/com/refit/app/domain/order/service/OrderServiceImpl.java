@@ -2,6 +2,7 @@ package com.refit.app.domain.order.service;
 
 import com.refit.app.domain.combination.dto.CombinationProductDto;
 import com.refit.app.domain.combination.mapper.CombinationMapper;
+import com.refit.app.domain.order.dto.AutoConfirmTarget;
 import com.refit.app.domain.order.dto.MemberAddressRow;
 import com.refit.app.domain.auth.mapper.MemberMapper;
 import com.refit.app.domain.memberProduct.model.ProductType;
@@ -259,5 +260,37 @@ public class OrderServiceImpl implements OrderService {
         long wonDown = (original * (100L - rate)) / 100L;
         // 2) 100원 단위로 TRUNC(-2)
         return truncHundreds(wonDown);
+    }
+
+    @Override
+    @Transactional
+    public UpdateOrderStatusResponse confirmReceipt(Long memberId, Long orderItemId) {
+        // 6(배송완료) -> 11(구매확정)
+        int updated = orderMapper.confirmOrderItem(memberId, orderItemId);
+        if (updated == 0) {
+            throw new RefitException(ErrorCode.STATUS_CONFLICT,"구매확정은 배송완료 상태에서만 가능합니다.");
+        }
+        return UpdateOrderStatusResponse.builder().message("구매 확정 완료되었습니다.").build();
+    }
+
+    @Override
+    @Transactional
+    public int autoConfirmDeliveredOver5Days() {
+        int count = orderMapper.autoConfirmDeliveredOver5Days();
+        log.info("autoConfirmDeliveredOver5Days updated rows={}", count);
+        return count;
+    }
+
+    @Override
+    @Transactional
+    public List<AutoConfirmTarget> collectTargetsForAutoConfirm() {
+        // 대상 행들을 FOR UPDATE로 잠그며 조회
+        List<AutoConfirmTarget> targets = orderMapper.selectAutoConfirmTargetsForUpdate();
+        if (!targets.isEmpty()) {
+            // 같은 기준으로 상태 6 → 11 전환
+            int updated = orderMapper.autoConfirmDeliveredOver5Days();
+            log.info("autoConfirmDeliveredOver5Days updated rows={}", updated);
+        }
+        return targets;
     }
 }

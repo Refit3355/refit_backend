@@ -4,24 +4,26 @@
 
 <mapper namespace="com.refit.app.domain.notification.mapper.DeviceMapper">
 
-  <insert id="upsertDevice" parameterType="map">
-    MERGE INTO MEMBER_DEVICE d
-      USING (
-        SELECT #{memberId} AS MEMBER_ID, #{fcmToken} AS FCM_TOKEN FROM DUAL
-      ) s
-      ON (d.MEMBER_ID = s.MEMBER_ID AND d.FCM_TOKEN = s.FCM_TOKEN)
-      WHEN MATCHED THEN UPDATE
-        SET d.LAST_REFRESHED_AT = SYSTIMESTAMP,
-          d.UPDATED_AT = SYSTIMESTAMP,
-          d.UPDATED_BY = #{memberId}
-      WHEN NOT MATCHED THEN
-        INSERT(
-               MEMBER_DEVICE_ID, MEMBER_ID, PLATFORM, FCM_TOKEN, DEVICE_ID,
-               LAST_REFRESHED_AT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
-          ) VALUES(
-                    SEQ_MEMBER_DEVICE.NEXTVAL, #{memberId}, #{platform}, #{fcmToken}, #{deviceId},
-                    SYSTIMESTAMP, SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}
-                  )
+  <update id="updateDeviceByKey" parameterType="map">
+    UPDATE MEMBER_DEVICE
+    SET FCM_TOKEN = #{fcmToken},
+        PLATFORM = #{platform},
+        LAST_REFRESHED_AT = SYSTIMESTAMP,
+        IS_ACTIVE = 1,
+        UPDATED_AT = SYSTIMESTAMP,
+        UPDATED_BY = #{memberId}
+    WHERE MEMBER_ID = #{memberId}
+      AND DEVICE_ID = #{deviceId}
+  </update>
+
+  <insert id="insertDevice" parameterType="map">
+    INSERT INTO MEMBER_DEVICE (
+      MEMBER_DEVICE_ID, MEMBER_ID, PLATFORM, FCM_TOKEN, DEVICE_ID,
+      LAST_REFRESHED_AT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY, IS_ACTIVE
+    ) VALUES (
+               SEQ_MEMBER_DEVICE.NEXTVAL, #{memberId}, #{platform}, #{fcmToken}, #{deviceId},
+               SYSTIMESTAMP, SYSTIMESTAMP, #{memberId}, SYSTIMESTAMP, #{memberId}, 1
+             )
   </insert>
 
   <delete id="deleteDeviceByDeviceId" parameterType="map">
@@ -30,8 +32,34 @@
       AND DEVICE_ID = #{deviceId}
   </delete>
 
-  <select id="selectTokensByMemberId" parameterType="long" resultType="string">
-    SELECT FCM_TOKEN FROM MEMBER_DEVICE WHERE MEMBER_ID = #{memberId}
+  <select id="selectActiveTokensByMemberId" parameterType="long" resultType="string">
+    SELECT DISTINCT FCM_TOKEN
+    FROM MEMBER_DEVICE
+    WHERE MEMBER_ID = #{memberId}
+      AND IS_ACTIVE = 1
+      AND FCM_TOKEN IS NOT NULL
   </select>
+
+  <update id="deactivateByToken" parameterType="string">
+    UPDATE MEMBER_DEVICE
+    SET IS_ACTIVE = 0,
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE FCM_TOKEN = #{token}
+  </update>
+
+  <!-- 오래된/비활성 토큰 정리 -->
+  <delete id="deleteStale">
+    DELETE FROM MEMBER_DEVICE
+    WHERE IS_ACTIVE = 0
+    AND NVL(LAST_SUCCESS_AT, TO_TIMESTAMP('1970-01-01','YYYY-MM-DD')) &lt; SYSTIMESTAMP - INTERVAL '90' DAY
+    AND UPDATED_AT &lt; SYSTIMESTAMP - INTERVAL '60' DAY
+  </delete>
+
+  <update id="markSuccessByToken" parameterType="string">
+    UPDATE MEMBER_DEVICE
+    SET LAST_SUCCESS_AT = SYSTIMESTAMP,
+        UPDATED_AT      = SYSTIMESTAMP
+    WHERE FCM_TOKEN = #{token}
+  </update>
 
 </mapper>
