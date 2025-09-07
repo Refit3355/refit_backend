@@ -26,7 +26,7 @@ public interface ProductService {
      * @param memberId    JWT에서 추출 (캐시미스 시 필수)
      */
     ProductRecommendationResponse getRecommendations(
-            int productType, int limit, Long memberId
+            int productType, Long memberId, String concernCode, String location, int topk, int limit
     );
 
     List<ProductDto> findTopProductsByOrderCount(int limit);
