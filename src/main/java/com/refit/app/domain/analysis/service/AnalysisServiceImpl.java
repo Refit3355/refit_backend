@@ -1,8 +1,9 @@
 package com.refit.app.domain.analysis.service;
 
 import com.refit.app.domain.analysis.ai.OpenAiNarrative;
-import com.refit.app.domain.analysis.ai.OpenAiNarrative.SupplementTwoBlocks;
 import com.refit.app.domain.analysis.ai.OpenAiNarrative.ClassificationResult;
+import com.refit.app.domain.analysis.ai.OpenAiNarrative.CosmeticNarrative;
+import com.refit.app.domain.analysis.ai.OpenAiNarrative.SupplementTwoBlocks;
 import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
@@ -15,7 +16,11 @@ import com.refit.app.domain.analysis.mapper.AnalysisMapper;
 import com.refit.app.domain.analysis.policy.IngredientNormalizer;
 import com.refit.app.domain.analysis.policy.ScoringPolicy;
 import com.refit.app.infra.ocr.OcrProvider;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -55,35 +60,75 @@ public class AnalysisServiceImpl implements AnalysisService {
 
         List<String> skinConcerns = new ArrayList<>();
         if (sc != null) {
-            if (on(sc.getAtopic())) skinConcerns.add("ATOPIC");
-            if (on(sc.getAcne())) skinConcerns.add("ACNE");
-            if (on(sc.getWhitening())) skinConcerns.add("WHITENING");
-            if (on(sc.getSebum())) skinConcerns.add("SEBUM");
-            if (on(sc.getInnerDryness())) skinConcerns.add("INNER_DRYNESS");
-            if (on(sc.getWrinkles())) skinConcerns.add("WRINKLES");
-            if (on(sc.getEnlargedPores())) skinConcerns.add("ENLARGED_PORES");
-            if (on(sc.getRedness())) skinConcerns.add("REDNESS");
-            if (on(sc.getKeratin())) skinConcerns.add("KERATIN");
+            if (on(sc.getAtopic())) {
+                skinConcerns.add("ATOPIC");
+            }
+            if (on(sc.getAcne())) {
+                skinConcerns.add("ACNE");
+            }
+            if (on(sc.getWhitening())) {
+                skinConcerns.add("WHITENING");
+            }
+            if (on(sc.getSebum())) {
+                skinConcerns.add("SEBUM");
+            }
+            if (on(sc.getInnerDryness())) {
+                skinConcerns.add("INNER_DRYNESS");
+            }
+            if (on(sc.getWrinkles())) {
+                skinConcerns.add("WRINKLES");
+            }
+            if (on(sc.getEnlargedPores())) {
+                skinConcerns.add("ENLARGED_PORES");
+            }
+            if (on(sc.getRedness())) {
+                skinConcerns.add("REDNESS");
+            }
+            if (on(sc.getKeratin())) {
+                skinConcerns.add("KERATIN");
+            }
         }
 
         List<String> healthConcerns = new ArrayList<>();
         if (hc != null) {
-            if (on(hc.getEyeHealth())) healthConcerns.add("EYE_HEALTH");
-            if (on(hc.getFatigue())) healthConcerns.add("FATIGUE");
-            if (on(hc.getSleepStress())) healthConcerns.add("SLEEP_STRESS");
-            if (on(hc.getImmuneCare())) healthConcerns.add("IMMUNE_CARE");
-            if (on(hc.getMuscleHealth())) healthConcerns.add("MUSCLE_HEALTH");
-            if (on(hc.getGutHealth())) healthConcerns.add("GUT_HEALTH");
-            if (on(hc.getBloodCirculation())) healthConcerns.add("BLOOD_CIRCULATION");
+            if (on(hc.getEyeHealth())) {
+                healthConcerns.add("EYE_HEALTH");
+            }
+            if (on(hc.getFatigue())) {
+                healthConcerns.add("FATIGUE");
+            }
+            if (on(hc.getSleepStress())) {
+                healthConcerns.add("SLEEP_STRESS");
+            }
+            if (on(hc.getImmuneCare())) {
+                healthConcerns.add("IMMUNE_CARE");
+            }
+            if (on(hc.getMuscleHealth())) {
+                healthConcerns.add("MUSCLE_HEALTH");
+            }
+            if (on(hc.getGutHealth())) {
+                healthConcerns.add("GUT_HEALTH");
+            }
+            if (on(hc.getBloodCirculation())) {
+                healthConcerns.add("BLOOD_CIRCULATION");
+            }
         }
 
         List<String> hairConcerns = new ArrayList<>();
         hcHair = analysisMapper.selectHairConcern(memberId);
         if (hcHair != null) {
-            if (on(hcHair.getHairLoss())) hairConcerns.add("HAIR_LOSS");
-            if (on(hcHair.getDamagedHair())) hairConcerns.add("DAMAGED_HAIR");
-            if (on(hcHair.getScalpTrouble())) hairConcerns.add("SCALP_TROUBLE");
-            if (on(hcHair.getDandruff())) hairConcerns.add("DANDRUFF");
+            if (on(hcHair.getHairLoss())) {
+                hairConcerns.add("HAIR_LOSS");
+            }
+            if (on(hcHair.getDamagedHair())) {
+                hairConcerns.add("DAMAGED_HAIR");
+            }
+            if (on(hcHair.getScalpTrouble())) {
+                hairConcerns.add("SCALP_TROUBLE");
+            }
+            if (on(hcHair.getDandruff())) {
+                hairConcerns.add("DANDRUFF");
+            }
         }
 
         var metrics = MemberStatusResponse.Metrics.builder()
@@ -152,7 +197,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                 }
 
                 CompletableFuture<SupplementTwoBlocks> futureSummary =
-                        CompletableFuture.supplyAsync(() -> narrative.buildSupplementTwoBlocksFromText(ocrText));
+                        CompletableFuture.supplyAsync(
+                                () -> narrative.buildSupplementTwoBlocksFromText(ocrText));
 
                 SupplementTwoBlocks result = futureSummary.join();
 
@@ -160,6 +206,7 @@ public class AnalysisServiceImpl implements AnalysisService {
                 log.info("[Pipeline] Narrative(health) latency={} ms", (t2 - t1) / 1_000_000);
                 log.info("[Pipeline] Total latency={} ms", (t2 - tStart) / 1_000_000);
 
+                // 영양제는 텍스트 2블록만 반환
                 return AnalysisResponseDto.builder()
                         .status(AnalysisStatus.OK)
                         .memberName("")
@@ -197,16 +244,17 @@ public class AnalysisServiceImpl implements AnalysisService {
                 return ocrFail("Empty OCR");
             }
 
-            // 1) 한글 소프트 브레이크 결합 (정제\\n수 → 정제수 등)
+            // 1) 한글 소프트 브레이크 결합 (정제\n수 → 정제수)
             String compact = collapseHangulSoftBreaks(ocrText);
 
             // 2) 전성분 블록 시도 → 실패 시 전체 텍스트로 파싱
             String block = extractIngredientsBlockFromOcr(compact);
-            if (block.isBlank()) block = compact;
+            if (block.isBlank()) {
+                block = compact;
+            }
 
             // 3) 로컬 파서로 성분 후보 추출
             List<String> names = parseIngredientsBlockLocally(block);
-
             if (names.isEmpty()) {
                 return AnalysisResponseDto.builder()
                         .status(AnalysisStatus.NO_INGREDIENTS)
@@ -215,7 +263,7 @@ public class AnalysisServiceImpl implements AnalysisService {
                         .build();
             }
 
-            // 4) 정규화
+            // 4) 정규화 + dedupe
             names = names.stream()
                     .map(IngredientNormalizer::normalize)
                     .filter(s -> !s.isBlank())
@@ -243,7 +291,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                         case 0 -> finalSafe.add(n);
                         case 1 -> finalCaution.add(n);
                         case 2 -> finalRisky.add(n);
-                        default -> {}
+                        default -> {
+                        }
                     }
                 }
             }
@@ -267,10 +316,12 @@ public class AnalysisServiceImpl implements AnalysisService {
             );
 
             String memberName = analysisMapper.selectMemberNickname(memberId);
-            if (StringUtils.isBlank(memberName)) memberName = "사용자";
+            if (StringUtils.isBlank(memberName)) {
+                memberName = "사용자";
+            }
 
             // 8) 짧은 내러티브
-            var nar = narrative.buildCosmeticNarrative(
+            CosmeticNarrative nar = narrative.buildCosmeticNarrative(
                     new ArrayList<>(finalRisky),
                     new ArrayList<>(finalCaution),
                     new ArrayList<>(finalSafe),
@@ -278,7 +329,22 @@ public class AnalysisServiceImpl implements AnalysisService {
                     matchRate
             );
 
+            // ★ 내러티브 검증: 비었으면 실패 처리
+            if (shouldFailDueToMissingNarrative(nar, finalRisky, finalCaution, finalSafe)) {
+                log.warn(
+                        "[Pipeline] Narrative missing -> fail. risky/caution/safe sizes = {}/{}/{}",
+                        finalRisky.size(), finalCaution.size(), finalSafe.size());
+                return AnalysisResponseDto.builder()
+                        .status(AnalysisStatus.SERVER_ERROR)
+                        .reason("NARRATIVE_EMPTY")
+                        .suggestion("일시적인 오류예요. 잠시 후 다시 시도해주세요.")
+                        .build();
+            }
+
             // 9) 결과
+            long tN1 = System.nanoTime();
+            log.info("[Pipeline] Total latency={} ms", (tN1 - tStart) / 1_000_000);
+
             return AnalysisResponseDto.builder()
                     .status(AnalysisStatus.OK)
                     .memberName(memberName)
@@ -296,7 +362,8 @@ public class AnalysisServiceImpl implements AnalysisService {
             log.error("analyzeImage error", e);
             return AnalysisResponseDto.builder()
                     .status(AnalysisStatus.SERVER_ERROR)
-                    .reason(e.getClass().getSimpleName() + ": " + (e.getMessage() == null ? "" : e.getMessage()))
+                    .reason(e.getClass().getSimpleName() + ": " + (e.getMessage() == null ? ""
+                            : e.getMessage()))
                     .suggestion("일시적인 오류예요. 잠시 후 다시 시도해주세요.")
                     .build();
         }
@@ -310,7 +377,8 @@ public class AnalysisServiceImpl implements AnalysisService {
         var skin = futureSkin.join();
 
         return new ScoringPolicy.Profile(
-                skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1 || skin.getRedness() == 1),
+                skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1
+                        || skin.getRedness() == 1),
                 skin != null && skin.getAcne() == 1,
                 skin != null && skin.getAtopic() == 1,
                 skin != null && skin.getInnerDryness() == 1,
@@ -331,7 +399,9 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     private static boolean looksLikeLabelText(String text) {
-        if (text == null) return false;
+        if (text == null) {
+            return false;
+        }
         String t = text.toLowerCase();
         int len = t.replaceAll("\\s+", "").length();
         int hits = 0;
@@ -339,7 +409,9 @@ public class AnalysisServiceImpl implements AnalysisService {
                 "전성분", "성분", "원재료", "영양", "영양성분", "ingredients", "nutrition", "mg", "%", "iu", "정",
                 "캡슐", "cream", "serum", "lotion", "shampoo"
         }) {
-            if (t.contains(k)) hits++;
+            if (t.contains(k)) {
+                hits++;
+            }
         }
         return len >= 80 && hits >= 1;
     }
@@ -351,16 +423,23 @@ public class AnalysisServiceImpl implements AnalysisService {
                 + "- 흐림/반사/접힘/잘림 주의";
     }
 
-    /** 한글 소프트 브레이크 제거: 줄바꿈 사이가 한글-한글이면 붙이기 */
+    /**
+     * 한글 소프트 브레이크 제거: 줄바꿈 사이가 한글-한글이면 붙이기
+     */
     private static String collapseHangulSoftBreaks(String s) {
-        if (s == null) return "";
-        // 줄바꿈 사이가 한글인 경우만 붙임
+        if (s == null) {
+            return "";
+        }
         return s.replaceAll("(?<=[가-힣])\\s*\\n\\s*(?=[가-힣])", "");
     }
 
-    /** 전성분 블록 슬라이스(없으면 "") */
+    /**
+     * 전성분 블록 슬라이스(없으면 "")
+     */
     private static String extractIngredientsBlockFromOcr(String text) {
-        if (text == null) return "";
+        if (text == null) {
+            return "";
+        }
         String t = text.replaceAll("\\r", "")
                 .replaceAll("\\t", " ")
                 .replaceAll(" +", " ");
@@ -372,14 +451,18 @@ public class AnalysisServiceImpl implements AnalysisService {
 
         java.util.regex.Matcher mStart =
                 java.util.regex.Pattern.compile(startRegex).matcher(t);
-        if (!mStart.find()) return "";
+        if (!mStart.find()) {
+            return "";
+        }
 
         int from = mStart.end();
         int to = t.length();
 
         java.util.regex.Matcher mEnd =
                 java.util.regex.Pattern.compile(endRegex).matcher(t.substring(from));
-        if (mEnd.find()) to = from + mEnd.start();
+        if (mEnd.find()) {
+            to = from + mEnd.start();
+        }
 
         return t.substring(from, to).trim()
                 .replaceAll("(?<!\\n),\\s*", ", ")
@@ -387,43 +470,91 @@ public class AnalysisServiceImpl implements AnalysisService {
                 .trim();
     }
 
-    /** FAST 파서: 구분자 기준 + 괄호/잡음 제거 */
+    /**
+     * FAST 파서: 구분자 기준 + 괄호/잡음 제거
+     */
     private static List<String> parseIngredientsBlockLocally(String block) {
-        if (block == null || block.isBlank()) return List.of();
+        if (block == null || block.isBlank()) {
+            return List.of();
+        }
         String norm = block
                 .replace("ㆍ", ",").replace("·", ",").replace("│", ",").replace("|", ",")
-                .replaceAll("\\u00B7|\\u2022", ","); // 미들닷/불릿
-        // 줄바꿈은 공백 유지(문장 경계 보호)
+                .replaceAll("\\u00B7|\\u2022", ",");
         norm = norm.replace('\r', ' ').replace('\n', ' ');
 
         String[] tokens = norm.split("[,;/\\\\]+");
         List<String> out = new ArrayList<>();
         for (String tk : tokens) {
             String s = tk.trim();
-            if (s.isEmpty()) continue;
+            if (s.isEmpty()) {
+                continue;
+            }
 
-            // 괄호/브라켓 내용 제거
             s = s.replaceAll("\\([^\\)]*\\)", "")
                     .replaceAll("\\[[^\\]]*\\]", "")
                     .replaceAll("\\{[^\\}]*\\}", "");
 
-            // 다중 공백 정리
             s = s.replaceAll("\\s{2,}", " ").trim();
 
-            // 너무 짧거나 길면 제외
-            if (s.length() < 2 || s.length() > 50) continue;
+            if (s.length() < 2 || s.length() > 50) {
+                continue;
+            }
 
             out.add(s);
         }
-        // dedupe while preserving order
         LinkedHashSet<String> set = new LinkedHashSet<>(out);
         return new ArrayList<>(set);
     }
 
-    /** 로그 너무 길면 잘라서 */
+    /**
+     * 로그 너무 길면 잘라서
+     */
     private static String abbreviateForLog(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
+        if (s == null) {
+            return "";
+        }
+        if (s.length() <= max) {
+            return s;
+        }
         return s.substring(0, max) + " …(truncated)";
+    }
+
+    // ===== 내러티브 미존재 실패 처리 헬퍼 =====
+
+    private static boolean isBlankOrPlaceholder(String s) {
+        if (s == null) {
+            return true;
+        }
+        String t = s.trim();
+        if (t.isEmpty()) {
+            return true;
+        }
+        return "요약 생성에 실패했어요.".equals(t) || "해당되는 성분은 없습니다.".equals(t);
+    }
+
+    private static boolean isNarrativeMissing(OpenAiNarrative.CosmeticNarrative nar) {
+        if (nar == null) {
+            return true;
+        }
+        boolean summaryBad = isBlankOrPlaceholder(nar.summary());
+        boolean groupsAllBad =
+                isBlankOrPlaceholder(nar.riskyText()) &&
+                        isBlankOrPlaceholder(nar.cautionText()) &&
+                        isBlankOrPlaceholder(nar.safeText());
+        // 요약이 없거나, 세 그룹 설명이 모두 무의미하면 실패로 간주
+        return summaryBad || groupsAllBad;
+    }
+
+    private static boolean shouldFailDueToMissingNarrative(
+            OpenAiNarrative.CosmeticNarrative nar,
+            java.util.Collection<String> risky,
+            java.util.Collection<String> caution,
+            java.util.Collection<String> safe
+    ) {
+        boolean listsHaveContent =
+                (risky != null && !risky.isEmpty()) ||
+                        (caution != null && !caution.isEmpty()) ||
+                        (safe != null && !safe.isEmpty());
+        return isNarrativeMissing(nar) && listsHaveContent;
     }
 }
