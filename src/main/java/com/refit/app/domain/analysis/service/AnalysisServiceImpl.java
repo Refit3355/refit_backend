@@ -1,8 +1,9 @@
 package com.refit.app.domain.analysis.service;
 
 import com.refit.app.domain.analysis.ai.OpenAiNarrative;
+import com.refit.app.domain.analysis.ai.OpenAiNarrative.ClassificationResult;
+import com.refit.app.domain.analysis.ai.OpenAiNarrative.CosmeticNarrative;
 import com.refit.app.domain.analysis.ai.OpenAiNarrative.SupplementTwoBlocks;
-import com.refit.app.domain.analysis.ai.OpenAiVisionOcr;
 import com.refit.app.domain.analysis.dto.AnalysisHairConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthConcernDto;
 import com.refit.app.domain.analysis.dto.AnalysisHealthInfoDto;
@@ -14,16 +15,18 @@ import com.refit.app.domain.analysis.dto.response.MemberStatusResponse;
 import com.refit.app.domain.analysis.mapper.AnalysisMapper;
 import com.refit.app.domain.analysis.policy.IngredientNormalizer;
 import com.refit.app.domain.analysis.policy.ScoringPolicy;
+import com.refit.app.infra.ocr.OcrProvider;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,11 +36,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AnalysisServiceImpl implements AnalysisService {
 
-    private final OpenAiVisionOcr ocr;
+    private final OcrProvider ocrProvider;
     private final OpenAiNarrative narrative;
     private final AnalysisMapper analysisMapper;
 
     private static final String[] SKIN_TYPE_NAME = {"건성", "중성", "지성", "복합성", "수부지"};
+
+    @Value("${analysis.debug-ocr:false}")
+    private boolean debugOcr;
 
     @Override
     public MemberStatusResponse getMemberStatus(Long memberId) {
@@ -164,16 +170,23 @@ public class AnalysisServiceImpl implements AnalysisService {
             // ================== 영양제 ==================
             if (isHealth) {
                 long t0 = System.nanoTime();
-                String ocrText = ocr.ocrAllText(imageBytes, filename, contentType);
+                String ocrText;
+                try {
+                    ocrText = ocrProvider.fullText(imageBytes, filename, contentType);
+                } catch (Exception ex) {
+                    log.warn("[OCR][health] error: {}", ex.toString());
+                    return ocrFail("OCR_TIMEOUT_OR_ERROR");
+                }
                 long t1 = System.nanoTime();
                 log.info("[Pipeline] OCR(health) latency={} ms", (t1 - t0) / 1_000_000);
+                if (debugOcr) {
+                    log.info("[OCR][health][raw {} chars]\n{}",
+                            (ocrText == null ? 0 : ocrText.length()),
+                            abbreviateForLog(ocrText, 6000));
+                }
 
                 if (ocrText == null || ocrText.isBlank()) {
-                    return AnalysisResponseDto.builder()
-                            .status(AnalysisStatus.OCR_FAILURE)
-                            .reason("Empty OCR")
-                            .suggestion(suggestRetakeMessage())
-                            .build();
+                    return ocrFail("Empty OCR");
                 }
                 if (!looksLikeLabelText(ocrText)) {
                     return AnalysisResponseDto.builder()
@@ -193,74 +206,72 @@ public class AnalysisServiceImpl implements AnalysisService {
                 log.info("[Pipeline] Narrative(health) latency={} ms", (t2 - t1) / 1_000_000);
                 log.info("[Pipeline] Total latency={} ms", (t2 - tStart) / 1_000_000);
 
+                // 영양제는 텍스트 2블록만 반환
                 return AnalysisResponseDto.builder()
                         .status(AnalysisStatus.OK)
                         .memberName("")
                         .matchRate(0)
-                        .risky(List.of())
-                        .caution(List.of())
-                        .safe(List.of())
+                        .risky(java.util.Collections.emptyList())
+                        .caution(java.util.Collections.emptyList())
+                        .safe(java.util.Collections.emptyList())
                         .riskyText(result.conditionCautions())
                         .cautionText("")
                         .safeText("")
                         .summary(result.benefits())
-                        .supplementBenefits(result.benefits())
-                        .supplementConditionCautions(result.conditionCautions())
+                        .supplementBenefits(java.util.List.of(result.benefits()))
+                        .supplementConditionCautions(java.util.List.of(result.conditionCautions()))
                         .build();
             }
 
             // ================== 화장품 ==================
-            // 1) FAST 경로: 전성분 블록만 뽑기 (8초 타임아웃)
-            CompletableFuture<String> fastBlockFuture = CompletableFuture
-                    .supplyAsync(
-                            () -> ocr.extractIngredientBlockFast(imageBytes, filename, contentType))
-                    .orTimeout(8, TimeUnit.SECONDS);
-
-            String fastBlock = "";
+            long t0 = System.nanoTime();
+            String ocrText;
             try {
-                fastBlock = fastBlockFuture.join();
-            } catch (Exception timeout) {
-                log.warn("[Pipeline] FAST OCR timed out → fallback to full extract");
+                ocrText = ocrProvider.fullText(imageBytes, filename, contentType);
+            } catch (Exception ex) {
+                log.warn("[OCR][cosmetic] error: {}", ex.toString());
+                return ocrFail("OCR_TIMEOUT_OR_ERROR");
+            }
+            long t1 = System.nanoTime();
+            log.info("[Pipeline] OCR(cosmetic) latency={} ms", (t1 - t0) / 1_000_000);
+            if (debugOcr) {
+                log.info("[OCR][cosmetic][raw {} chars]\n{}",
+                        (ocrText == null ? 0 : ocrText.length()),
+                        abbreviateForLog(ocrText, 6000));
             }
 
-            List<String> names;
-            if (fastBlock != null && !fastBlock.isBlank()) {
-                // 전성분 블록을 로컬 파싱(쉼표/슬래시/점 등)
-                names = parseIngredientsBlockLocally(fastBlock);
-                log.info("[Pipeline] FAST parse size={}", names.size());
-            } else {
-                // 2) 풀 추출(기존) (비동기)
-                long t0 = System.nanoTime();
-                var extracted = CompletableFuture
-                        .supplyAsync(() -> ocr.extract(imageBytes, filename, contentType))
-                        .join();
-                long t1 = System.nanoTime();
-                log.info("[Pipeline] OCR(cosmetic) latency={} ms", (t1 - t0) / 1_000_000);
-
-                if ((extracted.ingredientsKr().isEmpty()) && (extracted.ingredientsEn()
-                        .isEmpty())) {
-                    return AnalysisResponseDto.builder()
-                            .status(AnalysisStatus.NO_INGREDIENTS)
-                            .reason("No ingredients section or too few tokens")
-                            .suggestion(suggestRetakeMessage())
-                            .build();
-                }
-
-                List<String> raw = new ArrayList<>();
-                raw.addAll(extracted.ingredientsKr());
-                raw.addAll(extracted.ingredientsEn());
-                names = raw;
+            if (ocrText == null || ocrText.isBlank()) {
+                return ocrFail("Empty OCR");
             }
 
+            // 1) 한글 소프트 브레이크 결합 (정제\n수 → 정제수)
+            String compact = collapseHangulSoftBreaks(ocrText);
+
+            // 2) 전성분 블록 시도 → 실패 시 전체 텍스트로 파싱
+            String block = extractIngredientsBlockFromOcr(compact);
+            if (block.isBlank()) {
+                block = compact;
+            }
+
+            // 3) 로컬 파서로 성분 후보 추출
+            List<String> names = parseIngredientsBlockLocally(block);
+            if (names.isEmpty()) {
+                return AnalysisResponseDto.builder()
+                        .status(AnalysisStatus.NO_INGREDIENTS)
+                        .reason("No ingredients section or too few tokens")
+                        .suggestion(suggestRetakeMessage())
+                        .build();
+            }
+
+            // 4) 정규화 + dedupe
             names = names.stream()
                     .map(IngredientNormalizer::normalize)
                     .filter(s -> !s.isBlank())
                     .distinct()
                     .toList();
 
-            // DB 룰 조회
-            List<IngredientRule> rules =
-                    names.isEmpty() ? List.of() : analysisMapper.selectByNames(names);
+            // 5) DB 룰 매칭
+            List<IngredientRule> rules = analysisMapper.selectByNames(names);
             Map<String, IngredientRule> ruleByName = rules.stream()
                     .collect(Collectors.toMap(
                             IngredientRule::getIngredientName,
@@ -269,44 +280,38 @@ public class AnalysisServiceImpl implements AnalysisService {
                             LinkedHashMap::new
                     ));
 
-            List<String> safe = new ArrayList<>();
-            List<String> caution = new ArrayList<>();
-            List<String> danger = new ArrayList<>();
+            LinkedHashSet<String> finalSafe = new LinkedHashSet<>();
+            LinkedHashSet<String> finalCaution = new LinkedHashSet<>();
+            LinkedHashSet<String> finalRisky = new LinkedHashSet<>();
+
             for (String n : names) {
                 IngredientRule r = ruleByName.get(n);
-                if (r == null) {
-                    continue;
-                }
-                switch (r.getIngredientCategory()) {
-                    case 0 -> safe.add(n);
-                    case 1 -> caution.add(n);
-                    case 2 -> danger.add(n);
-                    default -> {
+                if (r != null) {
+                    switch (r.getIngredientCategory()) {
+                        case 0 -> finalSafe.add(n);
+                        case 1 -> finalCaution.add(n);
+                        case 2 -> finalRisky.add(n);
+                        default -> {
+                        }
                     }
                 }
             }
 
-            var unknownAll = names.stream().filter(n -> !ruleByName.containsKey(n)).toList();
-            List<String> unknown = unknownAll.size() > 8 ? unknownAll.subList(0, 8) : unknownAll;
+            // 6) DB에 없는 unknown만 LLM으로 초간단 분류
+            List<String> unknown = names.stream().filter(n -> !ruleByName.containsKey(n)).toList();
+            if (!unknown.isEmpty()) {
+                ClassificationResult cr = narrative.classifyListFast(unknown);
+                cr.safe().forEach(finalSafe::add);
+                cr.caution().forEach(finalCaution::add);
+                cr.risky().forEach(finalRisky::add);
+            }
 
-            // 병렬로 스킨 concern 조회
-            CompletableFuture<AnalysisSkinConcernDto> futureSkin =
-                    CompletableFuture.supplyAsync(() -> analysisMapper.selectSkinConcern(memberId));
-            var skin = futureSkin.join();
-
-            var profile = new ScoringPolicy.Profile(
-                    skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1
-                            || skin.getRedness() == 1),
-                    skin != null && skin.getAcne() == 1,
-                    skin != null && skin.getAtopic() == 1,
-                    skin != null && skin.getInnerDryness() == 1,
-                    skin != null && skin.getRedness() == 1
-            );
-
+            // 7) Match rate
+            var profile = loadSkinProfile(memberId);
             int matchRate = ScoringPolicy.computeMatchRate(
                     names.size(),
-                    safe.size() + caution.size() + danger.size(),
-                    safe.size(), caution.size(), danger.size(),
+                    finalSafe.size() + finalCaution.size() + finalRisky.size(),
+                    finalSafe.size(), finalCaution.size(), finalRisky.size(),
                     profile
             );
 
@@ -315,26 +320,38 @@ public class AnalysisServiceImpl implements AnalysisService {
                 memberName = "사용자";
             }
 
-            long tN0 = System.nanoTime();
-            var classifyAndNar = narrative.classifyAndNarrate(danger, caution, safe, unknown,
-                    memberName, matchRate);
+            // 8) 짧은 내러티브
+            CosmeticNarrative nar = narrative.buildCosmeticNarrative(
+                    new ArrayList<>(finalRisky),
+                    new ArrayList<>(finalCaution),
+                    new ArrayList<>(finalSafe),
+                    memberName,
+                    matchRate
+            );
+
+            // ★ 내러티브 검증: 비었으면 실패 처리
+            if (shouldFailDueToMissingNarrative(nar, finalRisky, finalCaution, finalSafe)) {
+                log.warn(
+                        "[Pipeline] Narrative missing -> fail. risky/caution/safe sizes = {}/{}/{}",
+                        finalRisky.size(), finalCaution.size(), finalSafe.size());
+                return AnalysisResponseDto.builder()
+                        .status(AnalysisStatus.SERVER_ERROR)
+                        .reason("NARRATIVE_EMPTY")
+                        .suggestion("일시적인 오류예요. 잠시 후 다시 시도해주세요.")
+                        .build();
+            }
+
+            // 9) 결과
             long tN1 = System.nanoTime();
-            log.info("[Pipeline] Narrative(cosmetic) latency={} ms", (tN1 - tN0) / 1_000_000);
             log.info("[Pipeline] Total latency={} ms", (tN1 - tStart) / 1_000_000);
-
-            danger = new ArrayList<>(classifyAndNar.finalRisky());
-            caution = new ArrayList<>(classifyAndNar.finalCaution());
-            safe = new ArrayList<>(classifyAndNar.finalSafe());
-
-            var nar = classifyAndNar.narrative();
 
             return AnalysisResponseDto.builder()
                     .status(AnalysisStatus.OK)
                     .memberName(memberName)
                     .matchRate(matchRate)
-                    .risky(danger)
-                    .caution(caution)
-                    .safe(safe)
+                    .risky(new ArrayList<>(finalRisky))
+                    .caution(new ArrayList<>(finalCaution))
+                    .safe(new ArrayList<>(finalSafe))
                     .riskyText(nar.riskyText())
                     .cautionText(nar.cautionText())
                     .safeText(nar.safeText())
@@ -350,6 +367,31 @@ public class AnalysisServiceImpl implements AnalysisService {
                     .suggestion("일시적인 오류예요. 잠시 후 다시 시도해주세요.")
                     .build();
         }
+    }
+
+    // ---- helpers ----
+
+    private ScoringPolicy.Profile loadSkinProfile(Long memberId) {
+        CompletableFuture<AnalysisSkinConcernDto> futureSkin =
+                CompletableFuture.supplyAsync(() -> analysisMapper.selectSkinConcern(memberId));
+        var skin = futureSkin.join();
+
+        return new ScoringPolicy.Profile(
+                skin != null && (skin.getAcne() == 1 || skin.getAtopic() == 1
+                        || skin.getRedness() == 1),
+                skin != null && skin.getAcne() == 1,
+                skin != null && skin.getAtopic() == 1,
+                skin != null && skin.getInnerDryness() == 1,
+                skin != null && skin.getRedness() == 1
+        );
+    }
+
+    private AnalysisResponseDto ocrFail(String reason) {
+        return AnalysisResponseDto.builder()
+                .status(AnalysisStatus.OCR_FAILURE)
+                .reason(reason)
+                .suggestion(suggestRetakeMessage())
+                .build();
     }
 
     private boolean on(@Nullable Integer v) {
@@ -382,36 +424,137 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     /**
-     * FAST 블록 로컬 파서 (쉼표/세미콜론/슬래시/점 구분자)
+     * 한글 소프트 브레이크 제거: 줄바꿈 사이가 한글-한글이면 붙이기
+     */
+    private static String collapseHangulSoftBreaks(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replaceAll("(?<=[가-힣])\\s*\\n\\s*(?=[가-힣])", "");
+    }
+
+    /**
+     * 전성분 블록 슬라이스(없으면 "")
+     */
+    private static String extractIngredientsBlockFromOcr(String text) {
+        if (text == null) {
+            return "";
+        }
+        String t = text.replaceAll("\\r", "")
+                .replaceAll("\\t", " ")
+                .replaceAll(" +", " ");
+
+        String startRegex =
+                "(?i)(전\\s*성\\s*분|성\\s*분|INGREDIENTS?)\\s*[:：]?\\s*|(?m)^(전성분|성분|Ingredients?)\\b";
+        String endRegex =
+                "(?i)(주의사항|사용법|보관방법|원재료|영양성분|전성분표|제조사|고객센터|사용상\\s*주의|효능|효과)";
+
+        java.util.regex.Matcher mStart =
+                java.util.regex.Pattern.compile(startRegex).matcher(t);
+        if (!mStart.find()) {
+            return "";
+        }
+
+        int from = mStart.end();
+        int to = t.length();
+
+        java.util.regex.Matcher mEnd =
+                java.util.regex.Pattern.compile(endRegex).matcher(t.substring(from));
+        if (mEnd.find()) {
+            to = from + mEnd.start();
+        }
+
+        return t.substring(from, to).trim()
+                .replaceAll("(?<!\\n),\\s*", ", ")
+                .replaceAll("\\n{2,}", "\n")
+                .trim();
+    }
+
+    /**
+     * FAST 파서: 구분자 기준 + 괄호/잡음 제거
      */
     private static List<String> parseIngredientsBlockLocally(String block) {
         if (block == null || block.isBlank()) {
             return List.of();
         }
-        // 줄바꿈 → 공백, 공통 구분자 표준화
-        String norm = block.replace('\n', ' ')
-                .replace("ㆍ", ",")
-                .replace("·", ",")
-                .replace("│", ",")
-                .replace("|", ",");
-        String[] tokens = norm.split("[,;/·\\|•\\u00B7\\u2022]+");
+        String norm = block
+                .replace("ㆍ", ",").replace("·", ",").replace("│", ",").replace("|", ",")
+                .replaceAll("\\u00B7|\\u2022", ",");
+        norm = norm.replace('\r', ' ').replace('\n', ' ');
+
+        String[] tokens = norm.split("[,;/\\\\]+");
         List<String> out = new ArrayList<>();
         for (String tk : tokens) {
             String s = tk.trim();
             if (s.isEmpty()) {
                 continue;
             }
-            // 괄호/단위 제거
+
             s = s.replaceAll("\\([^\\)]*\\)", "")
                     .replaceAll("\\[[^\\]]*\\]", "")
-                    .replaceAll("\\{[^\\}]*\\}", "")
-                    .replaceAll("\\s{2,}", " ")
-                    .trim();
+                    .replaceAll("\\{[^\\}]*\\}", "");
+
+            s = s.replaceAll("\\s{2,}", " ").trim();
+
             if (s.length() < 2 || s.length() > 50) {
                 continue;
             }
+
             out.add(s);
         }
-        return out;
+        LinkedHashSet<String> set = new LinkedHashSet<>(out);
+        return new ArrayList<>(set);
+    }
+
+    /**
+     * 로그 너무 길면 잘라서
+     */
+    private static String abbreviateForLog(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        if (s.length() <= max) {
+            return s;
+        }
+        return s.substring(0, max) + " …(truncated)";
+    }
+
+    // ===== 내러티브 미존재 실패 처리 헬퍼 =====
+
+    private static boolean isBlankOrPlaceholder(String s) {
+        if (s == null) {
+            return true;
+        }
+        String t = s.trim();
+        if (t.isEmpty()) {
+            return true;
+        }
+        return "요약 생성에 실패했어요.".equals(t) || "해당되는 성분은 없습니다.".equals(t);
+    }
+
+    private static boolean isNarrativeMissing(OpenAiNarrative.CosmeticNarrative nar) {
+        if (nar == null) {
+            return true;
+        }
+        boolean summaryBad = isBlankOrPlaceholder(nar.summary());
+        boolean groupsAllBad =
+                isBlankOrPlaceholder(nar.riskyText()) &&
+                        isBlankOrPlaceholder(nar.cautionText()) &&
+                        isBlankOrPlaceholder(nar.safeText());
+        // 요약이 없거나, 세 그룹 설명이 모두 무의미하면 실패로 간주
+        return summaryBad || groupsAllBad;
+    }
+
+    private static boolean shouldFailDueToMissingNarrative(
+            OpenAiNarrative.CosmeticNarrative nar,
+            java.util.Collection<String> risky,
+            java.util.Collection<String> caution,
+            java.util.Collection<String> safe
+    ) {
+        boolean listsHaveContent =
+                (risky != null && !risky.isEmpty()) ||
+                        (caution != null && !caution.isEmpty()) ||
+                        (safe != null && !safe.isEmpty());
+        return isNarrativeMissing(nar) && listsHaveContent;
     }
 }
