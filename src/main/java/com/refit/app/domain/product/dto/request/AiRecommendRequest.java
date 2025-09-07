@@ -9,7 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiRecommendRequest {
-    private Integer memberId;
+    private Long memberId;
     private Integer productType;
     private Integer preferCategoryId;
     private String  location;

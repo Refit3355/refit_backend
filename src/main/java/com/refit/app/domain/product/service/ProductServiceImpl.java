@@ -165,15 +165,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductRecommendationResponse getRecommendations(
-            int productType, int limit, Long memberId
+            int productType, Long memberId, String concernCode, String location, int topk, int limit
     ) {
         int pt  = normalizeProductType(productType);
         int lim = (limit <= 0) ? 10 : Math.min(limit, 200);
 
-        // preferCategoryId는 현재 사용 안 함 (확장 대비 보존)
-        String key = RecommendationCacheKey.build(
-                pt, lim, memberId, "서울", 200, lim
-        );
+        String key = RecommendationCacheKey.build(pt, memberId, concernCode, location, topk, lim);
 
         // 캐시 조회 (Cache Hit → 즉시 반환)
         ProductRecommendationResponse cached = cacheRepo.get(key);
@@ -184,7 +181,6 @@ public class ProductServiceImpl implements ProductService {
             return cached;
         }
 
-
         // 캐시 미스 → 외부 AI 호출
         // 외부 추천은 개인화가 필요하므로 유효한 memberId 필수
         if (memberId == null || memberId <= 0) {
@@ -193,11 +189,11 @@ public class ProductServiceImpl implements ProductService {
 
         // 외부 AI 추천 요청
         AiRecommendRequest req = AiRecommendRequest.builder()
-                .memberId(Math.toIntExact(memberId))
+                .memberId(memberId)
                 .productType(pt)
                 .preferCategoryId(null)
-                .location("서울")
-                .topk(200)
+                .location(location)
+                .topk(topk)
                 .finalCount(lim)
                 .build();
 
