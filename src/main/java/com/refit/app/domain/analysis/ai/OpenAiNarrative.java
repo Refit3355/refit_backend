@@ -2,13 +2,16 @@ package com.refit.app.domain.analysis.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -27,14 +30,14 @@ public class OpenAiNarrative {
 
     // ===== 프롬프트 =====
 
-    // (C) 화장품: 요약 + 3개 그룹 오버뷰
+    // (C) 화장품: 요약 + 3개 그룹 오버뷰 (짧게)
     private static final String SYSTEM_COSMETIC = """
             OUTPUT: JSON ONLY with keys:
             {"summary":"string","risky_overview":"string","caution_overview":"string","safe_overview":"string"}
             Rules:
             - Korean, clear and practical.
             - summary: 2–3 sentences. Overall safety, notable risky/caution, helpful safe benefits, simple tips, balanced recommendation for %s.
-            - Each *_overview: 2–3 sentences about the whole group.
+            - Each *_overview: 1–2 sentences about the whole group.
             - If empty: "해당되는 성분은 없습니다."
             - End: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
             """;
@@ -51,7 +54,7 @@ public class OpenAiNarrative {
             - Korean output only. No extra text outside JSON.
             """;
 
-    // (옵션) 영양제 관련 기존 것들 필요시 유지
+    // (옵션) 영양제: 두 문단
     private static final String SYSTEM_SUPPLEMENT_TWO_BLOCKS = """
             OUTPUT: JSON ONLY -> {"benefits":"string","condition_cautions":"string"}
             Rules:
@@ -76,12 +79,11 @@ public class OpenAiNarrative {
                     .system(SYSTEM_SUPPLEMENT_TWO_BLOCKS)
                     .user(u -> u.text(user))
                     .options(OpenAiChatOptions.builder()
-                            .maxCompletionTokens(330)
+                            .maxCompletionTokens(380)   // 짧게
                             .temperature(0.0)
                             .build())
                     .call()
                     .content();
-
 
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
@@ -99,6 +101,7 @@ public class OpenAiNarrative {
             return new ClassificationResult(List.of(), List.of(), List.of());
         }
 
+        // 한 번에 너무 많이 넣지 않도록 제한 (한 배치당 30개 이하 권장)
         final int MAX_NAMES = 40;
         List<String> limited = names.size() > MAX_NAMES ? names.subList(0, MAX_NAMES) : names;
 
@@ -113,25 +116,90 @@ public class OpenAiNarrative {
                     .system(SYSTEM_CLASSIFY_LIST_FAST)
                     .user(u -> u.text(user))
                     .options(OpenAiChatOptions.builder()
-                            .maxCompletionTokens(230)
+                            .maxCompletionTokens(360)
                             .temperature(0.0)
                             .build())
                     .call()
                     .content();
 
-
             String json = stripToJson(raw);
             JsonNode root = om.readTree(json);
 
-            List<String> outSafe    = readArrayAsList(root, "final_safe");
+            List<String> outSafe = readArrayAsList(root, "final_safe");
             List<String> outCaution = readArrayAsList(root, "final_caution");
-            List<String> outRisky   = readArrayAsList(root, "final_risky");
+            List<String> outRisky = readArrayAsList(root, "final_risky");
 
             return new ClassificationResult(outSafe, outCaution, outRisky);
         } catch (Exception e) {
             log.warn("[Narrative.classifyListFast] parse error: {}", e.toString());
+            // 실패 시 모두 caution으로 처리(보수적)
             return new ClassificationResult(List.of(), names, List.of());
         }
+    }
+
+    /* ========================= 빠른 분류: 배치/병렬 ========================= */
+    public ClassificationResult classifyListFastBatch(List<String> names, int batchSize,
+            int parallelism) {
+        if (names == null || names.isEmpty()) {
+            return new ClassificationResult(List.of(), List.of(), List.of());
+        }
+        if (batchSize <= 0) {
+            batchSize = 30;
+        }
+        if (parallelism <= 0) {
+            parallelism = 2;
+        }
+
+        List<List<String>> batches = partition(names, batchSize);
+        Semaphore gate = new Semaphore(parallelism);
+
+        List<CompletableFuture<ClassificationResult>> futures = new ArrayList<>();
+        for (List<String> b : batches) {
+            CompletableFuture<ClassificationResult> f = CompletableFuture.supplyAsync(() -> {
+                try {
+                    gate.acquire();
+                    return classifyListFast(b);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return new ClassificationResult(List.of(), b, List.of());
+                } finally {
+                    gate.release();
+                }
+            });
+            futures.add(f);
+        }
+
+        List<String> safeAll = new ArrayList<>();
+        List<String> cautionAll = new ArrayList<>();
+        List<String> riskyAll = new ArrayList<>();
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        for (CompletableFuture<ClassificationResult> f : futures) {
+            ClassificationResult r = f.join();
+            safeAll.addAll(r.safe());
+            cautionAll.addAll(r.caution());
+            riskyAll.addAll(r.risky());
+        }
+
+        // 중복 제거(입력 순서 무관하므로 알파벳순 정렬 선택)
+        safeAll = distinctKeepOrder(safeAll);
+        cautionAll = distinctKeepOrder(cautionAll);
+        riskyAll = distinctKeepOrder(riskyAll);
+
+        return new ClassificationResult(safeAll, cautionAll, riskyAll);
+    }
+
+    private static <T> List<List<T>> partition(List<T> list, int size) {
+        List<List<T>> out = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            out.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return out;
+    }
+
+    private static List<String> distinctKeepOrder(List<String> xs) {
+        LinkedHashSet<String> s = new LinkedHashSet<>(xs);
+        return new ArrayList<>(s);
     }
 
     /* ========================= 내러티브(짧게) ========================= */
@@ -141,7 +209,7 @@ public class OpenAiNarrative {
 
         String system = SYSTEM_COSMETIC.formatted(memberName);
 
-        int N = 3;
+        int N = 3; // 더 줄임
         String user = """
                 Context:
                 - User nickname: %s
@@ -162,7 +230,7 @@ public class OpenAiNarrative {
                     .system(system)
                     .user(u -> u.text(user))
                     .options(OpenAiChatOptions.builder()
-                            .maxCompletionTokens(330)
+                            .maxCompletionTokens(380)
                             .temperature(0.0)
                             .build())
                     .call()
@@ -223,10 +291,16 @@ public class OpenAiNarrative {
 
     // -------------------- DTOs --------------------
     public record ClassificationResult(List<String> safe, List<String> caution,
-                                       List<String> risky) {}
+                                       List<String> risky) {
+
+    }
 
     public record CosmeticNarrative(String summary, String riskyText, String cautionText,
-                                    String safeText) {}
+                                    String safeText) {
 
-    public record SupplementTwoBlocks(String benefits, String conditionCautions) {}
+    }
+
+    public record SupplementTwoBlocks(String benefits, String conditionCautions) {
+
+    }
 }
