@@ -86,10 +86,13 @@ public class ProductController {
     @GetMapping("/recommendation/{type}")
     public ResponseEntity<ProductRecommendationResponse> getRecommendations(
             @PathVariable("type") int type,
+            @RequestParam(name = "concernCode", required = false) String concernCode,
+            @RequestParam(name = "location", defaultValue = "서울") String location,
+            @RequestParam(name = "topk", defaultValue = "200") int topk,
             @RequestParam(name = "limit", defaultValue = "10") int limit,
             @AuthenticationPrincipal Long memberId
     ) {
-        ProductRecommendationResponse resp = productService.getRecommendations(type, limit, memberId);
+        ProductRecommendationResponse resp = productService.getRecommendations(type, memberId, concernCode, location, topk, limit);
         return ResponseEntity.ok(resp);
     }
 

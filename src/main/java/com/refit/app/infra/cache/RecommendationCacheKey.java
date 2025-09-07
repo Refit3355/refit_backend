@@ -6,16 +6,20 @@ public final class RecommendationCacheKey {
     private RecommendationCacheKey() {}
 
     public static String build(
-            int productType, int limit,
-            Long memberId, String location,
-            Integer topk, Integer finalCount) {
-        return String.format("reco:type%d:l%d:m%d:loc:%s:tk%s:f%s",
+            int productType,
+            Long memberId,
+            String concernCode,
+            String location,
+            int topk,
+            int limit
+    ) {
+        return String.format("reco:type%d:m%d:c%s:loc%s:tk%d:lim%d",
                 productType,
-                limit,
                 (memberId == null ? -1L : memberId),
-                (location == null ? "서울" : location),
-                (topk == null ? "200" : topk),
-                (finalCount == null ? String.valueOf(limit) : finalCount)
+                (concernCode == null || concernCode.isBlank() ? "none" : concernCode),
+                (location == null || location.isBlank() ? "서울" : location),
+                topk,
+                limit
         );
     }
 }
