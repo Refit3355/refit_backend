@@ -56,7 +56,6 @@
   <insert id="insertPayment"
     parameterType="com.refit.app.domain.payment.dto.PaymentRowDto"
     useGeneratedKeys="false">
-    <!-- BEFORE + NEXTVAL -->
     <selectKey keyProperty="paymentId" resultType="long" order="BEFORE">
       SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL
     </selectKey>
@@ -65,8 +64,16 @@
     PAYMENT_ID, ORDER_ID, ORDER_CODE, PAYMENT_KEY, METHOD, CURRENCY,
     TOTAL_AMOUNT, BALANCE_AMOUNT, STATUS, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
     ) VALUES (
-    #{paymentId}, #{orderId}, #{orderCode}, #{paymentKey}, #{method}, #{currency},
-    #{totalAmount}, #{balanceAmount}, #{status}, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    #{paymentId,   jdbcType=NUMERIC},
+    #{orderId,     jdbcType=NUMERIC},
+    #{orderCode,   jdbcType=VARCHAR},
+    #{paymentKey,  jdbcType=VARCHAR},
+    #{method,      jdbcType=VARCHAR},
+    COALESCE(#{currency, jdbcType=VARCHAR}, 'KRW'),
+    #{totalAmount,   jdbcType=NUMERIC},
+    #{balanceAmount, jdbcType=NUMERIC},
+    #{status,        jdbcType=NUMERIC},
+    SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
     )
   </insert>
 
@@ -76,21 +83,21 @@
 
   <update id="updatePaymentOnApproved">
     UPDATE PAYMENT
-    SET BALANCE_AMOUNT = #{balanceAmount},
-        STATUS = #{status},
-        APPROVED_AT = SYSTIMESTAMP,
-        RECEIPT_URL = #{receiptUrl},
-        RAW_JSON = #{rawJson},
-        UPDATED_AT = SYSTIMESTAMP
-    WHERE PAYMENT_ID = #{paymentId}
+    SET BALANCE_AMOUNT = #{balanceAmount, jdbcType=NUMERIC}
+      , STATUS        = #{status,        jdbcType=NUMERIC}
+      , APPROVED_AT   = SYSTIMESTAMP
+      , RECEIPT_URL   = #{receiptUrl,    jdbcType=VARCHAR}
+      , RAW_JSON      = #{rawJson,       jdbcType=CLOB}
+      , UPDATED_AT    = SYSTIMESTAMP
+    WHERE PAYMENT_ID  = #{paymentId,     jdbcType=NUMERIC}
   </update>
 
   <update id="updatePaymentStatusAndBalance">
     UPDATE PAYMENT
-    SET STATUS = #{status},
-        BALANCE_AMOUNT = #{balanceAmount},
-        UPDATED_AT = SYSTIMESTAMP
-    WHERE PAYMENT_ID = #{paymentId}
+    SET STATUS        = #{status,        jdbcType=NUMERIC}
+      , BALANCE_AMOUNT= #{balanceAmount, jdbcType=NUMERIC}
+      , UPDATED_AT    = SYSTIMESTAMP
+    WHERE PAYMENT_ID  = #{paymentId,     jdbcType=NUMERIC}
   </update>
 
   <select id="listPaymentCancels" parameterType="long" resultMap="PaymentCancelRM">
@@ -231,6 +238,7 @@
       p.ORDER_ID       AS orderId,
       p.PAYMENT_KEY    AS paymentKey,
       p.BALANCE_AMOUNT AS balanceAmount,
+      p.METHOD         AS method,
       p.STATUS         AS status
     FROM PAYMENT p
     WHERE p.ORDER_ID = #{orderId}
@@ -247,5 +255,63 @@
     FROM ORDER_ITEM oi
     WHERE oi.ORDER_ID = #{orderId}
   </select>
+
+  <update id="updateRefundAccountInCancel">
+    UPDATE PAYMENT_CANCEL
+    SET REFUND_BANK_CODE   = #{bankCode},
+        REFUND_ACCOUNT_NO  = #{accountNo},
+        REFUND_HOLDER_NAME = #{holderName}
+    WHERE PAYMENT_CANCEL_ID = #{paymentCancelId}
+  </update>
+
+  <update id="updateVirtualAccountFields">
+    UPDATE PAYMENT
+    SET VA_ACCOUNT_NO        = #{accountNo,      jdbcType=VARCHAR}
+    , VA_BANK_CODE         = #{bankCode,       jdbcType=VARCHAR}
+    , VA_ACCOUNT_TYPE      = #{accountType,    jdbcType=VARCHAR}
+    , VA_CUSTOMER_NAME     = #{customerName,   jdbcType=VARCHAR}
+    , VA_DEPOSITOR_NAME    = #{depositorName,  jdbcType=VARCHAR}
+    , VA_DUE_DATE          = #{dueDate,        jdbcType=TIMESTAMP}
+    , VA_EXPIRED           = #{expired,        jdbcType=NUMERIC}
+    , VA_SETTLEMENT_STATUS = #{settlementStatus,jdbcType=VARCHAR}
+    , VA_REFUND_STATUS     = #{refundStatus,   jdbcType=VARCHAR}
+    , VA_SECRET            = #{secret,         jdbcType=VARCHAR}
+    , UPDATED_AT           = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId, jdbcType=NUMERIC}
+  </update>
+
+  <select id="findMemberIdByOrderId" parameterType="long" resultType="long">
+    SELECT MEMBER_ID FROM ORDERS WHERE ORDER_ID = #{orderId}
+  </select>
+
+  <update id="updateOrderToDepositWaiting">
+    UPDATE ORDERS
+    SET ORDER_STATUS = 12,
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId}
+  </update>
+
+  <update id="updatePaymentOnVaIssued">
+    UPDATE PAYMENT
+    SET METHOD            = 'VIRTUAL_ACCOUNT'
+      , STATUS            = #{p.status,        jdbcType=NUMERIC}
+      , VA_ACCOUNT_NO     = #{p.vaAccountNo,   jdbcType=VARCHAR}
+      , VA_BANK_CODE      = #{p.vaBankCode,    jdbcType=VARCHAR}
+      , VA_ACCOUNT_TYPE   = #{p.vaAccountType, jdbcType=VARCHAR}
+      , VA_CUSTOMER_NAME  = #{p.vaCustomerName,jdbcType=VARCHAR}
+      , VA_DEPOSITOR_NAME = #{p.vaDepositorName,jdbcType=VARCHAR}
+      , VA_DUE_DATE       = #{p.vaDueDate,     jdbcType=TIMESTAMP}
+      , VA_SECRET         = #{p.vaSecret,      jdbcType=VARCHAR}
+      , RAW_JSON          = #{p.rawJson,       jdbcType=CLOB}
+      , UPDATED_AT        = SYSTIMESTAMP
+    WHERE PAYMENT_ID       = #{p.paymentId,    jdbcType=NUMERIC}
+  </update>
+
+  <update id="updateOrderItemsStatusByOrderId">
+    UPDATE ORDER_ITEM
+    SET ORDER_STATUS = #{status, jdbcType=NUMERIC},
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId, jdbcType=NUMERIC}
+  </update>
 
 </mapper>

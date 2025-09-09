@@ -5,6 +5,7 @@ import com.refit.app.domain.notification.service.NotificationTriggerService;
 import com.refit.app.domain.payment.dto.OrderItemRowDto;
 import com.refit.app.domain.payment.dto.OrderRowDto;
 import com.refit.app.domain.payment.dto.PaymentCancelRowDto;
+import com.refit.app.domain.payment.dto.VaIssuedUpdateParam;
 import com.refit.app.domain.payment.dto.response.ConfirmPaymentItemDto;
 import com.refit.app.domain.payment.dto.PaymentRowDto;
 import com.refit.app.domain.payment.dto.request.ConfirmPaymentRequest;
@@ -91,10 +92,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .bodyToMono(Map.class)
                 .block();
 
+        String originalJson = toJson(paymentObj);
+
         // 3) 응답 파싱
         String paymentKey = (String) paymentObj.get("paymentKey");
         String method     = (String) paymentObj.get("method");
         String currency   = (String) paymentObj.get("currency");
+        if (currency == null || currency.isBlank()) currency = "KRW";
         Number totalAmount= (Number) paymentObj.get("totalAmount");
         Number balanceAmt = (Number) paymentObj.get("balanceAmount");
         String receiptUrl = null;
@@ -103,7 +107,17 @@ public class PaymentServiceImpl implements PaymentService {
             receiptUrl = (String) r.get("url");
         }
 
-        // 4) DB 반영
+        @SuppressWarnings("unchecked")
+        Map<String, Object> va = (Map<String, Object>) paymentObj.get("virtualAccount");
+        boolean isVa =
+                va != null
+                        || "VIRTUAL_ACCOUNT".equalsIgnoreCase(req.getMethod())
+                        || "VIRTUAL_ACCOUNT".equalsIgnoreCase(method)
+                        || "가상계좌".equals(method);
+
+        // 4) PAYMENT insert 먼저 (paymentId 확보)
+        //    VA는 승인완료가 아니므로 status=0(REQUESTED/READY) 등으로 기록
+        int payStatus = "VIRTUAL_ACCOUNT".equalsIgnoreCase(method) ? 0 : 1;
         PaymentRowDto row = PaymentRowDto.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -112,9 +126,79 @@ public class PaymentServiceImpl implements PaymentService {
                 .currency(currency)
                 .totalAmount(totalAmount.longValue())
                 .balanceAmount(balanceAmt.longValue())
-                .status(1) // APPROVED
+                .status(payStatus)
                 .build();
-        paymentMapper.insertPayment(row);
+        paymentMapper.insertPayment(row); // 여기서 paymentId 생성됨
+
+        // 5) VA 정보 있으면 PAYMENT에 저장
+        if (va != null) {
+            paymentMapper.updateVirtualAccountFields(
+                    row.getPaymentId(),
+                    (String) va.get("accountNumber"),
+                    (String) va.get("bankCode"),
+                    (String) va.get("accountType"),
+                    (String) va.get("customerName"),
+                    (String) va.get("depositorName"),
+                    parseTs((String) va.get("dueDate")),
+                    Boolean.TRUE.equals(va.get("expired")) ? 1 : 0,
+                    (String) va.get("settlementStatus"),
+                    (String) va.get("refundStatus"),
+                    (String) paymentObj.get("secret")
+            );
+        }
+
+        if (isVa) {
+            // 6) 가상계좌: 주문 = 입금대기(12), 승인처리/재고차감/알림 금지
+            paymentMapper.updateOrderToDepositWaiting(orderId);
+            paymentMapper.updateOrderItemsStatusByOrderId(orderId, 12);
+
+            paymentMapper.updatePaymentOnVaIssued(
+                    VaIssuedUpdateParam.builder()
+                            .paymentId(row.getPaymentId())
+                            .status(12)
+                            .vaAccountNo((String) va.get("accountNumber"))
+                            .vaBankCode((String) va.get("bankCode"))
+                            .vaAccountType((String) va.get("accountType"))
+                            .vaCustomerName((String) va.get("customerName"))
+                            .vaDepositorName((String) va.get("depositorName"))
+                            .vaDueDate(parseTs((String) va.get("dueDate")))
+                            .vaSecret((String) paymentObj.get("secret"))
+                            .rawJson(originalJson)
+                            .build()
+            );
+            // 응답 구성만 리턴 (재고차감/알림/ITEM 승인 상태 변경 안함)
+            List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
+            var itemsForResponse = orderItems.stream().map(it -> ConfirmPaymentItemDto.builder()
+                    .productId(it.getProductId())
+                    .brandName(safe(it.getBrandName()))
+                    .productName(safe(it.getProductName()))
+                    .price(nz(it.getItemPrice()))
+                    .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
+                    .quantity(it.getItemCount())
+                    .thumbnailUrl(safe(it.getThumbnailUrl()))
+                    .build()).toList();
+            String firstThumb = itemsForResponse.isEmpty() ? null : itemsForResponse.get(0).getThumbnailUrl();
+            int totalQty = itemsForResponse.stream().mapToInt(ConfirmPaymentItemDto::getQuantity).sum();
+
+            return ConfirmPaymentResponse.builder()
+                    .paymentId(row.getPaymentId())
+                    .paymentKey(paymentKey)
+                    .totalAmount(totalAmount.longValue())
+                    .status("WAITING_FOR_DEPOSIT")
+                    .receiptUrl(receiptUrl)
+                    .orderPk(orderId)
+                    .orderCode(orderCode)
+                    .orderName(order.getOrderSummary())
+                    .method("VIRTUAL_ACCOUNT")
+                    .firstItemThumb(firstThumb)
+                    .itemCount(totalQty)
+                    .items(itemsForResponse)
+                    .vaAccountNo((String) va.get("accountNumber"))
+                    .vaBankCode((String) va.get("bankCode"))
+                    .vaDueDate((String) va.get("dueDate"))
+                    .vaDepositorName((String) va.get("depositorName"))
+                    .build();
+        }
 
         paymentMapper.markOrderPaid(orderId);
         paymentMapper.updateStatusToApprovedByOrderId(orderId);
@@ -241,6 +325,22 @@ public class PaymentServiceImpl implements PaymentService {
         body.put("cancelReason", req.getCancelReason());
         body.put("cancelAmount", pgCancelAmount);
         if (req.getTaxFreeAmount()!=null) body.put("taxFreeAmount", req.getTaxFreeAmount());
+
+        // 가상계좌 결제 : 환불계좌 필수
+        if ("VIRTUAL_ACCOUNT".equalsIgnoreCase(pay.getMethod())) {
+            if (isBlank(req.getRefundBankCode()) ||
+                    isBlank(req.getRefundAccountNumber()) ||
+                    isBlank(req.getRefundHolderName())) {
+                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS,
+                        "가상계좌 결제 취소에는 환불 계좌정보가 필요합니다.");
+            }
+
+            Map<String, Object> refundReceiveAccount = new HashMap<>();
+            refundReceiveAccount.put("bank", req.getRefundBankCode());
+            refundReceiveAccount.put("accountNumber", req.getRefundAccountNumber());
+            refundReceiveAccount.put("holderName", req.getRefundHolderName());
+            body.put("refundReceiveAccount", refundReceiveAccount);
+        }
 
         Map<?,?> cancelObj;
         long balance = pay.getBalanceAmount();
@@ -383,4 +483,13 @@ public class PaymentServiceImpl implements PaymentService {
     private static Long nz(Number n) { return n == null ? 0L : n.longValue(); }
     private static Long nzOr(Number n, Long fallback) { return n == null ? fallback : n.longValue(); }
 
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private static java.time.LocalDateTime parseTs(String iso) {
+        if (iso == null || iso.isBlank()) return null;
+        // 예: "2025-09-13T15:53:34+09:00"
+        return java.time.OffsetDateTime.parse(iso).toLocalDateTime();
+    }
 }

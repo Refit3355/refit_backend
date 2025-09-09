@@ -21,4 +21,9 @@ public class ConfirmPaymentResponse {
     private String firstItemThumb;
     private Integer itemCount;
     private List<ConfirmPaymentItemDto> items;
+
+    private String vaAccountNo;
+    private String vaBankCode;
+    private String vaDueDate;
+    private String vaDepositorName;
 }

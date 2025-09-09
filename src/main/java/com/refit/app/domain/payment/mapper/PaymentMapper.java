@@ -4,6 +4,7 @@ import com.refit.app.domain.payment.dto.OrderItemRowDto;
 import com.refit.app.domain.payment.dto.OrderRowDto;
 import com.refit.app.domain.payment.dto.PaymentCancelRowDto;
 import com.refit.app.domain.payment.dto.PaymentRowDto;
+import com.refit.app.domain.payment.dto.VaIssuedUpdateParam;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -59,4 +60,27 @@ public interface PaymentMapper {
             @Param("canceledAt") LocalDateTime canceledAt,
             @Param("rawJson") String rawJson,
             @Param("shippingAdjApplied") Integer shippingAdjApplied);
+
+    Long findMemberIdByOrderId(@Param("orderId") Long orderId);
+
+    void updateOrderToDepositWaiting(@Param("orderId") Long orderId);
+
+    void updatePaymentOnVaIssued(@Param("p") VaIssuedUpdateParam p);
+
+    int updateVirtualAccountFields(@Param("paymentId") long paymentId,
+            @Param("accountNo") String accountNo,
+            @Param("bankCode") String bankCode,
+            @Param("accountType") String accountType,
+            @Param("customerName") String customerName,
+            @Param("depositorName") String depositorName,
+            @Param("dueDate") LocalDateTime dueDate,
+            @Param("expired") int expired,
+            @Param("settlementStatus") String settlementStatus,
+            @Param("refundStatus") String refundStatus,
+            @Param("secret") String secret);
+
+    void updateOrderItemsStatusByOrderId(
+            @Param("orderId") Long orderId,
+            @Param("status") Integer status
+    );
 }
