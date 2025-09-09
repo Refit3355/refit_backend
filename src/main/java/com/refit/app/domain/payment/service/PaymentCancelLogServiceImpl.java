@@ -16,8 +16,10 @@ public class PaymentCancelLogServiceImpl implements PaymentCancelLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logCancel(Long paymentId, String cancelRequestId, Long cancelAmount, Long taxFreeAmount,
             String cancelReason, LocalDateTime canceledAt, String rawJson,
-            Integer shippingAdjApplied) {
+            Integer shippingAdjApplied, String refundBankCode, String refundAccountNo,
+            String refundHolderName) {
         paymentMapper.insertPaymentCancel(paymentId, cancelRequestId, cancelAmount, taxFreeAmount,
-                cancelReason, canceledAt, rawJson, shippingAdjApplied);
+                cancelReason, canceledAt, rawJson, shippingAdjApplied, refundBankCode, refundAccountNo,
+                refundHolderName);
     }
 }

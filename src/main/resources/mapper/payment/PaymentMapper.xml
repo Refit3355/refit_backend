@@ -56,7 +56,6 @@
   <insert id="insertPayment"
     parameterType="com.refit.app.domain.payment.dto.PaymentRowDto"
     useGeneratedKeys="false">
-    <!-- BEFORE + NEXTVAL -->
     <selectKey keyProperty="paymentId" resultType="long" order="BEFORE">
       SELECT SEQ_PAYMENT.NEXTVAL FROM DUAL
     </selectKey>
@@ -65,8 +64,16 @@
     PAYMENT_ID, ORDER_ID, ORDER_CODE, PAYMENT_KEY, METHOD, CURRENCY,
     TOTAL_AMOUNT, BALANCE_AMOUNT, STATUS, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
     ) VALUES (
-    #{paymentId}, #{orderId}, #{orderCode}, #{paymentKey}, #{method}, #{currency},
-    #{totalAmount}, #{balanceAmount}, #{status}, SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
+    #{paymentId,   jdbcType=NUMERIC},
+    #{orderId,     jdbcType=NUMERIC},
+    #{orderCode,   jdbcType=VARCHAR},
+    #{paymentKey,  jdbcType=VARCHAR},
+    #{method,      jdbcType=VARCHAR},
+    COALESCE(#{currency, jdbcType=VARCHAR}, 'KRW'),
+    #{totalAmount,   jdbcType=NUMERIC},
+    #{balanceAmount, jdbcType=NUMERIC},
+    #{status,        jdbcType=NUMERIC},
+    SYSTIMESTAMP, 0, SYSTIMESTAMP, 0
     )
   </insert>
 
@@ -76,21 +83,21 @@
 
   <update id="updatePaymentOnApproved">
     UPDATE PAYMENT
-    SET BALANCE_AMOUNT = #{balanceAmount},
-        STATUS = #{status},
-        APPROVED_AT = SYSTIMESTAMP,
-        RECEIPT_URL = #{receiptUrl},
-        RAW_JSON = #{rawJson},
-        UPDATED_AT = SYSTIMESTAMP
-    WHERE PAYMENT_ID = #{paymentId}
+    SET BALANCE_AMOUNT = #{balanceAmount, jdbcType=NUMERIC}
+      , STATUS        = #{status,        jdbcType=NUMERIC}
+      , APPROVED_AT   = SYSTIMESTAMP
+      , RECEIPT_URL   = #{receiptUrl,    jdbcType=VARCHAR}
+      , RAW_JSON      = #{rawJson,       jdbcType=CLOB}
+      , UPDATED_AT    = SYSTIMESTAMP
+    WHERE PAYMENT_ID  = #{paymentId,     jdbcType=NUMERIC}
   </update>
 
   <update id="updatePaymentStatusAndBalance">
     UPDATE PAYMENT
-    SET STATUS = #{status},
-        BALANCE_AMOUNT = #{balanceAmount},
-        UPDATED_AT = SYSTIMESTAMP
-    WHERE PAYMENT_ID = #{paymentId}
+    SET STATUS        = #{status,        jdbcType=NUMERIC}
+      , BALANCE_AMOUNT= #{balanceAmount, jdbcType=NUMERIC}
+      , UPDATED_AT    = SYSTIMESTAMP
+    WHERE PAYMENT_ID  = #{paymentId,     jdbcType=NUMERIC}
   </update>
 
   <select id="listPaymentCancels" parameterType="long" resultMap="PaymentCancelRM">
@@ -197,19 +204,6 @@
     ]]>
 </update>
 
-  <!-- 취소 이력 (배송비 조정 플래그 포함) -->
-  <insert id="insertPaymentCancel">
-    INSERT INTO PAYMENT_CANCEL (
-      PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID,
-      CANCEL_AMOUNT, TAX_FREE_AMOUNT, CANCEL_REASON,
-      CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED
-    ) VALUES (
-               SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId},
-               #{cancelAmount}, #{taxFreeAmount}, #{cancelReason},
-               #{canceledAt}, #{rawJson}, #{shippingAdjApplied}
-             )
-  </insert>
-
   <!-- 아이템 조회 (취소 검증용) -->
   <select id="findOrderItemForCancel" parameterType="long"
     resultType="com.refit.app.domain.payment.dto.OrderItemRowDto">
@@ -231,6 +225,7 @@
       p.ORDER_ID       AS orderId,
       p.PAYMENT_KEY    AS paymentKey,
       p.BALANCE_AMOUNT AS balanceAmount,
+      p.METHOD         AS method,
       p.STATUS         AS status
     FROM PAYMENT p
     WHERE p.ORDER_ID = #{orderId}
@@ -246,6 +241,125 @@
       COUNT(1) AS TOTAL
     FROM ORDER_ITEM oi
     WHERE oi.ORDER_ID = #{orderId}
+  </select>
+
+  <update id="updateRefundAccountInCancel">
+    UPDATE PAYMENT_CANCEL
+    SET REFUND_BANK_CODE   = #{bankCode,    jdbcType=VARCHAR},
+        REFUND_ACCOUNT_NO  = #{accountNo,   jdbcType=VARCHAR},
+        REFUND_HOLDER_NAME = #{holderName,  jdbcType=VARCHAR}
+    WHERE PAYMENT_CANCEL_ID = #{paymentCancelId, jdbcType=NUMERIC}
+  </update>
+
+  <update id="updateVirtualAccountFields">
+    UPDATE PAYMENT
+    SET VA_ACCOUNT_NO        = #{accountNo,      jdbcType=VARCHAR}
+    , VA_BANK_CODE         = #{bankCode,       jdbcType=VARCHAR}
+    , VA_ACCOUNT_TYPE      = #{accountType,    jdbcType=VARCHAR}
+    , VA_CUSTOMER_NAME     = #{customerName,   jdbcType=VARCHAR}
+    , VA_DEPOSITOR_NAME    = #{depositorName,  jdbcType=VARCHAR}
+    , VA_DUE_DATE          = #{dueDate,        jdbcType=TIMESTAMP}
+    , VA_EXPIRED           = #{expired,        jdbcType=NUMERIC}
+    , VA_SETTLEMENT_STATUS = #{settlementStatus,jdbcType=VARCHAR}
+    , VA_REFUND_STATUS     = #{refundStatus,   jdbcType=VARCHAR}
+    , VA_SECRET            = #{secret,         jdbcType=VARCHAR}
+    , UPDATED_AT           = SYSTIMESTAMP
+    WHERE PAYMENT_ID = #{paymentId, jdbcType=NUMERIC}
+  </update>
+
+  <select id="findMemberIdByOrderId" parameterType="long" resultType="long">
+    SELECT MEMBER_ID FROM ORDERS WHERE ORDER_ID = #{orderId}
+  </select>
+
+  <update id="updateOrderToDepositWaiting">
+    UPDATE ORDERS
+    SET ORDER_STATUS = 12,
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId}
+  </update>
+
+  <update id="updatePaymentOnVaIssued">
+    UPDATE PAYMENT
+    SET METHOD            = 'VIRTUAL_ACCOUNT'
+      , STATUS            = #{p.status,        jdbcType=NUMERIC}
+      , VA_ACCOUNT_NO     = #{p.vaAccountNo,   jdbcType=VARCHAR}
+      , VA_BANK_CODE      = #{p.vaBankCode,    jdbcType=VARCHAR}
+      , VA_ACCOUNT_TYPE   = #{p.vaAccountType, jdbcType=VARCHAR}
+      , VA_CUSTOMER_NAME  = #{p.vaCustomerName,jdbcType=VARCHAR}
+      , VA_DEPOSITOR_NAME = #{p.vaDepositorName,jdbcType=VARCHAR}
+      , VA_DUE_DATE       = #{p.vaDueDate,     jdbcType=TIMESTAMP}
+      , VA_SECRET         = #{p.vaSecret,      jdbcType=VARCHAR}
+      , RAW_JSON          = #{p.rawJson,       jdbcType=CLOB}
+      , UPDATED_AT        = SYSTIMESTAMP
+    WHERE PAYMENT_ID       = #{p.paymentId,    jdbcType=NUMERIC}
+  </update>
+
+  <update id="updateOrderItemsStatusByOrderId">
+    UPDATE ORDER_ITEM
+    SET ORDER_STATUS = #{status, jdbcType=NUMERIC},
+        UPDATED_AT   = SYSTIMESTAMP
+    WHERE ORDER_ID     = #{orderId, jdbcType=NUMERIC}
+  </update>
+
+  <insert id="insertPaymentCancel">
+    INSERT INTO PAYMENT_CANCEL (
+      PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID,
+      CANCEL_AMOUNT, TAX_FREE_AMOUNT, CANCEL_REASON,
+      CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED,
+      REFUND_BANK_CODE, REFUND_ACCOUNT_NO, REFUND_HOLDER_NAME
+    ) VALUES (
+               SEQ_PAYMENT_CANCEL.NEXTVAL,
+               #{paymentId,         jdbcType=NUMERIC},
+               #{cancelRequestId,   jdbcType=VARCHAR},
+               #{cancelAmount,      jdbcType=NUMERIC},
+               #{taxFreeAmount,     jdbcType=NUMERIC},
+               #{cancelReason,      jdbcType=VARCHAR},
+               #{canceledAt,        jdbcType=TIMESTAMP},
+               #{rawJson,           jdbcType=CLOB},
+               #{shippingAdjApplied,jdbcType=NUMERIC},
+               #{refundBankCode,    jdbcType=VARCHAR},
+               #{refundAccountNo,   jdbcType=VARCHAR},
+               #{refundHolderName,  jdbcType=VARCHAR}
+             )
+  </insert>
+
+  <select id="findVaRefundInfoByPaymentId" parameterType="long" resultType="hashmap">
+    SELECT
+      VA_BANK_CODE     AS "bankCode",
+      VA_ACCOUNT_NO    AS "accountNo",
+      COALESCE(VA_DEPOSITOR_NAME, VA_CUSTOMER_NAME) AS "holderName"
+    FROM PAYMENT
+    WHERE PAYMENT_ID = #{paymentId}
+  </select>
+
+  <select id="findLastRefundAccountByMemberId" parameterType="long" resultType="hashmap">
+    SELECT
+      pc.REFUND_BANK_CODE  AS bankCode,
+      pc.REFUND_ACCOUNT_NO AS accountNo,
+      pc.REFUND_HOLDER_NAME AS holderName
+    FROM PAYMENT_CANCEL pc
+           JOIN PAYMENT p ON p.PAYMENT_ID = pc.PAYMENT_ID
+           JOIN ORDERS  o ON o.ORDER_ID   = p.ORDER_ID
+    WHERE o.MEMBER_ID = #{memberId}
+      AND pc.REFUND_BANK_CODE  IS NOT NULL
+      AND pc.REFUND_ACCOUNT_NO IS NOT NULL
+      AND pc.REFUND_HOLDER_NAME IS NOT NULL
+    ORDER BY pc.PAYMENT_CANCEL_ID DESC
+      FETCH FIRST 1 ROWS ONLY
+  </select>
+
+  <select id="findLatestVaInfoByOrderId" parameterType="long" resultType="hashmap">
+    SELECT
+      VA_BANK_CODE  AS bankCode,
+      VA_ACCOUNT_NO AS accountNo,
+      COALESCE(VA_DEPOSITOR_NAME, VA_CUSTOMER_NAME) AS holderName
+    FROM PAYMENT
+    WHERE ORDER_ID = #{orderId}
+      AND METHOD = 'VIRTUAL_ACCOUNT'
+      AND VA_BANK_CODE IS NOT NULL
+      AND VA_ACCOUNT_NO IS NOT NULL
+    ORDER BY PAYMENT_ID DESC
+      FETCH FIRST 1 ROWS ONLY
   </select>
 
 </mapper>

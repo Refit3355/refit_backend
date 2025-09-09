@@ -18,4 +18,6 @@ public class ConfirmPaymentRequest {
 
     @NotNull @Positive
     private Long amount;     //결제 금액
+
+    private String method;
 }
