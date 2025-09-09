@@ -69,209 +69,270 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public ConfirmPaymentResponse confirm(ConfirmPaymentRequest req, Long memberId) {
-        // 1) 서버 금액 검증
+        // 1) 주문 잠금 + 금액 검증
+        OrderRowDto order = validateAndLockOrder(req);
+
+        // 2) 토스 승인 호출
+        Map<?,?> paymentObj = callTossConfirm(req);
+
+        // 3) 응답 파싱
+        ParsedPayment parsed = parsePaymentResponse(paymentObj, req);
+
+        // 4) PAYMENT insert (paymentId 확보)
+        PaymentRowDto payRow = insertPaymentRow(order.getOrderId(), req.getOrderId(), parsed);
+
+        // 5) 가상계좌 필드 저장
+        if (parsed.va != null) {
+            persistVirtualAccountFields(payRow.getPaymentId(), parsed.va, paymentObj);
+        }
+
+        // 6) VA 결제면 입금대기 처리 + 응답 빌드 후 반환
+        if (parsed.isVirtualAccount) {
+            return handleVirtualAccountFlow(order, payRow.getPaymentId(), parsed, paymentObj);
+        }
+
+        // 7) 일반결제 승인 후처리(주문/아이템/결제 업데이트, 재고 차감, 알림)
+        finalizeApproval(order.getOrderId(), payRow.getPaymentId(),
+                parsed.balanceAmount, parsed.receiptUrl, paymentObj, memberId, order.getOrderSummary());
+
+        // 8) 승인 응답 빌드
+        List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(order.getOrderId());
+        return buildApprovedResponse(order, parsed, payRow.getPaymentId(), orderItems);
+    }
+
+    private OrderRowDto validateAndLockOrder(ConfirmPaymentRequest req) {
         String orderCode = req.getOrderId();
         OrderRowDto order = paymentMapper.findOrderForUpdate(orderCode);
         if (order == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "해당 주문 없음");
-        Long orderId = order.getOrderId();
-        if (!Objects.equals(order.getTotalPrice(), req.getAmount()))
-            throw new RefitException(ErrorCode.ORDER_AMOUNT_MISMATCH, "금액 불일치"); // successUrl 금액과 서버 금액 비교
+        if (!Objects.equals(order.getTotalPrice(), req.getAmount())) {
+            throw new RefitException(ErrorCode.ORDER_AMOUNT_MISMATCH, "금액 불일치");
+        }
+        return order;
+    }
 
-        // 2) PG 승인 API 호출
+    @SuppressWarnings("unchecked")
+    private Map<?,?> callTossConfirm(ConfirmPaymentRequest req) {
         Map<String,Object> body = Map.of(
                 "paymentKey", req.getPaymentKey(),
-                "orderId", orderCode,
+                "orderId", req.getOrderId(),
                 "amount", req.getAmount()
         );
-
-        Map<?,?> paymentObj = tossWebClient.post()
-                .uri("/v1/payments/confirm") // toss
+        return tossWebClient.post()
+                .uri("/v1/payments/confirm")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(Map.class)
                 .block();
+    }
 
-        String originalJson = toJson(paymentObj);
+    private static final class ParsedPayment {
+        String paymentKey;
+        String method;
+        String currency;
+        long totalAmount;
+        long balanceAmount;
+        String receiptUrl;
+        Map<String,Object> va;      // virtualAccount map or null
+        boolean isVirtualAccount;
+    }
 
-        // 3) 응답 파싱
-        String paymentKey = (String) paymentObj.get("paymentKey");
-        String method     = (String) paymentObj.get("method");
-        String currency   = (String) paymentObj.get("currency");
-        if (currency == null || currency.isBlank()) currency = "KRW";
-        Number totalAmount= (Number) paymentObj.get("totalAmount");
-        Number balanceAmt = (Number) paymentObj.get("balanceAmount");
-        String receiptUrl = null;
+    @SuppressWarnings("unchecked")
+    private ParsedPayment parsePaymentResponse(Map<?,?> paymentObj, ConfirmPaymentRequest req) {
+        ParsedPayment p = new ParsedPayment();
+        p.paymentKey    = Objects.toString(paymentObj.get("paymentKey"), null);
+        p.method        = Objects.toString(paymentObj.get("method"), null);
+        p.currency      = Objects.toString(paymentObj.get("currency"), "KRW");
+        p.totalAmount   = ((Number) paymentObj.get("totalAmount")).longValue();
+        p.balanceAmount = ((Number) paymentObj.get("balanceAmount")).longValue();
+        p.receiptUrl    = null;
         Object receiptObj = paymentObj.get("receipt");
         if (receiptObj instanceof Map<?,?> r) {
-            receiptUrl = (String) r.get("url");
+            p.receiptUrl = Objects.toString(r.get("url"), null);
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> va = (Map<String, Object>) paymentObj.get("virtualAccount");
-        boolean isVa =
-                va != null
+        p.va = (Map<String, Object>) paymentObj.get("virtualAccount");
+        p.isVirtualAccount =
+                p.va != null
                         || "VIRTUAL_ACCOUNT".equalsIgnoreCase(req.getMethod())
-                        || "VIRTUAL_ACCOUNT".equalsIgnoreCase(method)
-                        || "가상계좌".equals(method);
+                        || "VIRTUAL_ACCOUNT".equalsIgnoreCase(p.method)
+                        || "가상계좌".equals(p.method);
 
-        // 4) PAYMENT insert 먼저 (paymentId 확보)
-        //    VA는 승인완료가 아니므로 status=0(REQUESTED/READY) 등으로 기록
-        int payStatus = "VIRTUAL_ACCOUNT".equalsIgnoreCase(method) ? 0 : 1;
+        return p;
+    }
+
+    private PaymentRowDto insertPaymentRow(Long orderId, String orderCode, ParsedPayment p) {
+        int status = "VIRTUAL_ACCOUNT".equalsIgnoreCase(p.method) ? 0 : 1; // VA는 READY/REQUESTED
         PaymentRowDto row = PaymentRowDto.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
-                .paymentKey(paymentKey)
-                .method(method)
-                .currency(currency)
-                .totalAmount(totalAmount.longValue())
-                .balanceAmount(balanceAmt.longValue())
-                .status(payStatus)
+                .paymentKey(p.paymentKey)
+                .method(p.method)
+                .currency(p.currency == null || p.currency.isBlank() ? "KRW" : p.currency)
+                .totalAmount(p.totalAmount)
+                .balanceAmount(p.balanceAmount)
+                .status(status)
                 .build();
-        paymentMapper.insertPayment(row); // 여기서 paymentId 생성됨
+        paymentMapper.insertPayment(row);
+        return row;
+    }
 
-        // 5) VA 정보 있으면 PAYMENT에 저장
-        if (va != null) {
-            paymentMapper.updateVirtualAccountFields(
-                    row.getPaymentId(),
-                    (String) va.get("accountNumber"),
-                    (String) va.get("bankCode"),
-                    (String) va.get("accountType"),
-                    (String) va.get("customerName"),
-                    (String) va.get("depositorName"),
-                    parseTs((String) va.get("dueDate")),
-                    Boolean.TRUE.equals(va.get("expired")) ? 1 : 0,
-                    (String) va.get("settlementStatus"),
-                    (String) va.get("refundStatus"),
-                    (String) paymentObj.get("secret")
-            );
-        }
+    private void persistVirtualAccountFields(Long paymentId, Map<String,Object> va, Map<?,?> paymentObj) {
+        paymentMapper.updateVirtualAccountFields(
+                paymentId,
+                Objects.toString(va.get("accountNumber"), null),
+                Objects.toString(va.get("bankCode"), null),
+                Objects.toString(va.get("accountType"), null),
+                Objects.toString(va.get("customerName"), null),
+                Objects.toString(va.get("depositorName"), null),
+                parseTs(Objects.toString(va.get("dueDate"), null)),
+                Boolean.TRUE.equals(va.get("expired")) ? 1 : 0,
+                Objects.toString(va.get("settlementStatus"), null),
+                Objects.toString(va.get("refundStatus"), null),
+                Objects.toString(paymentObj.get("secret"), null)
+        );
+    }
 
-        if (isVa) {
-            // 6) 가상계좌: 주문 = 입금대기(12), 승인처리/재고차감/알림 금지
-            paymentMapper.updateOrderToDepositWaiting(orderId);
-            paymentMapper.updateOrderItemsStatusByOrderId(orderId, 12);
+    private ConfirmPaymentResponse handleVirtualAccountFlow(
+            OrderRowDto order, Long paymentId, ParsedPayment p, Map<?,?> paymentObj) {
 
-            paymentMapper.updatePaymentOnVaIssued(
-                    VaIssuedUpdateParam.builder()
-                            .paymentId(row.getPaymentId())
-                            .status(12)
-                            .vaAccountNo((String) va.get("accountNumber"))
-                            .vaBankCode((String) va.get("bankCode"))
-                            .vaAccountType((String) va.get("accountType"))
-                            .vaCustomerName((String) va.get("customerName"))
-                            .vaDepositorName((String) va.get("depositorName"))
-                            .vaDueDate(parseTs((String) va.get("dueDate")))
-                            .vaSecret((String) paymentObj.get("secret"))
-                            .rawJson(originalJson)
-                            .build()
-            );
-            // 응답 구성만 리턴 (재고차감/알림/ITEM 승인 상태 변경 안함)
-            List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
-            var itemsForResponse = orderItems.stream().map(it -> ConfirmPaymentItemDto.builder()
-                    .productId(it.getProductId())
-                    .brandName(safe(it.getBrandName()))
-                    .productName(safe(it.getProductName()))
-                    .price(nz(it.getItemPrice()))
-                    .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
-                    .quantity(it.getItemCount())
-                    .thumbnailUrl(safe(it.getThumbnailUrl()))
-                    .build()).toList();
-            String firstThumb = itemsForResponse.isEmpty() ? null : itemsForResponse.get(0).getThumbnailUrl();
-            int totalQty = itemsForResponse.stream().mapToInt(ConfirmPaymentItemDto::getQuantity).sum();
+        // 주문/아이템 상태를 입금대기(12)
+        paymentMapper.updateOrderToDepositWaiting(order.getOrderId());
+        paymentMapper.updateOrderItemsStatusByOrderId(order.getOrderId(), 12);
 
-            return ConfirmPaymentResponse.builder()
-                    .paymentId(row.getPaymentId())
-                    .paymentKey(paymentKey)
-                    .totalAmount(totalAmount.longValue())
-                    .status("WAITING_FOR_DEPOSIT")
-                    .receiptUrl(receiptUrl)
-                    .orderPk(orderId)
-                    .orderCode(orderCode)
-                    .orderName(order.getOrderSummary())
-                    .method("VIRTUAL_ACCOUNT")
-                    .firstItemThumb(firstThumb)
-                    .itemCount(totalQty)
-                    .items(itemsForResponse)
-                    .vaAccountNo((String) va.get("accountNumber"))
-                    .vaBankCode((String) va.get("bankCode"))
-                    .vaDueDate((String) va.get("dueDate"))
-                    .vaDepositorName((String) va.get("depositorName"))
-                    .build();
-        }
-
-        paymentMapper.markOrderPaid(orderId);
-        paymentMapper.updateStatusToApprovedByOrderId(orderId);
-
-        // 승인 원문 보관 + 영수증
-        paymentMapper.updatePaymentOnApproved(row.getPaymentId(),
-                balanceAmt.longValue(), 1, receiptUrl, toJson(paymentObj));
-
-        // product 재고 차감
-        List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
-        // 교착 방지: 항상 같은 순서로 잠금
-        orderItems.sort(Comparator.comparing(OrderItemRowDto::getProductId));
-
-        for (OrderItemRowDto it : orderItems) {
-            Long productId = it.getProductId();
-            int qty = it.getItemCount();
-            if (qty <= 0) { throw new RefitException(ErrorCode.OUT_OF_STOCK, "잘못된 수량: " + qty); }
-
-            // 재고 행 잠금 + 현재 재고 확인
-            Integer stock = productMapper.selectStockForUpdate(productId);
-            if (stock == null) {
-                throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "상품 없음: " + productId);
-            }
-            if (stock < qty) {
-                throw new RefitException(ErrorCode.OUT_OF_STOCK,
-                        "재고 부족: productId=" + productId + ", stock=" + stock + ", need=" + qty);
-            }
-
-            int updated = productMapper.decreaseStock(productId, qty);
-
-            // 배치인 경우 -2(SUCCESS_NO_INFO) 가능
-            log.info("PRODUCT 재고 UPDATE 결과:" + updated);
-            if (updated == 0) {
-                throw new RefitException(ErrorCode.OUT_OF_STOCK,
-                        "차감 실패(동시성): productId=" + productId + ", qty=" + qty);
-            }
-        }
-
-        notificationTriggerService.notifyPaymentCompleted(memberId, orderId,
-                order.getOrderSummary() + "의 결제가 완료되었습니다.");
-
-        // 응답용 아이템 DTO로 변환
-        List<ConfirmPaymentItemDto> itemsForResponse = orderItems.stream()
-                .map(it -> ConfirmPaymentItemDto.builder()
-                        .productId(it.getProductId())
-                        .brandName(safe(it.getBrandName()))
-                        .productName(safe(it.getProductName()))
-                        .price(nz(it.getItemPrice()))
-                        .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
-                        .quantity(it.getItemCount())
-                        .thumbnailUrl(safe(it.getThumbnailUrl()))
+        // PAYMENT의 VA 발급 필드 업데이트
+        paymentMapper.updatePaymentOnVaIssued(
+                VaIssuedUpdateParam.builder()
+                        .paymentId(paymentId)
+                        .status(12)
+                        .vaAccountNo(Objects.toString(p.va.get("accountNumber"), null))
+                        .vaBankCode(Objects.toString(p.va.get("bankCode"), null))
+                        .vaAccountType(Objects.toString(p.va.get("accountType"), null))
+                        .vaCustomerName(Objects.toString(p.va.get("customerName"), null))
+                        .vaDepositorName(Objects.toString(p.va.get("depositorName"), null))
+                        .vaDueDate(parseTs(Objects.toString(p.va.get("dueDate"), null)))
+                        .vaSecret(Objects.toString(paymentObj.get("secret"), null))
+                        .rawJson(toJson(paymentObj))
                         .build()
-                )
-                .toList();
+        );
+
+        // 응답을 위한 아이템 목록
+        List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(order.getOrderId());
+        var itemsForResponse = orderItems.stream().map(it -> ConfirmPaymentItemDto.builder()
+                .productId(it.getProductId())
+                .brandName(safe(it.getBrandName()))
+                .productName(safe(it.getProductName()))
+                .price(nz(it.getItemPrice()))
+                .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
+                .quantity(it.getItemCount())
+                .thumbnailUrl(safe(it.getThumbnailUrl()))
+                .build()).toList();
 
         String firstThumb = itemsForResponse.isEmpty() ? null : itemsForResponse.get(0).getThumbnailUrl();
         int totalQty = itemsForResponse.stream().mapToInt(ConfirmPaymentItemDto::getQuantity).sum();
 
         return ConfirmPaymentResponse.builder()
-                .paymentId(row.getPaymentId())
-                .paymentKey(paymentKey)
-                .totalAmount(totalAmount.longValue())
-                .status("APPROVED")
-                .receiptUrl(receiptUrl)
-                .orderPk(orderId)
-                .orderCode(orderCode)
+                .paymentId(paymentId)
+                .paymentKey(p.paymentKey)
+                .totalAmount(p.totalAmount)
+                .status("WAITING_FOR_DEPOSIT")
+                .receiptUrl(p.receiptUrl)
+                .orderPk(order.getOrderId())
+                .orderCode(order.getOrderCode())
                 .orderName(order.getOrderSummary())
-                .method(method)
+                .method("VIRTUAL_ACCOUNT")
+                .firstItemThumb(firstThumb)
+                .itemCount(totalQty)
+                .items(itemsForResponse)
+                .vaAccountNo(Objects.toString(p.va.get("accountNumber"), null))
+                .vaBankCode(Objects.toString(p.va.get("bankCode"), null))
+                .vaDueDate(Objects.toString(p.va.get("dueDate"), null))
+                .vaDepositorName(Objects.toString(p.va.get("depositorName"), null))
+                .build();
+    }
+
+    private void finalizeApproval(Long orderId,
+            Long paymentId,
+            long balanceAmount,
+            String receiptUrl,
+            Map<?,?> paymentObj,
+            Long memberId,
+            String orderSummary) {
+
+        // 주문/아이템 승인
+        paymentMapper.markOrderPaid(orderId);
+        paymentMapper.updateStatusToApprovedByOrderId(orderId);
+
+        // PAYMENT 승인정보 저장
+        paymentMapper.updatePaymentOnApproved(
+                paymentId, balanceAmount, 1, receiptUrl, toJson(paymentObj)
+        );
+
+        // 재고 차감
+        decreaseStocks(orderId);
+
+        // 알림
+        notificationTriggerService.notifyPaymentCompleted(memberId, orderId,
+                orderSummary + "의 결제가 완료되었습니다.");
+    }
+
+    private void decreaseStocks(Long orderId) {
+        List<OrderItemRowDto> orderItems = paymentMapper.findOrderItems(orderId);
+        orderItems.sort(Comparator.comparing(OrderItemRowDto::getProductId)); // 교착 방지
+
+        for (OrderItemRowDto it : orderItems) {
+            Long productId = it.getProductId();
+            int qty = it.getItemCount();
+            if (qty <= 0) {
+                throw new RefitException(ErrorCode.OUT_OF_STOCK, "잘못된 수량: " + qty);
+            }
+            Integer stock = productMapper.selectStockForUpdate(productId);
+            if (stock == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "상품 없음: " + productId);
+            if (stock < qty) throw new RefitException(ErrorCode.OUT_OF_STOCK,
+                    "재고 부족: productId=" + productId + ", stock=" + stock + ", need=" + qty);
+
+            int updated = productMapper.decreaseStock(productId, qty);
+            log.info("PRODUCT 재고 UPDATE 결과: {}", updated);
+            if (updated == 0) {
+                throw new RefitException(ErrorCode.OUT_OF_STOCK,
+                        "차감 실패(동시성): productId=" + productId + ", qty=" + qty);
+            }
+        }
+    }
+
+    private ConfirmPaymentResponse buildApprovedResponse(
+            OrderRowDto order, ParsedPayment p, Long paymentId, List<OrderItemRowDto> orderItems) {
+
+        var itemsForResponse = orderItems.stream().map(it -> ConfirmPaymentItemDto.builder()
+                .productId(it.getProductId())
+                .brandName(safe(it.getBrandName()))
+                .productName(safe(it.getProductName()))
+                .price(nz(it.getItemPrice()))
+                .originalPrice(nzOr(it.getOrgUnitPrice(), nz(it.getItemPrice())))
+                .quantity(it.getItemCount())
+                .thumbnailUrl(safe(it.getThumbnailUrl()))
+                .build()).toList();
+
+        String firstThumb = itemsForResponse.isEmpty() ? null : itemsForResponse.get(0).getThumbnailUrl();
+        int totalQty = itemsForResponse.stream().mapToInt(ConfirmPaymentItemDto::getQuantity).sum();
+
+        return ConfirmPaymentResponse.builder()
+                .paymentId(paymentId)
+                .paymentKey(p.paymentKey)
+                .totalAmount(p.totalAmount)
+                .status("APPROVED")
+                .receiptUrl(p.receiptUrl)
+                .orderPk(order.getOrderId())
+                .orderCode(order.getOrderCode())
+                .orderName(order.getOrderSummary())
+                .method(p.method)
                 .firstItemThumb(firstThumb)
                 .itemCount(totalQty)
                 .items(itemsForResponse)
                 .build();
     }
+
+
 
     @Override
     @Transactional
