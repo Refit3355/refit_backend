@@ -16,6 +16,7 @@ import com.refit.app.global.util.CursorUtil;
 import com.refit.app.infra.ai.AiRecommendClient;
 import com.refit.app.infra.cache.RecommendationCacheKey;
 import com.refit.app.infra.cache.RecommendationCacheRepository;
+import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -164,19 +165,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductRecommendationResponse getRecommendations(
-            int productType, int limit, Long memberId
+            int productType, Long memberId, String concernCode, String location, int topk, int limit
     ) {
         int pt  = normalizeProductType(productType);
         int lim = (limit <= 0) ? 10 : Math.min(limit, 200);
 
-        // preferCategoryId는 현재 사용 안 함 (확장 대비 보존)
-        String key = RecommendationCacheKey.build(
-                pt, lim, memberId, "서울", 200, lim
-        );
+        String key = RecommendationCacheKey.build(pt, memberId, concernCode, location, topk, lim);
 
         // 캐시 조회 (Cache Hit → 즉시 반환)
         ProductRecommendationResponse cached = cacheRepo.get(key);
         if (cached != null && !CollectionUtils.isEmpty(cached.getItems())) {
+            if (Math.random() < 0.3) {
+                Collections.shuffle(cached.getItems());
+            }
             return cached;
         }
 
@@ -188,11 +189,11 @@ public class ProductServiceImpl implements ProductService {
 
         // 외부 AI 추천 요청
         AiRecommendRequest req = AiRecommendRequest.builder()
-                .memberId(Math.toIntExact(memberId))
+                .memberId(memberId)
                 .productType(pt)
                 .preferCategoryId(null)
-                .location("서울")
-                .topk(200)
+                .location(location)
+                .topk(topk)
                 .finalCount(lim)
                 .build();
 
@@ -222,7 +223,6 @@ public class ProductServiceImpl implements ProductService {
                 .build();
 
         // 캐싱 후 반환
-        log.info("캐시 저장 시도 key={}", key);
         cacheRepo.put(key, finalResp, cacheTtlSec);
 
         return finalResp;

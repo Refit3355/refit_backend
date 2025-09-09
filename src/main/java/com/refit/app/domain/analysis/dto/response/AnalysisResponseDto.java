@@ -20,16 +20,16 @@ public class AnalysisResponseDto {
     private List<String> caution;
     private List<String> safe;
 
-    // 화장품용 (그대로)
+    // 화장품용
     private String riskyText;
     private String cautionText;
     private String safeText;
 
-    // 공통 요약(백워드 호환)
+    // 공통 요약
     private String summary;
 
-    private String supplementBenefits;
-    private String supplementConditionCautions;
+    private List<String> supplementBenefits;
+    private List<String> supplementConditionCautions;
 
     private AnalysisStatus status; // OK가 아니면 프론트는 다이얼로그를 띄움
     private String reason;         // 내부 디버그/로그용

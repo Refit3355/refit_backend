@@ -5,6 +5,7 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.*;
 import com.refit.app.domain.notification.mapper.DeviceMapper;
+import java.io.FileInputStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -26,15 +27,16 @@ public class PushServiceImpl implements PushService {
     public void init() {
         try {
             if (FirebaseApp.getApps().isEmpty()) {
-                ClassPathResource resource = new ClassPathResource("firebase/firebase-adminsdk.json");
-                InputStream serviceAccount = resource.getInputStream();
+                // 외부 파일 경로로 읽기
+                String path = "/app/config/firebase-adminsdk.json";
+                try (InputStream serviceAccount = new FileInputStream(path)) {
+                    FirebaseOptions options = FirebaseOptions.builder()
+                            .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                            .build();
 
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                        .build();
-
-                FirebaseApp.initializeApp(options);
-                log.info("FirebaseApp initialized from classpath:firebase/firebase-adminsdk.json");
+                    FirebaseApp.initializeApp(options);
+                    log.info("FirebaseApp initialized from file: {}", path);
+                }
             }
         } catch (Exception e) {
             log.error("Failed to initialize FirebaseApp", e);

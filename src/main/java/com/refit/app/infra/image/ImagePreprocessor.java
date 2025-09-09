@@ -24,7 +24,7 @@ public final class ImagePreprocessor {
     }
 
     // ↓↓↓ 조정 포인트
-    private static final int MAX_DIM = 720;
+    private static final int MAX_DIM = 1024;
     private static final float JPEG_QUALITY = 0.6f;
     private static final boolean ALWAYS_RECOMPRESS = true;
 
@@ -40,7 +40,7 @@ public final class ImagePreprocessor {
 
             BufferedImage scaled = scaleDownIfNeeded(oriented, MAX_DIM);
 
-            // 텍스트 대비 강화(얇게만)
+            // 텍스트 대비 강화
             BufferedImage enhanced = enhanceForText(scaled);
 
             return writeJpeg(enhanced, JPEG_QUALITY);
@@ -59,7 +59,7 @@ public final class ImagePreprocessor {
         if (src == null) {
             return imageBytes;
         }
-        // 항상 JPEG 재인코딩(용량 안정화)
+        // 항상 JPEG 재인코딩
         return writeJpeg(convertToRGB(src), JPEG_QUALITY);
     }
 
@@ -163,7 +163,6 @@ public final class ImagePreprocessor {
     }
 
     private static BufferedImage enhanceForText(BufferedImage src) {
-        // 가벼운 그레이 + 히스토그램 스트레치 (CPU 가벼움)
         BufferedImage gray = new BufferedImage(src.getWidth(), src.getHeight(),
                 BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g = gray.createGraphics();
