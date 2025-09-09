@@ -30,16 +30,19 @@ public class OpenAiNarrative {
 
     // ===== 프롬프트 =====
 
-    // (C) 화장품: 요약 + 3개 그룹 오버뷰 (짧게)
+    // (C) 화장품: 요약 + 3개 그룹 오버뷰 (짧게, 정보 밀도 강화)
     private static final String SYSTEM_COSMETIC = """
             OUTPUT: JSON ONLY with keys:
             {"summary":"string","risky_overview":"string","caution_overview":"string","safe_overview":"string"}
             Rules:
-            - Korean, clear and practical.
-            - summary: 2–3 sentences. Overall safety, notable risky/caution, helpful safe benefits, simple tips, balanced recommendation for %s.
-            - Each *_overview: 1–2 sentences about the whole group.
-            - If empty: "해당되는 성분은 없습니다."
-            - End: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
+            - Korean. Be concise but information-dense (no filler).
+            - summary: 2–3 sentences following this structure:
+              1) Quick verdict using match rate bucket: (90+ "매우 잘 맞음"), (70–89 "대체로 무난"), (40–69 "주의 필요"), (<40 "맞지 않을 수 있음").
+              2) Name up to 1–2 representative ingredients from the risky/caution/safe lists (if present) with a very short reason (e.g., "모공막힘 우려", "자극 가능", "보습/진정").
+            - Each *_overview: 1–2 sentences about overall pattern of that group; cite 1–2 examples if available and explain the common rationale (comedogenic, sensitizer, occlusive, humectant, soothing, barrier support, etc.).
+            - Use only the provided ingredient names; do NOT invent new ones.
+            - If a group is empty, return "해당되는 성분은 없습니다."
+            - End the summary with: "개인 피부 상태에 따라 차이가 있을 수 있습니다."
             """;
 
     // (FAST) 리스트만 받아서 빠르게 분류 (요약/오버뷰 없음)
