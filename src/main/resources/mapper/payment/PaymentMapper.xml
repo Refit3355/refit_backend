@@ -245,10 +245,10 @@
 
   <update id="updateRefundAccountInCancel">
     UPDATE PAYMENT_CANCEL
-    SET REFUND_BANK_CODE   = #{bankCode},
-        REFUND_ACCOUNT_NO  = #{accountNo},
-        REFUND_HOLDER_NAME = #{holderName}
-    WHERE PAYMENT_CANCEL_ID = #{paymentCancelId}
+    SET REFUND_BANK_CODE   = #{bankCode,    jdbcType=VARCHAR},
+        REFUND_ACCOUNT_NO  = #{accountNo,   jdbcType=VARCHAR},
+        REFUND_HOLDER_NAME = #{holderName,  jdbcType=VARCHAR}
+    WHERE PAYMENT_CANCEL_ID = #{paymentCancelId, jdbcType=NUMERIC}
   </update>
 
   <update id="updateVirtualAccountFields">
@@ -308,10 +308,18 @@
       CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED,
       REFUND_BANK_CODE, REFUND_ACCOUNT_NO, REFUND_HOLDER_NAME
     ) VALUES (
-               SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId},
-               #{cancelAmount}, #{taxFreeAmount}, #{cancelReason},
-               #{canceledAt}, #{rawJson}, #{shippingAdjApplied},
-               #{refundBankCode}, #{refundAccountNo}, #{refundHolderName}
+               SEQ_PAYMENT_CANCEL.NEXTVAL,
+               #{paymentId,         jdbcType=NUMERIC},
+               #{cancelRequestId,   jdbcType=VARCHAR},
+               #{cancelAmount,      jdbcType=NUMERIC},
+               #{taxFreeAmount,     jdbcType=NUMERIC},
+               #{cancelReason,      jdbcType=VARCHAR},
+               #{canceledAt,        jdbcType=TIMESTAMP},
+               #{rawJson,           jdbcType=CLOB},
+               #{shippingAdjApplied,jdbcType=NUMERIC},
+               #{refundBankCode,    jdbcType=VARCHAR},
+               #{refundAccountNo,   jdbcType=VARCHAR},
+               #{refundHolderName,  jdbcType=VARCHAR}
              )
   </insert>
 

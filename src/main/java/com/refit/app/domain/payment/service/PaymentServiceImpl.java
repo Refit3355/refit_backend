@@ -493,7 +493,7 @@ public class PaymentServiceImpl implements PaymentService {
         String bank = mget(src, "bankCode");
         String acc  = mget(src, "accountNo");
         String name = mget(src, "holderName");
-        if (isDashOrBlank(bank) || isDashOrBlank(acc) || isDashOrBlank(name)) return null;
+        if (isDashOrBlank(bank) || isDashOrBlank(acc) ) return null;
         return PartialCancelRequest.RefundReceiveAccount.builder()
                 .bankCode(bank).accountNumber(acc).holderName(name).build();
     }

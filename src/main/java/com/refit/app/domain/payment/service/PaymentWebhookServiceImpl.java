@@ -117,7 +117,7 @@ public class PaymentWebhookServiceImpl implements PaymentWebhookService {
         // 시크릿 검증 (최근 결제의 VA_SECRET 과 비교)
         PaymentRowDto active = mapper.findActivePaymentByOrderId(order.getOrderId());
         if (active == null || secret == null) {
-            log.warn("VA deposit callback missing payment/secret. order={}", orderCode);
+            log.warn("VA deposit callback missing payment/secret. order={} orderId={}", orderCode, order.getOrderId());
             return;
         }
 
