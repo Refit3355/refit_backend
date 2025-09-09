@@ -301,11 +301,16 @@ public class PaymentServiceImpl implements PaymentService {
         // 2) 결제 조회/잔액 검증
         PaymentRowDto pay = paymentMapper.findActivePaymentByOrderId(item.getOrderId());
         if (pay == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "결제 정보를 찾을 수 없습니다.");
-        if (cancelAmount > pay.getBalanceAmount())
-            throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 금액이 결제 잔액을 초과합니다.");
-
-        // 2-1) 주문 스냅샷 잠금 (배송비 조정의 경합 직렬화)
         OrderRowDto moneyLocked = paymentMapper.findOrderMoneyForUpdate(item.getOrderId());
+        int orderStatus = moneyLocked.getOrderStatus();
+
+        boolean isVA = "VIRTUAL_ACCOUNT".equalsIgnoreCase(pay.getMethod());
+        boolean isTransfer = "TRANSFER".equalsIgnoreCase(pay.getMethod());
+        boolean vaDepositCompleted = isVA && (orderStatus != 12);
+
+        boolean needsRefundAccount = isTransfer || vaDepositCompleted;
+        log.debug("[cancel] method={}, orderStatus={}, needsRefundAccount={}",
+                pay.getMethod(), orderStatus, needsRefundAccount);
 
         // 3) 멱등키
         final String idemp = (req.getIdempotencyKey()!=null && !req.getIdempotencyKey().isBlank())
@@ -324,22 +329,82 @@ public class PaymentServiceImpl implements PaymentService {
         Map<String, Object> body = new HashMap<>();
         body.put("cancelReason", req.getCancelReason());
         body.put("cancelAmount", pgCancelAmount);
+        body.put("currency", "KRW");
         if (req.getTaxFreeAmount()!=null) body.put("taxFreeAmount", req.getTaxFreeAmount());
 
-        // 가상계좌 결제 : 환불계좌 필수
-        if ("VIRTUAL_ACCOUNT".equalsIgnoreCase(pay.getMethod())) {
-            if (isBlank(req.getRefundBankCode()) ||
-                    isBlank(req.getRefundAccountNumber()) ||
-                    isBlank(req.getRefundHolderName())) {
-                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS,
-                        "가상계좌 결제 취소에는 환불 계좌정보가 필요합니다.");
+        // 환불계좌 검증
+        PartialCancelRequest.RefundReceiveAccount rra = req.getRefundReceiveAccount();
+
+        if (needsRefundAccount && rra == null) {
+            // 1순위: 이번 결제의 PAYMENT.VA_* 필드
+            Map<String, Object> vaInfo = paymentMapper.findVaRefundInfoByPaymentId(pay.getPaymentId());
+            if (vaInfo != null) {
+                String bank = mget(vaInfo, "bankCode");
+                String acc  = mget(vaInfo, "accountNo");
+                String name = mget(vaInfo, "holderName");
+                if (!bank.isBlank() && !acc.isBlank() && !name.isBlank()) {
+                    rra = PartialCancelRequest.RefundReceiveAccount.builder()
+                            .bankCode(bank)
+                            .accountNumber(acc)
+                            .holderName(name)
+                            .build();
+                    req.setRefundReceiveAccount(rra);
+                }
             }
 
-            Map<String, Object> refundReceiveAccount = new HashMap<>();
-            refundReceiveAccount.put("bank", req.getRefundBankCode());
-            refundReceiveAccount.put("accountNumber", req.getRefundAccountNumber());
-            refundReceiveAccount.put("holderName", req.getRefundHolderName());
-            body.put("refundReceiveAccount", refundReceiveAccount);
+            // 2순위(백업): 이 주문의 "가장 최신 VA 결제"에서 VA_* 끌어오기
+            if (rra == null) {
+                Map<String, Object> vaByOrder = paymentMapper.findLatestVaInfoByOrderId(item.getOrderId());
+                if (vaByOrder != null) {
+                    String bank = mget(vaByOrder, "bankCode");
+                    String acc  = mget(vaByOrder, "accountNo");
+                    String name = mget(vaByOrder, "holderName");
+                    if (!bank.isBlank() && !acc.isBlank() && !name.isBlank()) {
+                        rra = PartialCancelRequest.RefundReceiveAccount.builder()
+                                .bankCode(bank).accountNumber(acc).holderName(name).build();
+                        req.setRefundReceiveAccount(rra);
+                    }
+                }
+            }
+            // 3순위: 회원의 과거 환불 이력(PAYMENT_CANCEL)에서 최근 계좌
+            if (rra == null) {
+                Long mid = paymentMapper.findMemberIdByOrderId(item.getOrderId());
+                Map<String, Object> last = paymentMapper.findLastRefundAccountByMemberId(mid);
+                if (last != null) {
+                    String bank = mget(last, "bankCode");
+                    String acc  = mget(last, "accountNo");
+                    String name = mget(last, "holderName");
+                    if (!isDashOrBlank(bank) && !isDashOrBlank(acc) && !isDashOrBlank(name)) {
+                        rra = PartialCancelRequest.RefundReceiveAccount.builder()
+                                .bankCode(bank).accountNumber(acc).holderName(name).build();
+                        req.setRefundReceiveAccount(rra);
+                    }
+                }
+            }
+        }
+
+        if (needsRefundAccount) {
+            if (rra == null) {
+                log.error("[cancel] refund account still null. payId={}, method={}, orderStatus={}, vaFromPaymentId={}, vaFromOrder={}",
+                        pay.getPaymentId(), pay.getMethod(), orderStatus,
+                        paymentMapper.findVaRefundInfoByPaymentId(pay.getPaymentId()),
+                        paymentMapper.findLatestVaInfoByOrderId(item.getOrderId())
+                );
+                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS,
+                        "가상계좌/계좌이체 환불에는 refundReceiveAccount가 필요합니다.");
+            }
+            String bankCode = normalizeBankCode(rra.getBankCode());
+            String accountNo = rra.getAccountNumber().replaceAll("[^0-9]", "");
+            String holder    = rra.getHolderName().trim();
+            if (isBlank(bankCode) || accountNo.length() < 6 || isBlank(holder)) {
+                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS, "환불 계좌정보 형식이 올바르지 않습니다.");
+            }
+            // 토스 요청 바디
+            body.put("refundReceiveAccount", Map.of(
+                    "bank", bankCode,
+                    "accountNumber", accountNo,
+                    "holderName", holder
+            ));
         }
 
         Map<?,?> cancelObj;
@@ -376,7 +441,10 @@ public class PaymentServiceImpl implements PaymentService {
                 req.getCancelReason(),
                 LocalDateTime.now(),
                 toJson(cancelObj),
-                adj.shippingAdjApplied
+                adj.shippingAdjApplied,
+                needsRefundAccount ? rra.getBankCode() : null,
+                needsRefundAccount ? rra.getAccountNumber() : null,
+                needsRefundAccount ? rra.getHolderName() : null
         );
 
         // 7) 과취소/경합 방지: 조건부 증가
@@ -422,7 +490,6 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
-
     private String toJson(Object src) {
         try { return om.writeValueAsString(src); } catch (Exception e) { return null; }
     }
@@ -442,14 +509,13 @@ public class PaymentServiceImpl implements PaymentService {
         r.delta = 0;
         r.shippingAdjApplied = 0;
 
-        long goodsAmount = moneyLocked.getGoodsAmount()==null?0L:moneyLocked.getGoodsAmount();
-        long deliveryFee = moneyLocked.getDeliveryFee()==null?0L:moneyLocked.getDeliveryFee();
+        long goodsAmount = nz(moneyLocked.getGoodsAmount());
+        long deliveryFee = nz(moneyLocked.getDeliveryFee());
         int  orderStatus = moneyLocked.getOrderStatus()==null?0:moneyLocked.getOrderStatus();
 
-        // 이미 배송비 조정 기록 있으면 중복 방지
-        if (paymentMapper.existsShippingAdjApplied(paymentId)) return r;
+        boolean hadAdjBefore = paymentMapper.existsShippingAdjApplied(paymentId); // 과거 -3,000 적용 여부(또는 어떤 조정이든 기록)
 
-        // 현재까지 취소된 금액 + 이번 취소분 가정
+        // 1) 전액 환불 + 배송 전: 배송비는 최종적으로 0이 되어야 함
         long canceledSoFar = 0L;
         for (OrderItemRowDto it : paymentMapper.findOrderItems(orderId)) {
             int cc = it.getCanceledCount()==null?0:it.getCanceledCount();
@@ -460,18 +526,29 @@ public class PaymentServiceImpl implements PaymentService {
         }
         long remainAfter = Math.max(0L, goodsAmount - canceledSoFar);
 
-        // 규칙 1) 무료배송 주문이 임계(3만원) 아래로 최초 하락 → 3,000원 차감
-        if (deliveryFee == 0 && goodsAmount >= FREE_SHIPPING_THRESHOLD && remainAfter < FREE_SHIPPING_THRESHOLD) {
-            r.delta = -BASE_DELIVERY_FEE;
-            r.pgCancelAmount = Math.max(0L, cancelAmount + r.delta);
-            r.shippingAdjApplied = 1;
+        if (remainAfter == 0 && orderStatus < 5) { // 전액 취소 + 배송 전
+            if (deliveryFee > 0) {
+                // 유료배송이었으면 유료배송비 전액 환불
+                r.delta = deliveryFee;
+                r.pgCancelAmount = cancelAmount + r.delta;
+                r.shippingAdjApplied = 1;
+                return r;
+            } else if (hadAdjBefore) {
+                // 무료배송 주문에서 과거에 -3,000 차감한 적이 있다면, 되돌려준다 (+3,000)
+                r.delta = BASE_DELIVERY_FEE;
+                r.pgCancelAmount = cancelAmount + r.delta;
+                r.shippingAdjApplied = 1;
+                return r;
+            }
+            // 무료배송이고 과거 차감도 없었다면 조정 없음
             return r;
         }
 
-        // 규칙 2) 유료배송 & 전액환불 & 배송 전(상태<5) → 배송비 환불
-        if (deliveryFee > 0 && remainAfter == 0 && orderStatus < 5) {
-            r.delta = deliveryFee;
-            r.pgCancelAmount = cancelAmount + r.delta;
+        // 2) 무료배송 → 임계 미만으로 처음 내려가는 순간 -3,000 차감 (아직 전액취소가 아님)
+        boolean originallyFree = (deliveryFee == 0 && goodsAmount >= FREE_SHIPPING_THRESHOLD);
+        if (originallyFree && remainAfter < FREE_SHIPPING_THRESHOLD && !hadAdjBefore) {
+            r.delta = -BASE_DELIVERY_FEE;
+            r.pgCancelAmount = Math.max(0L, cancelAmount + r.delta);
             r.shippingAdjApplied = 1;
             return r;
         }
@@ -492,4 +569,28 @@ public class PaymentServiceImpl implements PaymentService {
         // 예: "2025-09-13T15:53:34+09:00"
         return java.time.OffsetDateTime.parse(iso).toLocalDateTime();
     }
+
+    private String normalizeBankCode(String code) {
+        if (code == null) return null;
+        String c = code.trim();
+        // 숫자 3자리면 그대로, 그 외는 대문자 영문코드로
+        if (c.matches("^\\d{3}$")) return c;
+        return c.toUpperCase();
+    }
+
+    private static String mget(Map<String, Object> m, String... keys) {
+        if (m == null) return null;
+        for (String k : keys) {
+            Object v = m.get(k);
+            if (v == null) v = m.get(k.toUpperCase());
+            if (v == null) v = m.get(k.toLowerCase());
+            if (v != null) return Objects.toString(v, null);
+        }
+        return null;
+    }
+
+    private static boolean isDashOrBlank(String s) {
+        return s == null || s.trim().isEmpty() || "-".equals(s.trim());
+    }
+
 }

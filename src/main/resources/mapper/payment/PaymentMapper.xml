@@ -204,19 +204,6 @@
     ]]>
 </update>
 
-  <!-- 취소 이력 (배송비 조정 플래그 포함) -->
-  <insert id="insertPaymentCancel">
-    INSERT INTO PAYMENT_CANCEL (
-      PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID,
-      CANCEL_AMOUNT, TAX_FREE_AMOUNT, CANCEL_REASON,
-      CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED
-    ) VALUES (
-               SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId},
-               #{cancelAmount}, #{taxFreeAmount}, #{cancelReason},
-               #{canceledAt}, #{rawJson}, #{shippingAdjApplied}
-             )
-  </insert>
-
   <!-- 아이템 조회 (취소 검증용) -->
   <select id="findOrderItemForCancel" parameterType="long"
     resultType="com.refit.app.domain.payment.dto.OrderItemRowDto">
@@ -313,5 +300,58 @@
         UPDATED_AT   = SYSTIMESTAMP
     WHERE ORDER_ID     = #{orderId, jdbcType=NUMERIC}
   </update>
+
+  <insert id="insertPaymentCancel">
+    INSERT INTO PAYMENT_CANCEL (
+      PAYMENT_CANCEL_ID, PAYMENT_ID, CANCEL_REQUEST_ID,
+      CANCEL_AMOUNT, TAX_FREE_AMOUNT, CANCEL_REASON,
+      CANCELED_AT, RAW_JSON, SHIPPING_ADJ_APPLIED,
+      REFUND_BANK_CODE, REFUND_ACCOUNT_NO, REFUND_HOLDER_NAME
+    ) VALUES (
+               SEQ_PAYMENT_CANCEL.NEXTVAL, #{paymentId}, #{cancelRequestId},
+               #{cancelAmount}, #{taxFreeAmount}, #{cancelReason},
+               #{canceledAt}, #{rawJson}, #{shippingAdjApplied},
+               #{refundBankCode}, #{refundAccountNo}, #{refundHolderName}
+             )
+  </insert>
+
+  <select id="findVaRefundInfoByPaymentId" parameterType="long" resultType="hashmap">
+    SELECT
+      VA_BANK_CODE     AS "bankCode",
+      VA_ACCOUNT_NO    AS "accountNo",
+      COALESCE(VA_DEPOSITOR_NAME, VA_CUSTOMER_NAME) AS "holderName"
+    FROM PAYMENT
+    WHERE PAYMENT_ID = #{paymentId}
+  </select>
+
+  <select id="findLastRefundAccountByMemberId" parameterType="long" resultType="hashmap">
+    SELECT
+      pc.REFUND_BANK_CODE  AS bankCode,
+      pc.REFUND_ACCOUNT_NO AS accountNo,
+      pc.REFUND_HOLDER_NAME AS holderName
+    FROM PAYMENT_CANCEL pc
+           JOIN PAYMENT p ON p.PAYMENT_ID = pc.PAYMENT_ID
+           JOIN ORDERS  o ON o.ORDER_ID   = p.ORDER_ID
+    WHERE o.MEMBER_ID = #{memberId}
+      AND pc.REFUND_BANK_CODE  IS NOT NULL
+      AND pc.REFUND_ACCOUNT_NO IS NOT NULL
+      AND pc.REFUND_HOLDER_NAME IS NOT NULL
+    ORDER BY pc.PAYMENT_CANCEL_ID DESC
+      FETCH FIRST 1 ROWS ONLY
+  </select>
+
+  <select id="findLatestVaInfoByOrderId" parameterType="long" resultType="hashmap">
+    SELECT
+      VA_BANK_CODE  AS bankCode,
+      VA_ACCOUNT_NO AS accountNo,
+      COALESCE(VA_DEPOSITOR_NAME, VA_CUSTOMER_NAME) AS holderName
+    FROM PAYMENT
+    WHERE ORDER_ID = #{orderId}
+      AND METHOD = 'VIRTUAL_ACCOUNT'
+      AND VA_BANK_CODE IS NOT NULL
+      AND VA_ACCOUNT_NO IS NOT NULL
+    ORDER BY PAYMENT_ID DESC
+      FETCH FIRST 1 ROWS ONLY
+  </select>
 
 </mapper>

@@ -51,7 +51,7 @@ public interface PaymentMapper {
     // 주문 금액/배송비 스냅샷 (잠금)
     OrderRowDto findOrderMoneyForUpdate(@Param("orderId") Long orderId);
 
-    // 취소 이력(배송비 조정 플래그 포함)
+    // 취소 이력
     void insertPaymentCancel(@Param("paymentId") Long paymentId,
             @Param("cancelRequestId") String cancelRequestId,
             @Param("cancelAmount") Long cancelAmount,
@@ -59,7 +59,10 @@ public interface PaymentMapper {
             @Param("cancelReason") String cancelReason,
             @Param("canceledAt") LocalDateTime canceledAt,
             @Param("rawJson") String rawJson,
-            @Param("shippingAdjApplied") Integer shippingAdjApplied);
+            @Param("shippingAdjApplied") Integer shippingAdjApplied,
+            @Param("refundBankCode") String refundBankCode,
+            @Param("refundAccountNo") String refundAccountNo,
+            @Param("refundHolderName") String refundHolderName);
 
     Long findMemberIdByOrderId(@Param("orderId") Long orderId);
 
@@ -83,4 +86,10 @@ public interface PaymentMapper {
             @Param("orderId") Long orderId,
             @Param("status") Integer status
     );
+
+    Map<String, Object> findLastRefundAccountByMemberId(@Param("memberId") Long memberId);
+
+    Map<String, Object> findVaRefundInfoByPaymentId(@Param("paymentId") Long paymentId);
+
+    Map<String, Object> findLatestVaInfoByOrderId(@Param("orderId") Long orderId);
 }
