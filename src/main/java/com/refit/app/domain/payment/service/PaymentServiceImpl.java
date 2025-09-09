@@ -277,40 +277,19 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PartialCancelResponse partialCancel(Long orderItemId, PartialCancelRequest req, Long memberId) {
         // 0) 입력 검증
-        Long reqAmt = req.getCancelAmount();
-        if (reqAmt == null || reqAmt < 1) {
-            throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 금액이 올바르지 않습니다.");
-        }
+        validateCancelAmount(req);
 
         // 1) 아이템 조회/기초 검증
-        OrderItemRowDto item = paymentMapper.findOrderItemForCancel(orderItemId);
-        if (item == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "주문 아이템을 찾을 수 없습니다.");
+        OrderItemRowDto item = mustFindOrderItem(orderItemId);
+        int cancelCount = validateAndGetCancelCount(item, req.getCancelAmount());
 
-        int canceled = item.getCanceledCount() == null ? 0 : item.getCanceledCount();
-        int remain   = item.getItemCount() - canceled;
-        long unit    = item.getItemPrice();
-        long cancelAmount = reqAmt;
-
-        if (unit <= 0) throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "아이템 단가가 올바르지 않습니다.");
-        if (cancelAmount % unit != 0) throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 금액은 단가의 배수여야 합니다.");
-        int cancelCount = (int)(cancelAmount / unit);
-        if (cancelCount < 1 || cancelCount > remain) {
-            throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 가능 수량을 초과했습니다.");
-        }
-
-        // 2) 결제 조회/잔액 검증
-        PaymentRowDto pay = paymentMapper.findActivePaymentByOrderId(item.getOrderId());
-        if (pay == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "결제 정보를 찾을 수 없습니다.");
+        // 2) 결제/주문 상태 조회
+        PaymentRowDto pay = mustFindActivePayment(item.getOrderId());
         OrderRowDto moneyLocked = paymentMapper.findOrderMoneyForUpdate(item.getOrderId());
-        int orderStatus = moneyLocked.getOrderStatus();
+        int orderStatus = nz(moneyLocked.getOrderStatus()).intValue();
 
-        boolean isVA = "VIRTUAL_ACCOUNT".equalsIgnoreCase(pay.getMethod());
-        boolean isTransfer = "TRANSFER".equalsIgnoreCase(pay.getMethod());
-        boolean vaDepositCompleted = isVA && (orderStatus != 12);
-
-        boolean needsRefundAccount = isTransfer || vaDepositCompleted;
-        log.debug("[cancel] method={}, orderStatus={}, needsRefundAccount={}",
-                pay.getMethod(), orderStatus, needsRefundAccount);
+        boolean needsRefundAccount = needsRefundAccount(pay.getMethod(), orderStatus);
+        log.debug("[cancel] method={}, orderStatus={}, needsRefundAccount={}", pay.getMethod(), orderStatus, needsRefundAccount);
 
         // 3) 멱등키
         final String idemp = (req.getIdempotencyKey()!=null && !req.getIdempotencyKey().isBlank())
@@ -319,176 +298,235 @@ public class PaymentServiceImpl implements PaymentService {
         // 4) 배송비 정책 계산(잠금 하)
         ShippingAdjustment adj = computeShippingAdjustmentLocked(
                 moneyLocked, pay.getPaymentId(), item.getOrderId(),
-                orderItemId, cancelCount, cancelAmount);
+                orderItemId, cancelCount, req.getCancelAmount());
 
         long pgCancelAmount = adj.pgCancelAmount;
-        if (pgCancelAmount > pay.getBalanceAmount())
+        if (pgCancelAmount > pay.getBalanceAmount()) {
             throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "환불 금액이 결제 잔액을 초과합니다.");
-
-        // 5) PG(토스) 호출
-        Map<String, Object> body = new HashMap<>();
-        body.put("cancelReason", req.getCancelReason());
-        body.put("cancelAmount", pgCancelAmount);
-        body.put("currency", "KRW");
-        if (req.getTaxFreeAmount()!=null) body.put("taxFreeAmount", req.getTaxFreeAmount());
-
-        // 환불계좌 검증
-        PartialCancelRequest.RefundReceiveAccount rra = req.getRefundReceiveAccount();
-
-        if (needsRefundAccount && rra == null) {
-            // 1순위: 이번 결제의 PAYMENT.VA_* 필드
-            Map<String, Object> vaInfo = paymentMapper.findVaRefundInfoByPaymentId(pay.getPaymentId());
-            if (vaInfo != null) {
-                String bank = mget(vaInfo, "bankCode");
-                String acc  = mget(vaInfo, "accountNo");
-                String name = mget(vaInfo, "holderName");
-                if (!bank.isBlank() && !acc.isBlank() && !name.isBlank()) {
-                    rra = PartialCancelRequest.RefundReceiveAccount.builder()
-                            .bankCode(bank)
-                            .accountNumber(acc)
-                            .holderName(name)
-                            .build();
-                    req.setRefundReceiveAccount(rra);
-                }
-            }
-
-            // 2순위(백업): 이 주문의 "가장 최신 VA 결제"에서 VA_* 끌어오기
-            if (rra == null) {
-                Map<String, Object> vaByOrder = paymentMapper.findLatestVaInfoByOrderId(item.getOrderId());
-                if (vaByOrder != null) {
-                    String bank = mget(vaByOrder, "bankCode");
-                    String acc  = mget(vaByOrder, "accountNo");
-                    String name = mget(vaByOrder, "holderName");
-                    if (!bank.isBlank() && !acc.isBlank() && !name.isBlank()) {
-                        rra = PartialCancelRequest.RefundReceiveAccount.builder()
-                                .bankCode(bank).accountNumber(acc).holderName(name).build();
-                        req.setRefundReceiveAccount(rra);
-                    }
-                }
-            }
-            // 3순위: 회원의 과거 환불 이력(PAYMENT_CANCEL)에서 최근 계좌
-            if (rra == null) {
-                Long mid = paymentMapper.findMemberIdByOrderId(item.getOrderId());
-                Map<String, Object> last = paymentMapper.findLastRefundAccountByMemberId(mid);
-                if (last != null) {
-                    String bank = mget(last, "bankCode");
-                    String acc  = mget(last, "accountNo");
-                    String name = mget(last, "holderName");
-                    if (!isDashOrBlank(bank) && !isDashOrBlank(acc) && !isDashOrBlank(name)) {
-                        rra = PartialCancelRequest.RefundReceiveAccount.builder()
-                                .bankCode(bank).accountNumber(acc).holderName(name).build();
-                        req.setRefundReceiveAccount(rra);
-                    }
-                }
-            }
         }
+
+        // 5) PG 바디 구성 + 환불계좌 보강(필요 시 DB에서 끌어오기)
+        Map<String, Object> body = buildBaseCancelBody(req.getCancelReason(), pgCancelAmount, req.getTaxFreeAmount());
+        PartialCancelRequest.RefundReceiveAccount rra = ensureRefundAccountIfNeeded(
+                needsRefundAccount, req.getRefundReceiveAccount(), pay.getPaymentId(), item.getOrderId());
 
         if (needsRefundAccount) {
-            if (rra == null) {
-                log.error("[cancel] refund account still null. payId={}, method={}, orderStatus={}, vaFromPaymentId={}, vaFromOrder={}",
-                        pay.getPaymentId(), pay.getMethod(), orderStatus,
-                        paymentMapper.findVaRefundInfoByPaymentId(pay.getPaymentId()),
-                        paymentMapper.findLatestVaInfoByOrderId(item.getOrderId())
-                );
-                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS,
-                        "가상계좌/계좌이체 환불에는 refundReceiveAccount가 필요합니다.");
-            }
-            String bankCode = normalizeBankCode(rra.getBankCode());
-            String accountNo = rra.getAccountNumber().replaceAll("[^0-9]", "");
-            String holder    = rra.getHolderName().trim();
-            if (isBlank(bankCode) || accountNo.length() < 6 || isBlank(holder)) {
-                throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS, "환불 계좌정보 형식이 올바르지 않습니다.");
-            }
-            // 토스 요청 바디
-            body.put("refundReceiveAccount", Map.of(
-                    "bank", bankCode,
-                    "accountNumber", accountNo,
-                    "holderName", holder
-            ));
+            // Toss는 필드명이 bankCode가 아니라 bank 입니다 (코드/숫자 모두 허용)
+            putRefundAccountToBody(body, rra);
         }
 
-        Map<?,?> cancelObj;
-        long balance = pay.getBalanceAmount();
-        if (pgCancelAmount > 0) {
-            try {
-                cancelObj = tossWebClient.post()
-                        .uri("/v1/payments/{paymentKey}/cancel", pay.getPaymentKey())
-                        .header("Idempotency-Key", idemp)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(body)
-                        .retrieve()
-                        .bodyToMono(Map.class)
-                        .block();
-            } catch (WebClientResponseException e) {
-                log.error("Toss cancel HTTP error: status={}, body={}",
-                        e.getRawStatusCode(), e.getResponseBodyAsString(), e);
-                throw new RefitException(ErrorCode.INTERNAL_SERVER_ERROR, "PG 결제 취소 호출 실패");
-            }
-            if (!(cancelObj.get("balanceAmount") instanceof Number n)) {
-                throw new RefitException(ErrorCode.INTERNAL_SERVER_ERROR, "PG 응답 이상(잔액 누락)");
-            }
-            balance = n.longValue();
-        } else {
-            cancelObj = Map.of("message", "shipping adjustment only, no PG refund");
-        }
+        // 6) Toss 취소 호출 (필요액>0일 때만)
+        var call = callTossCancelIfNeeded(pgCancelAmount, pay.getPaymentKey(), idemp, body);
+        long newBalance = call.balanceAmount;
+        Map<?,?> cancelObj = call.responseObj;
 
-        // 6) PG 성공 로그(REQUIRES_NEW) — 배송비 조정 중복 방지 플래그 포함
-        cancelLogService.logCancel(
-                pay.getPaymentId(),
-                idemp,
-                pgCancelAmount,
-                (req.getTaxFreeAmount()==null?0L:req.getTaxFreeAmount()),
-                req.getCancelReason(),
-                LocalDateTime.now(),
-                toJson(cancelObj),
-                adj.shippingAdjApplied,
-                needsRefundAccount ? rra.getBankCode() : null,
-                needsRefundAccount ? rra.getAccountNumber() : null,
-                needsRefundAccount ? rra.getHolderName() : null
-        );
+        // 7) 취소로그 + 수량 반영(조건부) + 상태 전이
+        persistCancelLog(pay.getPaymentId(), idemp, pgCancelAmount, req.getTaxFreeAmount(),
+                req.getCancelReason(), cancelObj, adj.shippingAdjApplied, needsRefundAccount ? rra : null);
 
-        // 7) 과취소/경합 방지: 조건부 증가
-        int updated = paymentMapper.conditionalIncreaseCanceledCount(orderItemId, cancelCount);
-        if (updated <= 0) {
-            // 경합/멱등 허용 — 정말 문제있는 경우만 예외
-            boolean logged = paymentMapper.existsPaymentCancelByReqId(idemp);
-            OrderItemRowDto fresh = paymentMapper.findOrderItemForCancel(orderItemId);
-            int freshCanceled = fresh.getCanceledCount() == null ? 0 : fresh.getCanceledCount();
-            int freshRemain   = fresh.getItemCount() - freshCanceled;
-            if (!logged && freshRemain >= remain) {
-                throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "이미 취소되었거나 취소 가능 수량을 초과했습니다.");
-            }
-            log.warn("No rows updated (race or already applied). orderItemId={}, beforeRemain={}, afterRemain={}",
-                    orderItemId, remain, freshRemain);
-        }
+        applyCanceledCountWithRaceTolerance(orderItemId, cancelCount, item);
+        updatePaymentAndOrderStatusesIfNeeded(pay.getPaymentId(), item.getOrderId(), pgCancelAmount, newBalance);
 
-        // 8) 결제/주문 상태 전이 (PG 응답 기준)
-        int pStatus = (balance == 0) ? 3 : 2; // 3=CANCELED, 2=PARTIAL_CANCELED
-        if (pgCancelAmount > 0) {
-            paymentMapper.updatePaymentStatusAndBalance(pay.getPaymentId(), pStatus, balance);
-        }
-
-        Map<String, Object> agg = paymentMapper.aggregateOrderCancelState(item.getOrderId());
-        int fullCanceled = ((Number)(agg.get("FULL_CANCELED")==null?0:agg.get("FULL_CANCELED"))).intValue();
-        int total        = ((Number)(agg.get("TOTAL")==null?0:agg.get("TOTAL"))).intValue();
-        if (total > 0) {
-            if (fullCanceled == total) paymentMapper.updateOrderStatus(item.getOrderId(), 3);
-            else if (fullCanceled > 0) paymentMapper.updateOrderStatus(item.getOrderId(), 2);
-        }
-
+        // 8) 푸시/응답
         notificationTriggerService.notifyPaymentCanceled(memberId, moneyLocked.getOrderId(),
                 moneyLocked.getOrderSummary() + "의 결제가 취소되었습니다.");
 
-        // 응답은 실제 PG 환불금액으로 반환
+        int pStatus = (newBalance == 0) ? 3 : 2; // 3=CANCELED, 2=PARTIAL_CANCELED
         return PartialCancelResponse.builder()
                 .paymentId(pay.getPaymentId())
                 .canceledAmount(pgCancelAmount)
-                .balanceAmount(balance)
+                .balanceAmount(newBalance)
                 .status((pStatus == 3) ? "CANCELED" : "PARTIAL_CANCELED")
                 .canceledAt(LocalDateTime.now().toString())
                 .build();
     }
 
+    /* ========================= 보조 메서드들 ========================= */
+
+    private void validateCancelAmount(PartialCancelRequest req) {
+        Long reqAmt = req.getCancelAmount();
+        if (reqAmt == null || reqAmt < 1) {
+            throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 금액이 올바르지 않습니다.");
+        }
+    }
+
+    private OrderItemRowDto mustFindOrderItem(Long orderItemId) {
+        OrderItemRowDto item = paymentMapper.findOrderItemForCancel(orderItemId);
+        if (item == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "주문 아이템을 찾을 수 없습니다.");
+        return item;
+    }
+
+    private int validateAndGetCancelCount(OrderItemRowDto item, long cancelAmount) {
+        int canceled = item.getCanceledCount() == null ? 0 : item.getCanceledCount();
+        int remain   = item.getItemCount() - canceled;
+        long unit    = item.getItemPrice();
+
+        if (unit <= 0) throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "아이템 단가가 올바르지 않습니다.");
+        if (cancelAmount % unit != 0) throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 금액은 단가의 배수여야 합니다.");
+        int cancelCount = (int)(cancelAmount / unit);
+        if (cancelCount < 1 || cancelCount > remain) {
+            throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "취소 가능 수량을 초과했습니다.");
+        }
+        return cancelCount;
+    }
+
+    private PaymentRowDto mustFindActivePayment(Long orderId) {
+        PaymentRowDto pay = paymentMapper.findActivePaymentByOrderId(orderId);
+        if (pay == null) throw new RefitException(ErrorCode.ENTITY_NOT_FOUND, "결제 정보를 찾을 수 없습니다.");
+        return pay;
+    }
+
+    private boolean needsRefundAccount(String method, int orderStatus) {
+        boolean isVA = "VIRTUAL_ACCOUNT".equalsIgnoreCase(method);
+        boolean isTransfer = "TRANSFER".equalsIgnoreCase(method);
+        boolean vaDepositCompleted = isVA && (orderStatus != 12);
+        return isTransfer || vaDepositCompleted;
+    }
+
+    private Map<String, Object> buildBaseCancelBody(String reason, long pgCancelAmount, Long taxFreeAmount) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("cancelReason", reason);
+        body.put("cancelAmount", pgCancelAmount);
+        body.put("currency", "KRW");
+        if (taxFreeAmount != null) body.put("taxFreeAmount", taxFreeAmount);
+        return body;
+    }
+
+    // refundReceiveAccount를 요청/DB/과거로그에서 확보
+    private PartialCancelRequest.RefundReceiveAccount ensureRefundAccountIfNeeded(
+            boolean needsRefundAccount,
+            PartialCancelRequest.RefundReceiveAccount fromReq,
+            Long paymentId,
+            Long orderId
+    ) {
+        if (!needsRefundAccount) return null;
+
+        PartialCancelRequest.RefundReceiveAccount rra = fromReq;
+
+        if (rra == null) {
+            // 1순위: 이번 결제의 PAYMENT.VA_* (bankCode/accountNo/holderName)
+            Map<String, Object> vaInfo = paymentMapper.findVaRefundInfoByPaymentId(paymentId);
+            rra = buildRraIfValid(vaInfo);
+        }
+        if (rra == null) {
+            // 2순위: 같은 주문에서 최신 VA 결제의 VA_* (백업)
+            Map<String, Object> vaByOrder = paymentMapper.findLatestVaInfoByOrderId(orderId);
+            rra = buildRraIfValid(vaByOrder);
+        }
+        if (rra == null) {
+            // 3순위: 회원의 과거 환불계좌(PAYMENT_CANCEL 최근 기록)
+            Long mid = paymentMapper.findMemberIdByOrderId(orderId);
+            Map<String, Object> last = paymentMapper.findLastRefundAccountByMemberId(mid);
+            rra = buildRraIfValid(last);
+        }
+
+        if (rra == null) {
+            throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS,
+                    "가상계좌/계좌이체 환불에는 refundReceiveAccount가 필요합니다.");
+        }
+        return rra;
+    }
+
+    private PartialCancelRequest.RefundReceiveAccount buildRraIfValid(Map<String, Object> src) {
+        if (src == null) return null;
+        String bank = mget(src, "bankCode");
+        String acc  = mget(src, "accountNo");
+        String name = mget(src, "holderName");
+        if (isDashOrBlank(bank) || isDashOrBlank(acc) || isDashOrBlank(name)) return null;
+        return PartialCancelRequest.RefundReceiveAccount.builder()
+                .bankCode(bank).accountNumber(acc).holderName(name).build();
+    }
+
+    private void putRefundAccountToBody(Map<String, Object> body, PartialCancelRequest.RefundReceiveAccount rra) {
+        String bankCode = normalizeBankCode(rra.getBankCode());
+        String accountNo = rra.getAccountNumber().replaceAll("[^0-9]", "");
+        String holder    = rra.getHolderName().trim();
+        if (isBlank(bankCode) || accountNo.length() < 6 || isBlank(holder)) {
+            throw new RefitException(ErrorCode.INVALID_REQUEST_PARAMS, "환불 계좌정보 형식이 올바르지 않습니다.");
+        }
+        body.put("refundReceiveAccount", Map.of(
+                "bank", bankCode,
+                "accountNumber", accountNo,
+                "holderName", holder
+        ));
+    }
+
+    private static class CancelCallResult {
+        final Map<?,?> responseObj;
+        final long     balanceAmount;
+        CancelCallResult(Map<?,?> r, long b) { this.responseObj = r; this.balanceAmount = b; }
+    }
+
+    private CancelCallResult callTossCancelIfNeeded(long pgCancelAmount, String paymentKey, String idemp, Map<String, Object> body) {
+        if (pgCancelAmount <= 0) {
+            return new CancelCallResult(Map.of("message", "shipping adjustment only, no PG refund"), 0L);
+        }
+        Map<?,?> cancelObj;
+        try {
+            cancelObj = tossWebClient.post()
+                    .uri("/v1/payments/{paymentKey}/cancel", paymentKey)
+                    .header("Idempotency-Key", idemp)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("Toss cancel HTTP error: status={}, body={}", e.getRawStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RefitException(ErrorCode.INTERNAL_SERVER_ERROR, "PG 결제 취소 호출 실패");
+        }
+        if (!(cancelObj.get("balanceAmount") instanceof Number n)) {
+            throw new RefitException(ErrorCode.INTERNAL_SERVER_ERROR, "PG 응답 이상(잔액 누락)");
+        }
+        return new CancelCallResult(cancelObj, n.longValue());
+    }
+
+    private void persistCancelLog(Long paymentId, String idemp, long pgCancelAmount, Long taxFreeAmount,
+            String reason, Map<?,?> cancelObj, int shippingAdjApplied,
+            PartialCancelRequest.RefundReceiveAccount rraOrNull) {
+        cancelLogService.logCancel(
+                paymentId,
+                idemp,
+                pgCancelAmount,
+                (taxFreeAmount==null?0L:taxFreeAmount),
+                reason,
+                LocalDateTime.now(),
+                toJson(cancelObj),
+                shippingAdjApplied,
+                rraOrNull != null ? rraOrNull.getBankCode()    : null,
+                rraOrNull != null ? rraOrNull.getAccountNumber(): null,
+                rraOrNull != null ? rraOrNull.getHolderName()  : null
+        );
+    }
+
+    private void applyCanceledCountWithRaceTolerance(Long orderItemId, int cancelCount, OrderItemRowDto before) {
+        int updated = paymentMapper.conditionalIncreaseCanceledCount(orderItemId, cancelCount);
+        if (updated <= 0) {
+            boolean logged = paymentMapper.existsPaymentCancelByReqId(null); // 멱등키 확인은 호출부에서 처리했지만, 필요 시 확장
+            OrderItemRowDto fresh = paymentMapper.findOrderItemForCancel(orderItemId);
+            int remainBefore = before.getItemCount() - (before.getCanceledCount()==null?0:before.getCanceledCount());
+            int remainAfter  = fresh.getItemCount()  - (fresh.getCanceledCount()==null?0:fresh.getCanceledCount());
+            if (!logged && remainAfter >= remainBefore) {
+                throw new RefitException(ErrorCode.INVALID_CANCEL_AMOUNT, "이미 취소되었거나 취소 가능 수량을 초과했습니다.");
+            }
+            log.warn("No rows updated (race or already applied). orderItemId={}, beforeRemain={}, afterRemain={}",
+                    orderItemId, remainBefore, remainAfter);
+        }
+    }
+
+    private void updatePaymentAndOrderStatusesIfNeeded(Long paymentId, Long orderId, long pgCancelAmount, long newBalance) {
+        if (pgCancelAmount > 0) {
+            int pStatus = (newBalance == 0) ? 3 : 2; // 3=CANCELED, 2=PARTIAL_CANCELED
+            paymentMapper.updatePaymentStatusAndBalance(paymentId, pStatus, newBalance);
+        }
+        Map<String, Object> agg = paymentMapper.aggregateOrderCancelState(orderId);
+        int fullCanceled = ((Number)(agg.get("FULL_CANCELED")==null?0:agg.get("FULL_CANCELED"))).intValue();
+        int total        = ((Number)(agg.get("TOTAL")==null?0:agg.get("TOTAL"))).intValue();
+        if (total > 0) {
+            if (fullCanceled == total) paymentMapper.updateOrderStatus(orderId, 3);
+            else if (fullCanceled > 0) paymentMapper.updateOrderStatus(orderId, 2);
+        }
+    }
 
     private String toJson(Object src) {
         try { return om.writeValueAsString(src); } catch (Exception e) { return null; }
