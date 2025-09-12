@@ -54,9 +54,11 @@ public class CombinationController {
             @RequestParam String type,   // all, beauty, health
             @RequestParam String sort,   // popular, latest, lowPrice, highPrice
             @RequestParam(required = false) Long combinationId, // 페이징 커서
-            @RequestParam(defaultValue = "10") Integer limit   // 한 번에 가져올 개수
+            @RequestParam(defaultValue = "10") Integer limit,   // 한 번에 가져올 개수
+            @RequestParam(required = false) String keyword,     // 검색어
+            @RequestParam(required = false) String searchMode   // combination or product
     ) {
-        return combinationService.getCombinations(type, sort, combinationId, limit);
+        return combinationService.getCombinations(type, sort, combinationId, limit, keyword, searchMode);
     }
 
     // 조합 등록
