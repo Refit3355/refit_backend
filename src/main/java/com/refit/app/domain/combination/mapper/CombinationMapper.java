@@ -21,12 +21,20 @@ public interface CombinationMapper {
     int increaseLike(@Param("combinationId") Long combinationId);
     int decreaseLike(@Param("combinationId") Long combinationId);
 
-    List<CombinationResponseDto> findCombinations(@Param("bhType") Integer bhType,
+    List<CombinationResponseDto> findCombinations(
+            @Param("bhType") Integer bhType,
             @Param("sort") String sort,
             @Param("combinationId") Long combinationId,
-            @Param("limit") Integer limit);
+            @Param("limit") Integer limit,
+            @Param("keyword") String keyword,
+            @Param("searchMode") String searchMode
+    );
 
-    Long countCombinations(@Param("bhType") Integer bhType);
+    Long countCombinations(
+            @Param("bhType") Integer bhType,
+            @Param("keyword") String keyword,
+            @Param("searchMode") String searchMode
+    );
 
     List<String> findProductImagesByCombinationId(@Param("combinationId") Long combinationId);
 

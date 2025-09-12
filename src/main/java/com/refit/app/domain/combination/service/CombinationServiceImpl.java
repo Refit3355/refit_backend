@@ -81,13 +81,13 @@ public class CombinationServiceImpl implements CombinationService {
 
     @Override
     @Transactional
-    public CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit) {
+    public CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit, String keyword, String searchMode) {
         Integer bhType = null;
         if ("beauty".equalsIgnoreCase(type)) bhType = 0;
         else if ("health".equalsIgnoreCase(type)) bhType = 1;
 
-        List<CombinationResponseDto> combos = combinationMapper.findCombinations(bhType, sort, combinationId, limit);
-        Long totalCount = combinationMapper.countCombinations(bhType);
+        List<CombinationResponseDto> combos = combinationMapper.findCombinations(bhType, sort, combinationId, limit, keyword, searchMode);
+        Long totalCount = combinationMapper.countCombinations(bhType, keyword, searchMode);
 
         combos.forEach(c -> {
             List<String> images = combinationMapper.findProductImagesByCombinationId(c.getCombinationId());

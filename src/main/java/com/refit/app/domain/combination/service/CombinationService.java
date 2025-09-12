@@ -17,7 +17,7 @@ public interface CombinationService {
 
     CombinationLikeResponse dislikeCombination(Long combinationId);
 
-    CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit);
+    CombinationListResponse getCombinations(String type, String sort, Long combinationId, Integer limit, String keyword, String searchMode);
 
     CombinationDetailResponse getCombinationDetail(Long combinationId);
 
