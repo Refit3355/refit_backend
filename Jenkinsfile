@@ -102,7 +102,7 @@ pipeline {
           ASG_NAME="${ASG_NAME}"
           SSM_PARAM="${SSM_PARAM}"
 
-          INSTANCE_IDS="i-0821ed3a4d9672a0e"
+          INSTANCE_IDS="i-0f55d4b2bb7621a43"
 
           if [ -z "$INSTANCE_IDS" ]; then
             echo "[ERROR] No InService instances found in ASG: $ASG_NAME" >&2
