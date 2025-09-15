@@ -102,11 +102,7 @@ pipeline {
           ASG_NAME="${ASG_NAME}"
           SSM_PARAM="${SSM_PARAM}"
 
-          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-            --region "$AWS_REGION" \
-            --auto-scaling-group-name "$ASG_NAME" \
-            --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" \
-            --output text)
+          INSTANCE_IDS="i-0821ed3a4d9672a0e"
 
           if [ -z "$INSTANCE_IDS" ]; then
             echo "[ERROR] No InService instances found in ASG: $ASG_NAME" >&2
