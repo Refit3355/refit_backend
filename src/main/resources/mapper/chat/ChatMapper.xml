@@ -20,7 +20,7 @@
     #{memberId,       jdbcType=NUMERIC},
     #{req.productId,  jdbcType=NUMERIC},
     #{req.message,    jdbcType=VARCHAR},
-    SYSTIMESTAMP
+    CAST(SYSTIMESTAMP AT TIME ZONE 'Asia/Seoul' AS TIMESTAMP)
     )
   </insert>
 

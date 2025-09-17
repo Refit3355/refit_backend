@@ -91,10 +91,12 @@
                 AND c.COMBINATION_NAME LIKE '%' || #{keyword} || '%'
             </if>
             <if test="searchMode eq 'product' and keyword != null and keyword != ''">
-                AND p.PRODUCT_ID IN (
-                SELECT p2.PRODUCT_ID
-                FROM PRODUCT p2
-                WHERE p2.PRODUCT_NAME LIKE '%' || #{keyword} || '%'
+                AND EXISTS (
+                SELECT 1
+                FROM COMBINATION_ITEM ci2
+                JOIN PRODUCT p2 ON ci2.PRODUCT_ID = p2.PRODUCT_ID
+                WHERE ci2.COMBINATION_ID = c.COMBINATION_ID
+                AND p2.PRODUCT_NAME LIKE '%' || #{keyword} || '%'
                 )
             </if>
         </where>
@@ -105,8 +107,6 @@
             <if test="bhType != null">
                 AND cp.BH_TYPE = #{bhType}
             </if>
-
-            <!-- 커서 기반 페이지네이션 -->
             <if test="combinationId != null">
                 <choose>
                     <when test="sort eq 'popular'">
