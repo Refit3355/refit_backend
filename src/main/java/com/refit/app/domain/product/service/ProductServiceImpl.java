@@ -175,9 +175,9 @@ public class ProductServiceImpl implements ProductService {
         // 캐시 조회 (Cache Hit → 즉시 반환)
         ProductRecommendationResponse cached = cacheRepo.get(key);
         if (cached != null && !CollectionUtils.isEmpty(cached.getItems())) {
-            if (Math.random() < 0.3) {
-                Collections.shuffle(cached.getItems());
-            }
+            // if (Math.random() < 0.3) {
+            //     Collections.shuffle(cached.getItems());
+            // }
             return cached;
         }
 
